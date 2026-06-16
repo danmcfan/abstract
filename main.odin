@@ -16,10 +16,10 @@ main :: proc() {
 	textures := engine.new_textures()
 	defer engine.destroy_textures(&textures)
 
-	engine.add_node(&game, .INPUT, {SIDEBAR_WIDTH + 40, SCREEN_HEIGHT * 0.25}, .ALPHA)
-	engine.add_node(&game, .INPUT, {SIDEBAR_WIDTH + 40, SCREEN_HEIGHT * 0.75}, .BETA)
+	engine.add_node(&game, .INPUT, {SIDEBAR_WIDTH + 100, SCREEN_HEIGHT * 0.25}, .ALPHA)
+	engine.add_node(&game, .INPUT, {SIDEBAR_WIDTH + 100, SCREEN_HEIGHT * 0.75}, .BETA)
 
-	engine.add_node(&game, .OUTPUT, {SCREEN_WIDTH - SIDEBAR_WIDTH - 40, SCREEN_HEIGHT * 0.5})
+	engine.add_node(&game, .OUTPUT, {SCREEN_WIDTH - SIDEBAR_WIDTH - 100, SCREEN_HEIGHT * 0.5})
 
 	engine.add_node(&game, .NOT, {SCREEN_WIDTH * 0.5, SCREEN_HEIGHT * 0.25})
 	engine.add_node(&game, .NAND, {SCREEN_WIDTH * 0.5, SCREEN_HEIGHT * 0.5})

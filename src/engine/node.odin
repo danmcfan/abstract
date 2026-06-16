@@ -8,6 +8,9 @@ TERMINAL_HEIGHT :: 64
 GATE_WIDTH :: 96
 GATE_HEIGHT :: 64
 
+CONNECTION_WIDTH :: 16
+CONNECTION_HEIGHT :: 16
+
 NodeID :: distinct int
 EdgeID :: distinct int
 
@@ -142,6 +145,8 @@ draw_node :: proc(textures: Textures, node: Node) {
 		panic("Invalid node type")
 	}
 
+	draw_connections(textures, node)
+
 	rl.DrawTexturePro(
 		texture,
 		{col * width, row * height, width, height},
@@ -150,4 +155,74 @@ draw_node :: proc(textures: Textures, node: Node) {
 		0,
 		rl.WHITE,
 	)
+}
+
+draw_connections :: proc(textures: Textures, node: Node) {
+	input_count := input_count(node.type)
+	spacing_factor := 1.0 / f32(input_count + 1)
+	for i in 1 ..= input_count {
+		spacing := spacing_factor * f32(i) * node.rect.height
+		rl.DrawTexturePro(
+			textures.wires,
+			{0, 0, 8, 8},
+			{
+				node.rect.x - CONNECTION_WIDTH,
+				node.rect.y + spacing - CONNECTION_HEIGHT / 2,
+				CONNECTION_WIDTH,
+				CONNECTION_HEIGHT,
+			},
+			{0, 0},
+			0,
+			rl.WHITE,
+		)
+	}
+
+	output_count := output_count(node.type)
+	spacing_factor = 1.0 / f32(output_count + 1)
+	for i in 1 ..= output_count {
+		spacing := spacing_factor * f32(i) * node.rect.height
+		rl.DrawTexturePro(
+			textures.wires,
+			{0, 0, 8, 8},
+			{
+				node.rect.x + node.rect.width,
+				node.rect.y + spacing - CONNECTION_HEIGHT / 2,
+				CONNECTION_WIDTH,
+				CONNECTION_HEIGHT,
+			},
+			{0, 0},
+			0,
+			rl.WHITE,
+		)
+	}
+}
+
+input_count :: proc(type: NodeType) -> int {
+	switch type {
+	case .INPUT:
+		return 0
+	case .OUTPUT:
+		return 1
+	case .NOT:
+		return 1
+	case .OR, .NOR, .AND, .NAND, .XOR, .XNOR:
+		return 2
+	case:
+		panic("Invalid node type")
+	}
+}
+
+output_count :: proc(type: NodeType) -> int {
+	switch type {
+	case .INPUT:
+		return 1
+	case .OUTPUT:
+		return 0
+	case .NOT:
+		return 1
+	case .OR, .NOR, .AND, .NAND, .XOR, .XNOR:
+		return 1
+	case:
+		panic("Invalid node type")
+	}
 }

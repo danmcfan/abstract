@@ -42,7 +42,7 @@ draw :: proc(game: ^Game, textures: Textures) {
 	// }
 
 	// draw connection points and gates
-	for node_id, node in game.nodes {
+	for _, node in game.nodes {
 		draw_node(textures, node)
 	}
 
