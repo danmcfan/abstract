@@ -1,10 +1,15 @@
-package grid
+package engine
 
 import "core:math"
 import rl "vendor:raylib"
 
-snap :: proc(rect: rl.Rectangle, bounds: rl.Rectangle, spacing: f32) -> rl.Rectangle {
+GRID_RECTANGLE :: rl.Rectangle{SIDEBAR_WIDTH, 0, SCREEN_WIDTH - SIDEBAR_WIDTH * 2, SCREEN_HEIGHT}
+GRID_SPACING :: 20
+
+snap :: proc(rect: rl.Rectangle) -> rl.Rectangle {
 	r := rect
+	bounds := GRID_RECTANGLE
+	spacing: f32 = GRID_SPACING
 
 	r.x = math.round((r.x - bounds.x) / spacing) * spacing + bounds.x
 	r.y = math.round((r.y - bounds.y) / spacing) * spacing + bounds.y

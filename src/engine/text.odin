@@ -1,4 +1,4 @@
-package text
+package engine
 
 import "core:strings"
 import rl "vendor:raylib"
