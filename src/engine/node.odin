@@ -2,14 +2,19 @@ package engine
 
 import rl "vendor:raylib"
 
-TERMINAL_WIDTH :: 64
-TERMINAL_HEIGHT :: 64
+NODE_SCALE :: 4
+EDGE_SCALE :: 2
 
-GATE_WIDTH :: 96
-GATE_HEIGHT :: 64
+TERMINAL_WIDTH :: 16
+TERMINAL_HEIGHT :: 16
 
-CONNECTION_WIDTH :: 16
-CONNECTION_HEIGHT :: 16
+GATE_WIDTH :: 20
+GATE_HEIGHT :: 16
+
+INVERT_WIDTH :: 4
+
+CONNECTION_WIDTH :: 8
+CONNECTION_HEIGHT :: 8
 
 NodeID :: distinct int
 EdgeID :: distinct int
@@ -84,13 +89,20 @@ get_node_rectangle :: proc(type: NodeType, center: rl.Vector2) -> rl.Rectangle {
 	switch type {
 	case .INPUT, .OUTPUT:
 		width, height = TERMINAL_WIDTH, TERMINAL_HEIGHT
-	case .NOT, .OR, .NOR, .AND, .NAND, .XOR, .XNOR:
+	case .OR, .AND, .XOR:
 		width, height = GATE_WIDTH, GATE_HEIGHT
+	case .NOT, .NOR, .NAND, .XNOR:
+		width, height = GATE_WIDTH + INVERT_WIDTH, GATE_HEIGHT
 	case:
 		panic("Invalid node type")
 	}
 
-	rect := rl.Rectangle{center.x - width / 2, center.y - height / 2, width, height}
+	rect := rl.Rectangle {
+		center.x - width * NODE_SCALE / 2,
+		center.y - height * NODE_SCALE / 2,
+		width * NODE_SCALE,
+		height * NODE_SCALE,
+	}
 	rect = snap(rect)
 	return rect
 }
@@ -98,12 +110,14 @@ get_node_rectangle :: proc(type: NodeType, center: rl.Vector2) -> rl.Rectangle {
 draw_node :: proc(textures: Textures, node: Node) {
 	texture: rl.Texture
 	width, height: f32
+	col_width, row_height: f32
 	row, col: f32
 
 	#partial switch node.type {
 	case .INPUT, .OUTPUT:
 		texture = textures.terminals
-		width, height = 16, 16
+		width, height = TERMINAL_WIDTH, TERMINAL_HEIGHT
+		col_width, row_height = TERMINAL_WIDTH, TERMINAL_HEIGHT
 
 		switch node.label {
 		case .NONE:
@@ -120,7 +134,14 @@ draw_node :: proc(textures: Textures, node: Node) {
 
 	case .NOT, .OR, .NOR, .AND, .NAND, .XOR, .XNOR:
 		texture = textures.gates
-		width, height = 24, 16
+		col_width, row_height = GATE_WIDTH + INVERT_WIDTH, GATE_HEIGHT
+
+		#partial switch node.type {
+		case .NOT, .NOR, .NAND, .XNOR:
+			width, height = GATE_WIDTH + INVERT_WIDTH, GATE_HEIGHT
+		case .OR, .AND, .XOR:
+			width, height = GATE_WIDTH, GATE_HEIGHT
+		}
 
 		#partial switch node.type {
 		case .NOT:
@@ -149,7 +170,7 @@ draw_node :: proc(textures: Textures, node: Node) {
 
 	rl.DrawTexturePro(
 		texture,
-		{col * width, row * height, width, height},
+		{col * col_width, row * row_height, width, height},
 		node.rect,
 		{0, 0},
 		0,
@@ -164,12 +185,12 @@ draw_connections :: proc(textures: Textures, node: Node) {
 		spacing := spacing_factor * f32(i) * node.rect.height
 		rl.DrawTexturePro(
 			textures.wires,
-			{0, 0, 8, 8},
+			{0, 0, -8, 8},
 			{
-				node.rect.x - CONNECTION_WIDTH,
-				node.rect.y + spacing - CONNECTION_HEIGHT / 2,
-				CONNECTION_WIDTH,
-				CONNECTION_HEIGHT,
+				node.rect.x - (CONNECTION_WIDTH * EDGE_SCALE),
+				node.rect.y + spacing - (CONNECTION_HEIGHT * EDGE_SCALE) / 2,
+				CONNECTION_WIDTH * EDGE_SCALE,
+				CONNECTION_HEIGHT * EDGE_SCALE,
 			},
 			{0, 0},
 			0,
@@ -186,9 +207,9 @@ draw_connections :: proc(textures: Textures, node: Node) {
 			{0, 0, 8, 8},
 			{
 				node.rect.x + node.rect.width,
-				node.rect.y + spacing - CONNECTION_HEIGHT / 2,
-				CONNECTION_WIDTH,
-				CONNECTION_HEIGHT,
+				node.rect.y + spacing - (CONNECTION_HEIGHT * EDGE_SCALE) / 2,
+				CONNECTION_WIDTH * EDGE_SCALE,
+				CONNECTION_HEIGHT * EDGE_SCALE,
 			},
 			{0, 0},
 			0,

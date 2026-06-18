@@ -8,41 +8,55 @@ MAX_ITERATIONS :: 8
 TRIANGLE_SIZE :: 16
 
 visible_chars: f32 = 0
-mouse_position: rl.Vector2
 mouse_left_pressed: bool
 mouse_left_released: bool
 mouse_right_pressed: bool
 shift_pressed: bool
-dragged_gate: ^Node
+dragged_node: ^Node
 drag_offset: rl.Vector2
 
 update :: proc(game: ^Game) {
-	visible_chars += TIME_STEP * (60.0 / 5.0)
+	// Where is my mouse?
+	mouse_position := rl.GetMousePosition()
 
-	mouse_position = rl.GetMousePosition()
+	// Is it left click up or down?
 	mouse_left_pressed := rl.IsMouseButtonPressed(.LEFT)
 	mouse_left_released := rl.IsMouseButtonReleased(.LEFT)
-	mouse_right_pressed := rl.IsMouseButtonPressed(.RIGHT)
-	shift_pressed = rl.IsKeyDown(.LEFT_SHIFT) || rl.IsKeyDown(.RIGHT_SHIFT)
 
+	// Is it over a node?
 	for node_id, &node in game.nodes {
-		node.is_hovered = rl.CheckCollisionPointRec(mouse_position, node.rect)
-		if node.is_hovered && mouse_left_pressed {
-			dragged_gate = &node
-			drag_offset = mouse_position - {node.rect.x, node.rect.y}
-		}
-	}
-
-	if dragged_gate != nil {
-		dragged_gate.rect.x = mouse_position.x - drag_offset.x
-		dragged_gate.rect.y = mouse_position.y - drag_offset.y
-		dragged_gate.rect = snap(dragged_gate.rect)
+		if rl.CheckCollisionPointRec(mouse_position, node.rect) {
+			node.is_hovered = true
+			if mouse_left_pressed {
+				dragged_node = &node
+				drag_offset = mouse_position - {node.rect.x, node.rect.y}
+			}
+		} else do node.is_hovered = false
 	}
 
 	if mouse_left_released {
-		if dragged_gate != nil {
-			dragged_gate = nil
+		if dragged_node != nil {
+			dragged_node = nil
 			drag_offset = {0, 0}
+		}
+	}
+
+	if dragged_node != nil {
+		new_rect := dragged_node.rect
+		new_rect.x = mouse_position.x - drag_offset.x
+		new_rect.y = mouse_position.y - drag_offset.y
+		new_rect = snap(new_rect)
+
+		collision := false
+		for node_id, &node in game.nodes {
+			if node_id != dragged_node.id && rl.CheckCollisionRecs(new_rect, node.rect) {
+				collision = true
+				break
+			}
+		}
+
+		if !collision {
+			dragged_node.rect = new_rect
 		}
 	}
 }
