@@ -17,6 +17,7 @@ Game :: struct {
 
 init_window :: proc() {
 	if !DEBUG do rl.SetTraceLogLevel(.NONE)
+	rl.SetConfigFlags({.WINDOW_UNDECORATED})
 	rl.InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Layers of Abstraction")
 	rl.SetTargetFPS(FPS)
 }
