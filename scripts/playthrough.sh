@@ -6,7 +6,7 @@
 # Usage: bun run dev, then scripts/playthrough.sh [base-url] [out-dir]
 set -euo pipefail
 
-BASE=${1:-http://localhost:5173/abstract/}
+BASE=${1:-http://localhost:5173/}
 OUT=${2:-playthrough}
 mkdir -p "$OUT"
 ab() { agent-browser "$@" >/dev/null; }
