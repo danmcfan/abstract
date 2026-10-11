@@ -2,8 +2,8 @@ import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 import solid from "vite-plugin-solid";
 
-// GitHub Pages serves the site from /<repo>/
+// Served from the root of abstract.dannyobrien.dev
 export default defineConfig({
-  base: "/abstract/",
+  base: "/",
   plugins: [solid(), tailwindcss()],
 });
