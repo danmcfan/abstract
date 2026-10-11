@@ -1,6 +1,6 @@
-import { propagate } from "./circuit";
+import { newGame, placeNode, setInput, type Game } from "./circuit";
 import { GRID_HEIGHT, GRID_WIDTH } from "./grid";
-import { addNode, newGame, type Game, type Label, type NodeType } from "./node";
+import type { Label, NodeType } from "./node";
 
 // A level asks the player to build one gate out of the gates they have
 // already built. Solving it adds that gate to the toolbox for later levels.
@@ -27,9 +27,9 @@ export function toolbox(levelIndex: number): NodeType[] {
 export function loadLevel(level: Level): Game {
   const game = newGame();
   level.inputs.forEach((label, i) => {
-    addNode(game, "INPUT", { x: 4, y: (GRID_HEIGHT * (i + 1)) / (level.inputs.length + 1) }, label);
+    placeNode(game, "INPUT", { x: 4, y: (GRID_HEIGHT * (i + 1)) / (level.inputs.length + 1) }, label);
   });
-  addNode(game, "OUTPUT", { x: GRID_WIDTH - 4, y: GRID_HEIGHT / 2 });
+  placeNode(game, "OUTPUT", { x: GRID_WIDTH - 4, y: GRID_HEIGHT / 2 });
   return game;
 }
 
@@ -50,13 +50,12 @@ export function truthTable(level: Level): Row[] {
 }
 
 // Sets the INPUT terminals to the given values, in the level's label order,
-// and settles the circuit.
+// settling the circuit.
 export function applyInputs(game: Game, level: Level, values: boolean[]): void {
   for (const node of game.nodes.values()) {
     const i = level.inputs.indexOf(node.label);
-    if (node.type === "INPUT" && i >= 0) node.isHigh = values[i]!;
+    if (node.type === "INPUT" && i >= 0) setInput(game, node.id, values[i]!);
   }
-  propagate(game);
 }
 
 export function readOutput(game: Game): boolean {
@@ -70,7 +69,10 @@ export interface CheckResult {
   passed: boolean;
 }
 
-export function checkLevel(game: Game, levelIndex: number): CheckResult {
+// Runs the truth table on a copy, so the player's board (and its input
+// switches) is left untouched.
+export function checkLevel(board: Game, levelIndex: number): CheckResult {
+  const game = structuredClone(board);
   const level = LEVELS[levelIndex]!;
   const allowed = new Set<NodeType>(["INPUT", "OUTPUT", ...toolbox(levelIndex)]);
   const forbidden = [...new Set([...game.nodes.values()].map((node) => node.type))].filter((type) => !allowed.has(type));

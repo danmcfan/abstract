@@ -1,5 +1,5 @@
-import { inputCount, type EdgeID, type Game } from "./node";
-import { pinPosition } from "./circuit";
+import { pinPosition, type EdgeID, type Game, type Pin } from "./circuit";
+import { inputCount } from "./node";
 import { GRID_HEIGHT, GRID_WIDTH } from "./grid";
 
 // Wires run along grid lines between lattice points. A wire leaves its output
@@ -28,7 +28,26 @@ export interface Route {
 
 export interface Routing {
   routes: Map<EdgeID, Route>;
-  junctions: { point: Point; net: string }[];
+  // Where one signal's wire splits, with the output pin driving it.
+  junctions: { point: Point; source: Pin }[];
+}
+
+// Changes whenever wires need rerouting: positions and connections, not signals.
+export function layoutKey(game: Game): string {
+  const nodes = [...game.nodes.values()].map((n) => `${n.id}@${n.rect.x},${n.rect.y}`).join(";");
+  const edges = [...game.edges.values()].map((e) => `${e.id}:${e.from}.${e.fromIndex}>${e.to}.${e.toIndex}`).join(";");
+  return `${nodes}|${edges}`;
+}
+
+// A router that reroutes only when the layout changed, returning the same
+// Routing otherwise.
+export function createRouter(): (game: Game) => Routing {
+  let last: { key: string; routing: Routing } | null = null;
+  return (game) => {
+    const key = layoutKey(game);
+    if (last?.key !== key) last = { key, routing: routeWires(game) };
+    return last.routing;
+  };
 }
 
 const TURN_COST = 3;
@@ -78,6 +97,7 @@ export function routeWires(game: Game): Routing {
   const pointUse = new Map<number, Map<string, Usage>>();
   const edgeUse = new Map<string, string>();
   const netEdges = new Map<string, Set<string>>();
+  const sources = new Map<string, Pin>();
   const routes = new Map<EdgeID, Route>();
   const lattices = new Map<EdgeID, { net: string; path: Point[] }>();
 
@@ -91,6 +111,7 @@ export function routeWires(game: Game): Routing {
 
   for (const { edge, a, b } of edges) {
     const net = `${edge.from}:${edge.fromIndex}`;
+    sources.set(net, { node: edge.from, side: "out", index: edge.fromIndex });
     const path = search(net, { x: a.x + 1, y: a.y }, { x: b.x - 1, y: b.y }, blocked, reserved, pointUse, edgeUse);
     if (!path) {
       const midX = (a.x + b.x) / 2;
@@ -139,7 +160,7 @@ export function routeWires(game: Game): Routing {
       for (const end of e.split("-").map(Number)) degree.set(end, (degree.get(end) ?? 0) + 1);
     }
     for (const [k, d] of degree) {
-      if (d >= 3) junctions.push({ point: { x: k % (GRID_WIDTH + 1), y: Math.floor(k / (GRID_WIDTH + 1)) }, net });
+      if (d >= 3) junctions.push({ point: { x: k % (GRID_WIDTH + 1), y: Math.floor(k / (GRID_WIDTH + 1)) }, source: sources.get(net)! });
     }
   }
 

@@ -1,8 +1,8 @@
 import { For, Show, createMemo, createSignal, onCleanup } from "solid-js";
-import { connect, disconnect, pinAt, pinPosition, type Pin } from "../sim/circuit";
+import { pinPosition, type Pin } from "../sim/circuit";
+import { createGestures, type Gestures } from "../sim/gesture";
 import { GRID_HEIGHT, GRID_WIDTH } from "../sim/grid";
-import { deleteNode, moveNode, type Game, type NodeID } from "../sim/node";
-import { routeWires } from "../sim/route";
+import { createRouter } from "../sim/route";
 import { NodeView } from "./NodeView";
 import { current, mutate, testing } from "./state";
 import { wirePath } from "./wirePath";
@@ -29,102 +29,48 @@ function toBoard(clientX: number, clientY: number): { x: number; y: number } {
   return { x: p.x, y: p.y };
 }
 
-function nodeAt(clientX: number, clientY: number): NodeID | null {
-  const target = document.elementFromPoint(clientX, clientY)?.closest("[data-node]");
-  return target ? Number(target.getAttribute("data-node")) : null;
-}
-
-// Changes whenever wires need rerouting.
-function layoutKey(game: Game): string {
-  const nodes = [...game.nodes.values()].map((n) => `${n.id}@${n.rect.x},${n.rect.y}`).join(";");
-  const edges = [...game.edges.values()].map((e) => `${e.id}:${e.from}>${e.to}.${e.toIndex}`).join(";");
-  return `${nodes}|${edges}`;
-}
-
 export function Board() {
   const [viewBox, setViewBox] = createSignal(fitViewBox());
   const onResize = () => setViewBox(fitViewBox());
   window.addEventListener("resize", onResize);
   onCleanup(() => window.removeEventListener("resize", onResize));
 
-  const [hovered, setHovered] = createSignal<NodeID | null>(null);
-  const [hoveredPin, setHoveredPin] = createSignal<Pin | null>(null, {
-    equals: (a, b) => a?.node === b?.node && a?.side === b?.side && a?.index === b?.index,
-  });
-  const [wiring, setWiring] = createSignal<{ pin: Pin; to: { x: number; y: number } } | null>(null);
-  let drag: { id: NodeID; offsetX: number; offsetY: number; moved: boolean } | null = null;
+  const gestures = createGestures({ game: current, edit: mutate, locked: testing });
+  // The gesture module is plain state; mirror it into signals after each event.
+  const [view, setView] = createSignal(snapshot(gestures), { equals: false });
+  const hovered = () => view().hoveredNode;
+  const hoveredPin = () => view().hoveredPin;
+  const wiring = () => view().preview;
+  const handle = (event: MouseEvent, run: (p: { x: number; y: number }) => void) => {
+    run(toBoard(event.clientX, event.clientY));
+    setView(snapshot(gestures));
+  };
 
   const nodes = createMemo(() => [...current().nodes.values()]);
-  const layout = createMemo(() => layoutKey(current()));
   // Rerouting only happens when the layout changes, not when signals do.
-  const routing = createMemo(() => (layout(), routeWires(current())));
+  const route = createRouter();
+  const routing = createMemo(() => route(current()));
   const wires = createMemo(() => [...routing().routes].map(([id, route]) => ({ id, route, d: wirePath(route) })));
 
   const isEdgeHigh = (id: number) => !!current().edges.get(id)?.isHigh;
-  const isNetHigh = (net: string) => !!current().nodes.get(Number(net.split(":")[0]))?.isHigh;
+  const isPinHigh = (pin: Pin) => !!current().nodes.get(pin.node)?.isHigh;
   const preview = () => {
     const w = wiring();
-    const from = w && current().nodes.get(w.pin.node);
+    const from = w && current().nodes.get(w.from.node);
     if (!w || !from) return null;
-    const p = pinPosition(from, w.pin.side, w.pin.index);
+    const p = pinPosition(from, w.from.side, w.from.index);
     return `M ${p.x} ${p.y} L ${w.to.x} ${w.to.y}`;
   };
 
-  const onPointerMove = (event: PointerEvent) => {
-    const point = toBoard(event.clientX, event.clientY);
-    const pin = pinAt(current(), point.x, point.y);
-    setHoveredPin(pin);
-    setHovered(pin ? null : nodeAt(event.clientX, event.clientY));
-    const w = wiring();
-    if (w) setWiring({ ...w, to: point });
-    if (drag) {
-      const { id, offsetX, offsetY } = drag;
-      const node = current().nodes.get(id)!;
-      const before = node.rect;
-      mutate((g) => moveNode(g, id, point.x - offsetX, point.y - offsetY));
-      if (node.rect !== before) drag.moved = true;
-    }
-  };
-
+  const onPointerMove = (event: PointerEvent) => handle(event, (p) => gestures.move(p));
   const onPointerDown = (event: PointerEvent) => {
-    if (event.button !== 0 || testing()) return;
-    const point = toBoard(event.clientX, event.clientY);
-    const pin = pinAt(current(), point.x, point.y);
-    if (pin) {
-      setWiring({ pin, to: point });
-    } else {
-      const node = current().nodes.get(nodeAt(event.clientX, event.clientY) ?? -1);
-      if (!node) return;
-      drag = { id: node.id, offsetX: point.x - node.rect.x, offsetY: point.y - node.rect.y, moved: false };
-    }
-    svg!.setPointerCapture(event.pointerId);
+    handle(event, (p) => gestures.down(p, event.button));
+    if (gestures.preview || gestures.dragging) svg!.setPointerCapture(event.pointerId);
   };
-
-  const onPointerUp = () => {
-    const w = wiring();
-    const target = hoveredPin();
-    if (w && target) mutate((g) => connect(g, w.pin, target));
-    if (drag && !drag.moved) {
-      const id = drag.id;
-      mutate((g) => {
-        const node = g.nodes.get(id);
-        if (node?.type === "INPUT") node.isHigh = !node.isHigh;
-      });
-    }
-    setWiring(null);
-    drag = null;
-  };
-
+  const onPointerUp = (event: PointerEvent) => handle(event, (p) => gestures.up(p));
   const onContextMenu = (event: MouseEvent) => {
     event.preventDefault();
-    if (testing()) return;
-    const pin = hoveredPin();
-    if (pin?.side === "in") {
-      mutate((g) => disconnect(g, pin));
-      return;
-    }
-    const node = current().nodes.get(nodeAt(event.clientX, event.clientY) ?? -1);
-    if (node && node.type !== "INPUT" && node.type !== "OUTPUT") mutate((g) => deleteNode(g, node.id));
+    handle(event, (p) => gestures.contextMenu(p));
   };
 
   return (
@@ -186,7 +132,7 @@ export function Board() {
       </g>
       <g class="junctions">
         <For each={routing().junctions}>
-          {(j) => <circle cx={j.point.x} cy={j.point.y} r={0.24} classList={{ high: isNetHigh(j.net) }} />}
+          {(j) => <circle cx={j.point.x} cy={j.point.y} r={0.24} classList={{ high: isPinHigh(j.source) }} />}
         </For>
       </g>
       <g class="nodes">
@@ -203,6 +149,10 @@ export function Board() {
       <Show when={preview()}>{(d) => <path class="preview" d={d()} />}</Show>
     </svg>
   );
+}
+
+function snapshot(g: Gestures): Pick<Gestures, "hoveredNode" | "hoveredPin" | "preview"> {
+  return { hoveredNode: g.hoveredNode, hoveredPin: g.hoveredPin, preview: g.preview };
 }
 
 // A viewBox that fits the whole board into the part of the window the HUD

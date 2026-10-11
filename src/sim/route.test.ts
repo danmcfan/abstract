@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { connect, pinPosition, type Pin } from "./circuit";
+import { moveNode, newGame, pinPosition, placeNode, setInput, wire, type Game, type Pin } from "./circuit";
 import { contains } from "./grid";
-import { addNode, newGame, type Game, type NodeID } from "./node";
-import { routeWires, type Point, type Routing } from "./route";
+import type { NodeID } from "./node";
+import { createRouter, layoutKey, routeWires, type Point, type Routing } from "./route";
 
 const out = (node: NodeID): Pin => ({ node, side: "out", index: 0 });
 const inp = (node: NodeID, index = 0): Pin => ({ node, side: "in", index });
@@ -38,23 +38,23 @@ function unitSteps(a: Point, b: Point): [Point, Point][] {
 // Two inputs on the left, two gates whose wires have to cross.
 function crossingCircuit() {
   const game = newGame();
-  const a = addNode(game, "INPUT", { x: 4, y: 10 }).id;
-  const b = addNode(game, "INPUT", { x: 4, y: 30 }).id;
-  const top = addNode(game, "NOT", { x: 25, y: 10 }).id;
-  const bottom = addNode(game, "NOT", { x: 25, y: 30 }).id;
+  const a = placeNode(game, "INPUT", { x: 4, y: 10 })!.id;
+  const b = placeNode(game, "INPUT", { x: 4, y: 30 })!.id;
+  const top = placeNode(game, "NOT", { x: 25, y: 10 })!.id;
+  const bottom = placeNode(game, "NOT", { x: 25, y: 30 })!.id;
   // Blockers force both wires through the same channel.
-  addNode(game, "AND", { x: 15, y: 20 });
-  connect(game, out(a), inp(bottom));
-  connect(game, out(b), inp(top));
+  placeNode(game, "AND", { x: 15, y: 20 })!;
+  wire(game, out(a), inp(bottom));
+  wire(game, out(b), inp(top));
   return game;
 }
 
 describe("routeWires", () => {
   test("wires start and end at their pins, leaving and entering heading right", () => {
     const game = newGame();
-    const a = addNode(game, "INPUT", { x: 4, y: 10 });
-    const g = addNode(game, "NAND", { x: 20, y: 25 });
-    const edge = connect(game, out(a.id), inp(g.id, 1))!;
+    const a = placeNode(game, "INPUT", { x: 4, y: 10 })!;
+    const g = placeNode(game, "NAND", { x: 20, y: 25 })!;
+    const edge = wire(game, out(a.id), inp(g.id, 1))!;
     const route = routeWires(game).routes.get(edge.id)!;
     expect(route.routed).toBe(true);
     expect(route.points[0]).toEqual(pinPosition(a, "out", 0));
@@ -65,10 +65,10 @@ describe("routeWires", () => {
 
   test("wires go around gates, not through them", () => {
     const game = newGame();
-    const a = addNode(game, "INPUT", { x: 4, y: 20 });
-    const wall = addNode(game, "NAND", { x: 20, y: 20 });
-    const o = addNode(game, "OUTPUT", { x: 40, y: 20 });
-    const edge = connect(game, out(a.id), inp(o.id))!;
+    const a = placeNode(game, "INPUT", { x: 4, y: 20 })!;
+    const wall = placeNode(game, "NAND", { x: 20, y: 20 })!;
+    const o = placeNode(game, "OUTPUT", { x: 40, y: 20 })!;
+    const edge = wire(game, out(a.id), inp(o.id))!;
     const route = routeWires(game).routes.get(edge.id)!;
     const points = route.points.slice(1, -1);
     for (let i = 1; i < points.length; i++) {
@@ -93,11 +93,59 @@ describe("routeWires", () => {
 
   test("one output fanning out shares a trunk with a junction", () => {
     const game = newGame();
-    const a = addNode(game, "INPUT", { x: 4, y: 20 }).id;
-    const g = addNode(game, "NAND", { x: 25, y: 20 }).id;
-    connect(game, out(a), inp(g, 0));
-    connect(game, out(a), inp(g, 1));
+    const a = placeNode(game, "INPUT", { x: 4, y: 20 })!.id;
+    const g = placeNode(game, "NAND", { x: 25, y: 20 })!.id;
+    wire(game, out(a), inp(g, 0));
+    wire(game, out(a), inp(g, 1));
     const routing = routeWires(game);
     expect(routing.junctions.length).toBe(1);
+  });
+});
+
+describe("createRouter", () => {
+  function circuit() {
+    const game = newGame();
+    const a = placeNode(game, "INPUT", { x: 4, y: 20 })!.id;
+    const g = placeNode(game, "NAND", { x: 25, y: 20 })!.id;
+    wire(game, out(a), inp(g, 0));
+    wire(game, out(a), inp(g, 1));
+    return { game, a, g };
+  }
+
+  test("junctions report the driving pin", () => {
+    const { game, a } = circuit();
+    expect(routeWires(game).junctions.map((j) => j.source)).toEqual([out(a)]);
+  });
+
+  test("changing signals does not reroute", () => {
+    const { game, a } = circuit();
+    const route = createRouter();
+    const key = layoutKey(game);
+    const first = route(game);
+    setInput(game, a, true);
+    expect(layoutKey(game)).toBe(key);
+    expect(route(game)).toBe(first);
+  });
+
+  test("moving a node reroutes", () => {
+    const { game, g } = circuit();
+    const route = createRouter();
+    const first = route(game);
+    const { x, y } = game.nodes.get(g)!.rect;
+    expect(moveNode(game, g, x + 2, y + 3)).toBe(true);
+    expect(route(game)).not.toBe(first);
+  });
+
+  test("wiring reroutes", () => {
+    const { game, a } = circuit();
+    const route = createRouter();
+    const first = route(game);
+    const o = placeNode(game, "OUTPUT", { x: 40, y: 10 })!.id;
+    const key = layoutKey(game);
+    const second = route(game);
+    expect(second).not.toBe(first);
+    wire(game, out(a), inp(o));
+    expect(layoutKey(game)).not.toBe(key);
+    expect(route(game)).not.toBe(second);
   });
 });

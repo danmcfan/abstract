@@ -1,7 +1,7 @@
 import { For, Show } from "solid-js";
 import { GRID_HEIGHT, GRID_WIDTH } from "../sim/grid";
 import { LEVELS, toolbox, truthTable } from "../sim/level";
-import { placeNode } from "../sim/node";
+import { placeNode } from "../sim/circuit";
 import { GATE_ACCENTS } from "./NodeView";
 import {
   currentRow,
