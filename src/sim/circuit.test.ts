@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { edgeInto, moveNode, newGame, pinPosition, placeNode, removeNode, setInput, unwire, wire, type Game, type Pin } from "./circuit";
 import { GRID_HEIGHT, GRID_WIDTH, overlaps } from "./grid";
+// Defines the parts levels give, such as MUX.
+import "./level";
 import type { NodeID, NodeType } from "./node";
 
 const out = (node: NodeID): Pin => ({ node, side: "out", index: 0 });

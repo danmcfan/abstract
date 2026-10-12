@@ -1,5 +1,5 @@
 import type { Edge, Game } from "./circuit";
-import type { Node } from "./node";
+import { outputCount, type Label, type Node } from "./node";
 
 // A saved game: how far the player has got, the board they were working on,
 // and story flags (such as which robot lines they've already heard).
@@ -71,9 +71,20 @@ export function saveBoard(game: Game): SavedBoard {
   };
 }
 
+// Before levels named their own terminals, inputs were ALPHA and BETA, the
+// output was unnamed, and every node had a single signal.
+const LEGACY_LABELS: Record<string, Label> = { ALPHA: "A", BETA: "B", NONE: "" };
+
+function upgradeNode(node: Node): Node {
+  let label = LEGACY_LABELS[node.label] ?? node.label;
+  if (node.type === "OUTPUT" && label === "") label = "OUT";
+  const signals = Array.isArray(node.signals) ? [...node.signals] : Array.from({ length: outputCount(node.type) }, () => node.isHigh);
+  return { ...node, label, signals, rect: { ...node.rect } };
+}
+
 export function loadBoard(board: SavedBoard): Game {
   return {
-    nodes: new Map(board.nodes.map((node) => [node.id, { ...node, rect: { ...node.rect } }])),
+    nodes: new Map(board.nodes.map((node) => [node.id, upgradeNode(node)])),
     edges: new Map(board.edges.map((edge) => [edge.id, { ...edge }])),
     nextNodeID: board.nextNodeID,
     nextEdgeID: board.nextEdgeID,

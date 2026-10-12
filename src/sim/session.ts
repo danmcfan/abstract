@@ -15,8 +15,9 @@ export class Session {
   run = 0;
   testing = false;
   currentRow: number | null = null;
-  // Per truth table row: undefined until tested, else what the circuit output.
-  rowResults: (boolean | undefined)[] = [];
+  // Per truth table row: undefined until tested, else what the circuit
+  // output, one value per output.
+  rowResults: (boolean[] | undefined)[] = [];
   result: CheckResult | null = null;
   flags = new Set<string>();
   private check: CheckResult | null = null;

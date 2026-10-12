@@ -231,7 +231,7 @@ body {
 #board .node .panel {
   stroke-width: 0.1;
 }
-#board .node.high .lead.out,
+#board .node .lead.out.high,
 #board .node.high .bubble {
   stroke: var(--color-live);
 }
@@ -284,16 +284,15 @@ body {
 #board .gate-label {
   font-weight: 700;
 }
-#board .pin-label {
-  text-anchor: start;
-  font-weight: 700;
-}
 #board .terminal-label {
   font-size: 0.7px;
   font-weight: 700;
 }
 #board .terminal-label.small {
   font-size: 0.5px;
+}
+#board .pin-label {
+  font-size: 0.4px;
 }
 #board .pin {
   fill: var(--color-surface);
