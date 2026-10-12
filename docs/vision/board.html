@@ -516,7 +516,7 @@ pre.asm .k{color:var(--ink);font-weight:700}
     </div><figcaption>Something boots up. Three dots. A tiny startup chime.</figcaption></figure>
     <figure class="frame"><div class="box" data-n="3">
       <svg viewBox="0 0 160 100" aria-hidden="true"><rect class="fill" x="44" y="10" width="62" height="84" stroke-width="2"/><rect class="stroke thin" x="52" y="18" width="46" height="68"/><text class="lblh" x="62" y="56">EXIT</text><rect class="fill" x="114" y="40" width="22" height="30" stroke-width="2"/><circle class="led" cx="125" cy="60" r="4"/><rect class="void" x="117" y="44" width="16" height="7" stroke-width="1.5"/></svg>
-    </div><figcaption>The exit is sealed. The keypad wants a program, not a code.</figcaption></figure>
+    </div><figcaption>The exit is sealed. The door wants a program, not a code.</figcaption></figure>
     <figure class="frame"><div class="box" data-n="4">
       <svg viewBox="0 0 160 100" aria-hidden="true"><ellipse class="fill" cx="38" cy="58" rx="24" ry="18" stroke-width="2"/><rect class="void" x="20" y="50" width="36" height="15" rx="7" stroke-width="2"/><ellipse class="eye" cx="32" cy="57" rx="3" ry="2.5"/><ellipse class="eye" cx="44" cy="57" rx="3" ry="2.5"/><path class="stroke thin" d="M58 52 L104 30 M58 62 L104 82" stroke-dasharray="3 4"/><path class="gate" d="M104 40 H118 A16 16 0 0 1 118 72 H104 Z" stroke-width="2"/><circle class="gate" cx="138" cy="56" r="4" stroke-width="2"/><path class="stroke thin" d="M94 48 H104 M94 64 H104 M142 56 H152"/></svg>
     </div><figcaption>"I only remember one thing." It projects a NAND gate.</figcaption></figure>
@@ -532,11 +532,11 @@ pre.asm .k{color:var(--ink);font-weight:700}
       <div class="layer on" role="listitem"><span class="n">L1</span><div><h3>NAND</h3><p>The one schematic the robot remembers</p><span class="floor">Floor: the gate foundry</span></div><span class="st">in memory</span></div>
       <div class="layer" role="listitem"><span class="n">L2</span><div><h3>Basic gates</h3><p>NOT, AND, OR, XOR, MUX, DEMUX</p><span class="floor">Floor: the logic line</span></div><span class="st">locked</span></div>
       <div class="layer" role="listitem"><span class="n">L3</span><div><h3>Arithmetic</h3><p>Half adder, full adder, 8-bit adder</p><span class="floor">Floor: adder assembly</span></div><span class="st">locked</span></div>
-      <div class="layer" role="listitem"><span class="n">L4</span><div><h3>ALU</h3><p>Add, subtract, compare, flags</p><span class="floor">Floor: the calculation shop</span></div><span class="st">locked</span></div>
-      <div class="layer" role="listitem"><span class="n">L5</span><div><h3>Memory</h3><p>Latch, flip-flop, register, RAM</p><span class="floor">Floor: the filing vault</span></div><span class="st">locked</span></div>
-      <div class="layer" role="listitem"><span class="n">L6</span><div><h3>Control</h3><p>Clock, counter, program counter, decoder</p><span class="floor">Floor: the clock tower</span></div><span class="st">locked</span></div>
-      <div class="layer" role="listitem"><span class="n">L7</span><div><h3>CPU</h3><p>Fetch, decode, execute</p><span class="floor">Floor: the control room</span></div><span class="st">locked</span></div>
-      <div class="layer" role="listitem"><span class="n">L8</span><div><h3>Assembly</h3><p>Design your own instruction set and mnemonics</p><span class="floor">Floor: the typing pool</span></div><span class="st">locked</span></div>
+      <div class="layer" role="listitem"><span class="n">L4</span><div><h3>ALU</h3><p>Add, subtract, and, or, xor, not; a zero test</p><span class="floor">Floor: the calculation shop</span></div><span class="st">locked</span></div>
+      <div class="layer" role="listitem"><span class="n">L5</span><div><h3>Memory</h3><p>Latch, flip-flop, register, register file, RAM</p><span class="floor">Floor: the filing vault</span></div><span class="st">locked</span></div>
+      <div class="layer" role="listitem"><span class="n">L6</span><div><h3>Control</h3><p>Constants, program counter, decoder, sequencer, clock speed</p><span class="floor">Floor: the clock tower</span></div><span class="st">locked</span></div>
+      <div class="layer" role="listitem"><span class="n">L7</span><div><h3>Assembly</h3><p>Name and number your own instruction set</p><span class="floor">Floor: the typing pool</span></div><span class="st">locked</span></div>
+      <div class="layer" role="listitem"><span class="n">L8</span><div><h3>CPU</h3><p>Fetch, decode, execute, in your instruction set</p><span class="floor">Floor: the control room</span></div><span class="st">locked</span></div>
       <div class="layer goal" role="listitem"><span class="n">L9</span><div><h3>The door program</h3><p>Write it, run it, walk out</p><span class="floor">Floor: the exit hall</span></div><span class="st">exit</span></div>
     </div>
     <div class="hand note">
@@ -693,7 +693,7 @@ pre.asm .k{color:var(--ink);font-weight:700}
       <span style="font-size:.85rem">Clock speed<br><b style="color:var(--ink)">4 Hz</b></span></div><div class="cap">Analog gauges for clock speed and test progress once you reach layer 6.</div></div>
     <div class="spec"><div class="stage" style="display:block"><div class="tabs"><span>NAND</span><span>NOT</span><span class="on">XOR</span><span>HA</span></div></div><div class="cap">Schematic binder: open drawings as index tabs along the top.</div></div>
     <div class="spec"><div class="stage">
-      <svg viewBox="0 0 120 60" style="width:150px" aria-hidden="true"><rect class="fill" x="4" y="4" width="112" height="52" rx="2"/><circle class="stroke thin" cx="12" cy="12" r="2.5"/><circle class="stroke thin" cx="108" cy="12" r="2.5"/><circle class="stroke thin" cx="12" cy="48" r="2.5"/><circle class="stroke thin" cx="108" cy="48" r="2.5"/><text class="lbl" x="22" y="26" style="font-size:9px">BUS VALUE</text><text class="lbl" x="22" y="44" style="font-size:16px;font-weight:700">0x0B0B</text></svg></div><div class="cap">Readouts as riveted name plates. Later: hex, binary and decimal on a rotary switch.</div></div>
+      <svg viewBox="0 0 120 60" style="width:150px" aria-hidden="true"><rect class="fill" x="4" y="4" width="112" height="52" rx="2"/><circle class="stroke thin" cx="12" cy="12" r="2.5"/><circle class="stroke thin" cx="108" cy="12" r="2.5"/><circle class="stroke thin" cx="12" cy="48" r="2.5"/><circle class="stroke thin" cx="108" cy="48" r="2.5"/><text class="lbl" x="22" y="26" style="font-size:9px">BUS VALUE</text><text class="lbl" x="22" y="44" style="font-size:16px;font-weight:700">0x0B</text></svg></div><div class="cap">Readouts as riveted name plates. Later: hex, binary and decimal on a rotary switch.</div></div>
   </div>
 </section>
 
@@ -762,13 +762,15 @@ pre.asm .k{color:var(--ink);font-weight:700}
     </svg>
     <div>
       <p class="lede" style="margin-bottom:16px">The finale is a program in the language you invented. Short enough to type by hand, meaningful because you built every layer it runs on.</p>
-<pre class="asm"><span class="c">; escape.asm</span>
-      <span class="k">LOAD</span> R1, 0x0B0B  <span class="c">; door code</span>
-      <span class="k">OUT</span>  R1, DOOR    <span class="c">; send to lock</span>
-wait: <span class="k">IN</span>   R2, DOOR
-      <span class="k">JZ</span>   R2, wait    <span class="c">; until it clicks</span>
+<pre class="asm"><span class="c">; escape.asm (your mnemonics; these are Bitbox's)</span>
+      <span class="k">SET</span>  R0, 0       <span class="c">; running total</span>
+next: <span class="k">IN</span>   R1, KEYPAD  <span class="c">; next letter, 0 at the end</span>
+      <span class="k">JZ</span>   R1, done
+      <span class="k">ADD</span>  R0, R1
+      <span class="k">JMP</span>  next
+done: <span class="k">OUT</span>  R0, DOOR    <span class="c">; the name's letters add up to the code</span>
       <span class="k">HALT</span></pre>
-      <p class="hand note" style="margin:14px 0 0">The door code could be hidden in notes scattered across earlier levels. The final run plays out at the clock speed you built, so a slow CPU means a tense wait.</p>
+      <p class="hand note" style="margin:14px 0 0">The name is hidden in pencil notes about Alan Turing's life, one on the last sheet of each of the first six floors. Type it on the keypad; the door wants its letters added up, 8 bits wide. The final run plays out at the clock speed you set on the gauge, so a slow clock means a tense wait.</p>
     </div>
   </div>
 </section>
