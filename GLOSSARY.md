@@ -91,7 +91,7 @@ _Avoid_: blueprint, recipe
 ## Testing
 
 **Truth table**:
-Every combination of a level's inputs with the expected outputs, counting up in binary with A as the high bit. A level with buses has too many rows to show, so its table shows only a few named cases, and the test run checks the other rows out of sight, adding any that fail to the table.
+Every combination of a level's inputs with the expected outputs, counting up in binary with A as the high bit. A level with too many rows to read lists a few named cases; its table shows only those, and the test run checks the other rows out of sight, adding any that fail to the table.
 
 **Test run**:
 Stepping the board through every truth table row, one row at a time on screen, then recording pass or fail. Started by Run test.
