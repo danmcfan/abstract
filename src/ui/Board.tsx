@@ -3,6 +3,7 @@ import { pinPosition, type Pin } from "../sim/circuit";
 import { createGestures, type Gestures } from "../sim/gesture";
 import { GRID_HEIGHT, GRID_WIDTH } from "../sim/grid";
 import { createRouter } from "../sim/route";
+import { WIDE_MIN_WIDTH } from "./device";
 import { NodeView } from "./NodeView";
 import { current, mutate, testing } from "./state";
 import { wirePath } from "./wirePath";
@@ -178,7 +179,7 @@ function fitViewBox(): string {
   const h = window.innerHeight;
   const panel = document.getElementById("level-panel")?.getBoundingClientRect();
   const bin = document.getElementById("parts-bin")?.getBoundingClientRect();
-  const wide = w >= 900;
+  const wide = w >= WIDE_MIN_WIDTH;
   const inset = {
     left: wide && panel ? panel.right + GAP : 0,
     right: wide ? GAP : 0,

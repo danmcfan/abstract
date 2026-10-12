@@ -118,3 +118,6 @@ export const forbidden = (types: NodeType[]): Line[] => [
 export const welcomeBack = (level: Level): Line[] => [
   { face: "happy", text: level.prebuilt ? `Welcome back! We were looking at ${level.gate}.` : `Welcome back! We were building ${level.gate}.` },
 ];
+
+// On the notice that asks phone players to come back on a desktop.
+export const smallScreen: Line = { face: "worried", text: "This board's too small for fingers. Come find me on a desktop." };
