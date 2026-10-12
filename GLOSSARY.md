@@ -5,7 +5,7 @@ A logic-gate puzzle game: the player starts with NAND and builds every other par
 ## Progression
 
 **Layer**:
-A set of parts that are each built only from the layers below it (L1 NAND, L2 basic gates, L3 arithmetic, and so on up to L9, the door program). A layer is **built** when every level in it is solved, **in progress** when the player can play its first level, and **locked** otherwise.
+A set of parts that are each built only from the layers below it (L1 NAND, L2 basic gates, L3 arithmetic, and so on up to L9, the door program). A layer is **built** when every level in it is solved, **in progress** when the player can play its first level but it isn't built yet, and **locked** otherwise.
 _Avoid_: tier, world, stage; complete or cleared (for a built layer)
 
 **Stack**:
@@ -64,7 +64,7 @@ _Avoid_: propagate, tick, update
 
 **Unstable**:
 A board that never settles, because a loop keeps flipping its own signal (a NOT wired to itself). An unstable board fails its test run.
-_Avoid_: oscillating, broken
+_Avoid_: oscillating, broken, short circuit
 
 **Bus**:
 A wire that carries several signals at once, up to 8, drawn thicker and marked with its width. A pin can be a bus pin, and a bus only connects pins of the same width.

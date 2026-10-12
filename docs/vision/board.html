@@ -533,14 +533,14 @@ pre.asm .k{color:var(--ink);font-weight:700}
       <div class="layer" role="listitem"><span class="n">L2</span><div><h3>Basic gates</h3><p>NOT, AND, OR, XOR, MUX, DEMUX</p><span class="floor">Floor: the logic line</span></div><span class="st">locked</span></div>
       <div class="layer" role="listitem"><span class="n">L3</span><div><h3>Arithmetic</h3><p>Half adder, full adder, 8-bit adder</p><span class="floor">Floor: adder assembly</span></div><span class="st">locked</span></div>
       <div class="layer" role="listitem"><span class="n">L4</span><div><h3>ALU</h3><p>Add, subtract, and, or, xor, not; a zero test</p><span class="floor">Floor: the calculation shop</span></div><span class="st">locked</span></div>
-      <div class="layer" role="listitem"><span class="n">L5</span><div><h3>Memory</h3><p>Latch, flip-flop, register, register file, RAM</p><span class="floor">Floor: the filing vault</span></div><span class="st">locked</span></div>
+      <div class="layer" role="listitem"><span class="n">L5</span><div><h3>Memory</h3><p>Latch, flip-flop, bit, register, register file, RAM</p><span class="floor">Floor: the filing vault</span></div><span class="st">locked</span></div>
       <div class="layer" role="listitem"><span class="n">L6</span><div><h3>Control</h3><p>Constants, program counter, decoder, sequencer, clock speed</p><span class="floor">Floor: the clock tower</span></div><span class="st">locked</span></div>
       <div class="layer" role="listitem"><span class="n">L7</span><div><h3>Assembly</h3><p>Name and number your own instruction set</p><span class="floor">Floor: the typing pool</span></div><span class="st">locked</span></div>
       <div class="layer" role="listitem"><span class="n">L8</span><div><h3>CPU</h3><p>Fetch, decode, execute, in your instruction set</p><span class="floor">Floor: the control room</span></div><span class="st">locked</span></div>
       <div class="layer goal" role="listitem"><span class="n">L9</span><div><h3>The door program</h3><p>Write it, run it, walk out</p><span class="floor">Floor: the exit hall</span></div><span class="st">exit</span></div>
     </div>
     <div class="hand note">
-      <p>Idea: the stack is the level-select screen. Locked layers are dashed pencil, built layers get inked in.</p>
+      <p>Idea: the stack is where you pick a level. Locked layers are dashed pencil, built layers get inked in.</p>
       <p>Going up a floor = going up a layer of abstraction. The elevator only works once the layer below passes its tests.</p>
       <p>Typing pool for assembly: rows of old typewriters, your robot sits at one.</p>
     </div>
@@ -851,7 +851,7 @@ done: <span class="k">OUT</span>  R0, DOOR    <span class="c">; the name's lette
     ["Happy","test passed",'<path class="eyel" d="M36 48 L44 39 L52 48 M68 48 L76 39 L84 48"/>'],
     ["Worried","wire about to short",'<ellipse class="eye" cx="44" cy="46" rx="6" ry="5"/><ellipse class="eye" cx="76" cy="46" rx="6" ry="5"/><path class="eyel" d="M36 38 L50 34 M70 34 L84 38" style="stroke-width:2.5"/>'],
     ["Thinking","computing a hint",'<ellipse class="eye" cx="46" cy="40" rx="7" ry="6"/><path class="eyel" d="M68 44 H84"/>'],
-    ["Error","short circuit",'<path class="eyel" d="M38 38 L50 50 M50 38 L38 50 M70 38 L82 50 M82 38 L70 50"/>'],
+    ["Error","unstable board",'<path class="eyel" d="M38 38 L50 50 M50 38 L38 50 M70 38 L82 50 M82 38 L70 50"/>'],
     ["Sleepy","idle too long",'<path class="eyel" d="M36 44 Q44 50 52 44 M68 44 Q76 50 84 44"/><text class="lblh" x="88" y="22" style="fill:var(--ink);font-size:20px">z</text><text class="lblh" x="100" y="12" style="fill:var(--ink);font-size:14px">z</text>'],
     ["Amazed","new layer unlocked",'<circle class="eye" cx="44" cy="44" r="10"/><circle class="eye" cx="76" cy="44" r="10"/><circle cx="47" cy="41" r="3" fill="var(--void)"/><circle cx="79" cy="41" r="3" fill="var(--void)"/>'],
     ["Loading","running your program",'<circle class="eye dot" cx="48" cy="44" r="4"/><circle class="eye dot" cx="60" cy="44" r="4"/><circle class="eye dot" cx="72" cy="44" r="4"/>']
@@ -893,8 +893,8 @@ done: <span class="k">OUT</span>  R0, DOOR    <span class="c">; the name's lette
   var lines=[
     "Only one schematic in my memory banks: NAND. Everything else, we draw ourselves.",
     "XOR means one or the other, but not both. Four NANDs should do it.",
-    "Three rows passing. One to go. My thruster is getting excited.",
-    "Bzzt. Short circuit on wire 3. Try routing around the junction."
+    "Three rows passing. One to go. My circuits are getting excited.",
+    "Bzzt. That loop never settles. Try breaking it up."
   ];
   var li=0,timer=null,el=document.getElementById("typed");
   var reduce=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;
