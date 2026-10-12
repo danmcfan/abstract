@@ -1,7 +1,7 @@
 import { For, Show } from "solid-js";
 import { placeNode } from "../sim/circuit";
 import { GRID_HEIGHT, GRID_WIDTH } from "../sim/grid";
-import { LEVELS, toolbox, truthTable } from "../sim/level";
+import { LEVELS, partsBin, truthTable } from "../sim/level";
 import { say } from "./speech";
 import { GateIcon } from "./GateIcon";
 import * as script from "./script";
@@ -133,7 +133,7 @@ export function Hud(props: { onMenu: () => void }) {
       >
         <span class="flex items-center border-r-2 border-ink px-2.5 text-[11px] tracking-[0.1em] text-pencil uppercase max-[899px]:hidden">Parts bin</span>
         <For
-          each={toolbox(levelIndex())}
+          each={partsBin(levelIndex())}
           fallback={<span class="flex items-center px-3 py-2 text-xs text-pencil">Empty, for now</span>}
         >
           {(type) => (

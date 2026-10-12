@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { placeNode, wire, type Game, type Pin } from "./circuit";
-import { checkLevel, LEVELS, loadLevel, toolbox } from "./level";
+import { checkLevel, LEVELS, loadLevel, partsBin } from "./level";
 import type { Label, NodeID, NodeType } from "./node";
 
 const out = (node: NodeID): Pin => ({ node, side: "out", index: 0 });
@@ -72,7 +72,7 @@ describe("checkLevel", () => {
     expect(result.rows.map((row) => row.actual)).toEqual([false, true]);
   });
 
-  test("fails when a gate outside the toolbox is used", () => {
+  test("fails when a gate outside the parts bin is used", () => {
     const { game, a, o } = levelGame(1);
     const not = gate(game, "NOT");
     wire(game, out(a), inp(not));
@@ -83,10 +83,10 @@ describe("checkLevel", () => {
   });
 });
 
-test("each solved level adds its gate to the toolbox", () => {
-  expect(toolbox(0)).toEqual([]);
-  expect(toolbox(1)).toEqual(["NAND"]);
-  expect(toolbox(3)).toEqual(["NAND", "NOT", "AND"]);
+test("each solved level adds its gate to the parts bin", () => {
+  expect(partsBin(0)).toEqual([]);
+  expect(partsBin(1)).toEqual(["NAND"]);
+  expect(partsBin(3)).toEqual(["NAND", "NOT", "AND"]);
 });
 
 test("checkLevel leaves the board's inputs alone", () => {

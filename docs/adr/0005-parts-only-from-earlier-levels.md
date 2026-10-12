@@ -1,0 +1,23 @@
+# 5. Every part is built only from parts the player has already built
+
+Date: 2026-10-12
+
+## Status
+
+Accepted
+
+## Context
+
+The game is about climbing layers of abstraction, from NAND to a CPU, the way nand2tetris does. A level could offer any gate the circuit needs, but then the player never feels a part they built turn into a single box they can reuse.
+
+## Decision
+
+- The player starts with only **NAND**. Each solved level puts the part it asked for into the **parts bin**, and later levels can use it as one node.
+- A level's parts bin is NAND plus every part from an earlier level (`partsBin()` in `src/sim/level.ts`). A test run **fails** if the board uses anything else, even if the truth table matches.
+- Levels are grouped into **layers** (see the [vision board](../vision/board.html)): each layer is built only from the layers below it.
+
+## Consequences
+
+- The order of `LEVELS` is the game's dependency graph. Adding a level means checking that every part its intended solution uses comes earlier.
+- A built part is a single node on the board, however many gates it contains, so boards stay small enough for SVG ([ADR 2](0002-2d-svg-board.md)).
+- Parts with more than one output, multi-bit wires and feedback loops (issues #5, #8 and #12) have to fit this rule too.

@@ -3,7 +3,7 @@ import { GRID_HEIGHT, GRID_WIDTH } from "./grid";
 import type { Label, NodeType } from "./node";
 
 // A level asks the player to build one gate out of the gates they have
-// already built. Solving it adds that gate to the toolbox for later levels.
+// already built. Solving it adds that gate to the parts bin for later levels.
 // A prebuilt level comes already wired: the player only tests it, to see
 // what the gate does.
 export interface Level {
@@ -28,7 +28,7 @@ export const LEVELS: Level[] = [
 ];
 
 // Every solved level adds its gate; the first level hands you NAND.
-export function toolbox(levelIndex: number): NodeType[] {
+export function partsBin(levelIndex: number): NodeType[] {
   return LEVELS.slice(0, levelIndex).map((level) => level.gate);
 }
 
@@ -79,7 +79,7 @@ export function readOutput(game: Game): boolean {
 
 export interface CheckResult {
   rows: (Row & { actual: boolean })[];
-  // Gate types on the board that this level's toolbox doesn't offer.
+  // Gate types on the board that this level's parts bin doesn't offer.
   forbidden: NodeType[];
   passed: boolean;
 }
@@ -89,7 +89,7 @@ export interface CheckResult {
 export function checkLevel(board: Game, levelIndex: number): CheckResult {
   const game = structuredClone(board);
   const level = LEVELS[levelIndex]!;
-  const allowed = new Set<NodeType>(["INPUT", "OUTPUT", ...toolbox(levelIndex)]);
+  const allowed = new Set<NodeType>(["INPUT", "OUTPUT", ...partsBin(levelIndex)]);
   if (level.prebuilt) allowed.add(level.gate);
   const forbidden = [...new Set([...game.nodes.values()].map((node) => node.type))].filter((type) => !allowed.has(type));
   const rows = truthTable(level).map((row) => {

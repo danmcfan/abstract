@@ -1,0 +1,29 @@
+name: Check
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - name: Install agent-browser
+        run: |
+          sudo apt-get update && sudo apt-get install -y ffmpeg
+          npm install -g agent-browser@0.33.2
+          agent-browser install --with-deps
+      - run: bun run verify
+      - name: Upload playthrough
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playthrough
+          path: playthrough/
+          if-no-files-found: ignore
