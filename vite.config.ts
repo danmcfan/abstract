@@ -6,4 +6,19 @@ import solid from "vite-plugin-solid";
 export default defineConfig({
   base: "/",
   plugins: [solid(), tailwindcss()],
+  build: {
+    rolldownOptions: {
+      output: {
+        // Three.js gets its own chunks, so it stays cached when the robot
+        // changes. Its core and its renderer are split to keep each under
+        // Vite's 500 kB warning.
+        codeSplitting: {
+          groups: [
+            { name: "three-core", test: /node_modules[\\/]three[\\/]build[\\/]three\.core\.js$/ },
+            { name: "three", test: /node_modules[\\/]three[\\/]/ },
+          ],
+        },
+      },
+    },
+  },
 });
