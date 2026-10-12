@@ -1,6 +1,6 @@
 import { For, Show, createMemo } from "solid-js";
 import { pinPosition, pins, type Pin } from "../sim/circuit";
-import type { Node } from "../sim/node";
+import { terminalName, type Node } from "../sim/node";
 import { glyph } from "./glyph";
 import { current } from "./state";
 
@@ -26,7 +26,7 @@ export function NodeView(props: { node: Node; hovered: boolean; hoveredPin: Pin 
       <rect class="hit" x={0} y={0} width={width} height={height} />
       <rect class="halo" x={0.1} y={0.1} width={width - 0.2} height={height - 0.2} rx={0.3} />
       <Show when={type === "INPUT"}>
-        <KnifeSwitch name={props.node.label === "BETA" ? "B" : "A"} width={width} height={height} />
+        <KnifeSwitch name={terminalName(props.node.label)} width={width} height={height} />
       </Show>
       <Show when={type === "OUTPUT"}>
         <Lamp width={width} height={height} />
@@ -69,6 +69,13 @@ function Gate(props: { node: Node }) {
       <text class="gate-label" x={g.label.x} y={g.label.y} style={{ "font-size": `${g.label.size}px` }}>
         {props.node.type}
       </text>
+      <For each={g.pinLabels}>
+        {(p) => (
+          <text class="pin-label" x={p.x} y={p.y} style={{ "font-size": `${p.size}px` }}>
+            {p.text}
+          </text>
+        )}
+      </For>
     </>
   );
 }
@@ -80,7 +87,7 @@ function KnifeSwitch(props: { name: string; width: number; height: number }) {
   return (
     <>
       <rect class="panel" x={0.35} y={0.35} width={props.width - 0.7} height={props.height - 0.7} rx={0.25} />
-      <text class="terminal-label" x={2} y={props.height - 0.78}>
+      <text classList={{ "terminal-label": true, small: props.name.length > 1 }} x={2} y={props.height - 0.78}>
         {props.name}
       </text>
       <path class="lead out" d={`M 3 ${y} H ${props.width}`} />

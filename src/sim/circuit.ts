@@ -114,8 +114,9 @@ export function edgeInto(game: Game, node: NodeID, index: number): Edge | undefi
 export function pinPosition(node: Node, side: Pin["side"], index: number): { x: number; y: number } {
   const { x, y, width, height } = node.rect;
   if (side === "out") return { x: x + width, y: y + height / 2 };
-  if (inputCount(node.type) === 1) return { x, y: y + height / 2 };
-  return { x, y: y + 1 + index * (height - 2) };
+  const count = inputCount(node.type);
+  if (count === 1) return { x, y: y + height / 2 };
+  return { x, y: y + 1 + (index * (height - 2)) / (count - 1) };
 }
 
 export function pins(node: Node): Pin[] {
@@ -191,14 +192,14 @@ function settle(game: Game): void {
     if (done.has(node.id)) return;
     done.add(node.id);
     if (node.type === "INPUT") return;
-    const inputs = [false, false];
+    const inputs = Array<boolean>(inputCount(node.type)).fill(false);
     for (const edge of into.get(node.id) ?? []) {
       const from = game.nodes.get(edge.from)!;
       visit(from);
       edge.isHigh = from.isHigh;
       inputs[edge.toIndex] = from.isHigh;
     }
-    node.isHigh = evaluate(node.type, inputs[0]!, inputs[1]!);
+    node.isHigh = evaluate(node.type, inputs);
   };
   for (const node of game.nodes.values()) visit(node);
 }

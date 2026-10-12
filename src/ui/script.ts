@@ -68,6 +68,18 @@ const LEVELS: Partial<Record<NodeType, LevelScript>> = {
     ],
     solved: [{ face: "amazed", text: "New schematic saved: XOR. One or the other, never both." }],
   },
+  MUX: {
+    intro: [
+      { face: "thinking", text: "Three inputs this time. A MUX picks which signal gets through." },
+      { face: "idle", text: "When SEL is off, OUT copies A. When SEL is on, OUT copies B." },
+      { face: "thinking", text: "Two questions: is A on while SEL is off? Is B on while SEL is on?" },
+    ],
+    hint: [{ face: "thinking", text: "Build A AND NOT SEL, and B AND SEL. Then OR the two together." }, CONTROLS],
+    solved: [
+      { face: "amazed", text: "MUX, done! A switch you flip with a wire instead of a finger." },
+      { face: "happy", text: "There are more floors to this factory. We'll get there, partner." },
+    ],
+  },
 };
 
 export const intro = (level: Level): Line[] => LEVELS[level.gate]?.intro ?? [];

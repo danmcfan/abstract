@@ -284,6 +284,10 @@ body {
 #board .gate-label {
   font-weight: 700;
 }
+#board .pin-label {
+  text-anchor: start;
+  font-weight: 700;
+}
 #board .terminal-label {
   font-size: 0.7px;
   font-weight: 700;

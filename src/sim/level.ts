@@ -26,6 +26,12 @@ export const LEVELS: Level[] = [
   { gate: "AND", goal: "Output is on when A and B are both on.", inputs: ["ALPHA", "BETA"], target: ([a, b]) => !!(a && b) },
   { gate: "OR", goal: "Output is on when A or B is on.", inputs: ["ALPHA", "BETA"], target: ([a, b]) => !!(a || b) },
   { gate: "XOR", goal: "Output is on when exactly one of A and B is on.", inputs: ["ALPHA", "BETA"], target: ([a, b]) => a !== b },
+  {
+    gate: "MUX",
+    goal: "Output is A when SEL is off, and B when SEL is on.",
+    inputs: ["ALPHA", "BETA", "SEL"],
+    target: ([a, b, sel]) => !!(sel ? b : a),
+  },
 ];
 
 // Every solved level adds its gate; the first level hands you NAND.
