@@ -1,3 +1,7 @@
+## Shipping
+
+Work on a branch and open a PR; merging to `main` deploys abstract.dannyobrien.dev. Before the PR, verify the change (`docs/agents/verify.md`) and review it with `/code-review main`, which enforces `CODING_STANDARDS.md`.
+
 ## Agent skills
 
 ### Issue tracker
@@ -10,4 +14,4 @@ Default canonical labels: `needs-triage`, `needs-info`, `ready-for-agent`, `read
 
 ### Domain docs
 
-Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`. The vision board (`docs/vision/board.html`) is the reference for the look, Bitbox and the story.

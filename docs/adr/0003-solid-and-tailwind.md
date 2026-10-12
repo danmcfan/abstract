@@ -13,7 +13,7 @@ The SVG board and HUD were written as hand-built DOM: create elements once, then
 ## Decision
 
 - Use **SolidJS** (via `vite-plugin-solid`) for the board and HUD. Fine-grained signals update only the attributes that change, with no virtual DOM.
-- Keep the **sim as plain TypeScript** objects. All changes go through `mutate()` in `src/ui/state.ts`, which settles the circuit and bumps a version signal; components read state through `current()`. A Solid store would need the sim to drop its `Map`s, for no real gain.
+- Keep the **sim as plain TypeScript** objects. Circuit commands settle the board themselves. The UI makes every change through `mutate()` in `src/ui/state.ts`, which saves the game and bumps a version signal; components read state through `current()`. A Solid store would need the sim to drop its `Map`s, for no real gain.
 - Use **Tailwind** (via `@tailwindcss/vite`) for the HUD. Board shapes keep plain CSS in `src/styles.css`, since their styling is SVG fill/stroke keyed to on/off state.
 
 ## Consequences

@@ -4,11 +4,11 @@ Date: 2026-10-11
 
 ## Status
 
-Accepted. Supersedes the Three.js rendering part of [ADR 1](0001-browser-3d-with-threejs.md); TypeScript, Bun, Vite and GitHub Pages stay.
+Accepted
 
 ## Context
 
-The game is a circuit puzzle. What matters is reading the circuit: which wire goes where, and which wires are on. A top-down 3D view added shading and shadows but no information, and blurry canvas-textured labels, raycasting and lighting tuning made it harder to work on.
+The first browser build drew the board in 3D with Three.js. The game is a circuit puzzle, though, and what matters is reading the circuit: which wire goes where, and which wires are on. A top-down 3D view added shading and shadows but no information, and blurry canvas-textured labels, raycasting and lighting tuning made it harder to work on.
 
 ## Decision
 
@@ -22,6 +22,6 @@ The game is a circuit puzzle. What matters is reading the circuit: which wire go
 
 ## Consequences
 
-- The bundle drops from about 142 kB to about 8 kB gzipped.
+- Three.js left the board for good. It came back later only for the robot, loaded on demand ([ADR 4](0004-2d-game-3d-robot.md)).
 - Playthrough scripts can find gates and pins as elements (`data-node`, `data-pin`).
 - A "zoom into a gate to see its circuit" effect, if wanted, would be a 2D zoom and crossfade rather than a camera flight.

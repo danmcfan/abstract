@@ -14,7 +14,11 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test": "bun test"
+    "test": "bun test",
+    "check": "bun test && bun run build && bun scripts/check-bundle.ts",
+    "playthrough": "scripts/with-server.sh scripts/playthrough.sh",
+    "shots": "scripts/with-server.sh scripts/bitbox-shots.sh",
+    "verify": "bun run check && bun run playthrough"
   },
   "type": "module",
   "dependencies": {

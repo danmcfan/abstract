@@ -3,11 +3,12 @@
 # drags to place gates and draw wires, and saves a screenshot per level plus a
 # video of the whole run.
 #
-# Usage: bun run dev, then scripts/playthrough.sh [base-url] [out-dir]
+# Usage: bun run playthrough [out-dir]
+#   (or, against a server you already run: BASE_URL=http://localhost:5173/ scripts/playthrough.sh)
 set -euo pipefail
 
-BASE=${1:-http://localhost:5173/}
-OUT=${2:-playthrough}
+BASE=${BASE_URL:?run through scripts/with-server.sh, or set BASE_URL}
+OUT=${1:-playthrough}
 mkdir -p "$OUT"
 ab() { agent-browser "$@" >/dev/null; }
 
@@ -90,4 +91,10 @@ wire "$A" "$TA"; wire "$B" "$TB"; wire "$TA" "$N" 0; wire "$TB" "$N" 1; wire "$N
 check 3 4
 
 agent-browser record stop >/dev/null
+errors=$(agent-browser errors 2>&1 || true)
+if [[ -n $errors ]]; then
+  echo "page errors:" >&2
+  echo "$errors" >&2
+  exit 1
+fi
 echo "saved $OUT/"
