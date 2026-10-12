@@ -1,4 +1,6 @@
 import { Show, createEffect, createSignal, on, onCleanup } from "solid-js";
+import { typeLetter } from "../sim/sound";
+import { sound } from "./sound";
 import { advance, hush, speech } from "./speech";
 import { RobotScreen } from "./RobotScreen";
 
@@ -24,6 +26,7 @@ export function Dialogue() {
       setShown(reduced ? t.length : 0);
       if (reduced) return;
       timer = setInterval(() => {
+        typeLetter(sound, t[shown()] ?? "");
         setShown((n) => n + 1);
         if (shown() >= t.length) clearInterval(timer);
       }, TYPE_MS);
