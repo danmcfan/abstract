@@ -70,6 +70,10 @@ _Avoid_: cable, ribbon
 Nodes that turn a bus into single-signal wires (split) or single-signal wires into a bus (join). Every level with buses supplies them in the **Wiring** section at the end of the parts bin; they aren't parts, so the player never builds them.
 _Avoid_: splitter, mux (a MUX is a part)
 
+**Constant**:
+A node from the Wiring section that always gives one fixed signal, on or off. Like split and join, it isn't a part.
+_Avoid_: tie-off, source, VCC/GND
+
 ## Parts
 
 **Part**:
@@ -103,6 +107,79 @@ One row of a timing table.
 **Clock**:
 The CLK input terminal on a memory or control level. A **tick** turns it on and then off. Each memory part's level says when it takes in a value: a D latch while the clock is on, a D flip-flop (and every part built on it) when the clock turns on. During a test run the run drives the clock; while building, the player ticks it by hand with Tick, or lets it run.
 _Avoid_: timer, pulse
+
+**Clock speed**:
+How many ticks per second Run gives the clock. The player sets it on a gauge that arrives with the clock at L6; nothing the player builds makes a part faster or slower.
+_Avoid_: frequency, tempo
+
+## The computer
+
+**CPU**:
+The part built in L8 that runs a program one instruction at a time. Its signals are 8 wide everywhere: data, registers and addresses.
+_Avoid_: processor, computer (for the part)
+
+**Register**:
+A memory part that keeps one 8-signal value. The CPU has four, R0 to R3.
+
+**Register file**:
+The four registers as one part, which gives two registers' values and writes a third in the same tick.
+
+**ALU**:
+The part, built in L4, that does one of six operations (add, subtract, and, or, xor, not) on two 8-signal values, chosen by its OP input. Its ZERO output is on when A is 0. It is built from eight **ALU slices**, each the ALU for one signal.
+_Avoid_: calculator, math unit
+
+**Program counter**:
+The register that holds the address of the next instruction. It adds 1 on each fetch, or takes a new address on a jump.
+_Avoid_: PC (in player-facing text), instruction pointer
+
+**Decoder**:
+A part that turns a number into one signal: the output with the input's number is on and the rest are off. The CPU's 4-in, 16-out decoder turns an opcode into the instruction it means.
+
+**Sequencer**:
+The part that says whether the CPU is on its fetch tick or its execute tick.
+
+**Execute unit**:
+The CPU without fetch: the register file, the ALU and the wiring that does one instruction given as inputs. The first L8 level.
+
+**Instruction**:
+One thing the CPU can do, such as add two registers or jump. The game fixes what each instruction does; the player names it and numbers it.
+_Avoid_: command, op
+
+**Instruction set**:
+The player's table, written in L7 before the CPU is built, that gives each instruction a mnemonic and an opcode. The CPU and the door program both use it.
+_Avoid_: ISA (in player-facing text), language
+
+**Program memory**:
+The memory that holds the program the CPU runs, filled from the player's instruction set. The level supplies it, like a terminal; the player never builds it.
+_Avoid_: ROM, code memory
+
+**RAM**:
+The memory part, built in L5 from registers, that keeps 8 values the program reads and writes. It holds data, never the program.
+_Avoid_: memory (alone), storage
+
+**Device**:
+Something outside the CPU that a program reads from with `in` or sends to with `out`: the door, and the keypad the player types a name on.
+_Avoid_: port, peripheral
+
+**Fetch** / **Execute**:
+The two ticks of every instruction: the first takes the next instruction from program memory, the second does it.
+_Avoid_: cycle, phase
+
+**Door program**:
+The program the player writes in their instruction set in L9. It reads the name from the keypad, works out the door code and sends it to the door.
+
+**Door code**:
+The number the door wants: the sum of the letters of TURING, kept to 8 signals (217).
+
+**Clue**:
+A pencil note in a sheet's margin about Alan Turing's life, shown once that sheet's level is solved. The clues together point to the name the door code comes from.
+_Avoid_: hint (Bitbox gives hints), easter egg
+
+**Mnemonic**:
+The word the player chose for an instruction, such as `LOAD`.
+
+**Opcode**:
+The number the player chose for an instruction, which the CPU reads to know what to do.
 
 ## Bitbox
 
