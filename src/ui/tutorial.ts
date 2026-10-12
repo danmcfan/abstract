@@ -1,18 +1,12 @@
 import { createEffect, createMemo, on } from "solid-js";
 import { say } from "./speech";
 import * as script from "./script";
-import { hasFlag, level, result, setFlag } from "./state";
+import { level, once, result } from "./state";
 
 // The tutorial is the robot chiming in as you play: once when a level first
 // opens, once when it's first solved, and the first time a test fails.
 // Flags remember what's been said, so a saved game doesn't repeat itself.
 export function useTutorial(): void {
-  const once = (flag: string, speak: () => void) => {
-    if (hasFlag(flag)) return;
-    setFlag(flag);
-    speak();
-  };
-
   // State readers rerun on every change; these only on a new level or result.
   const currentLevel = createMemo(level);
   const latest = createMemo(result);

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { newGame, pinPosition, placeNode, setInput, wire, type Game, type Pin } from "./circuit";
-import { checkLevel, LEVELS, loadLevel, matches, partsBin, truthTable, type Level } from "./level";
+import { checkLevel, floorAbove, LAYERS, layerLevels, layerState, LEVELS, loadLevel, matches, partsBin, truthTable, type Level } from "./level";
 import { definePart, type Label, type NodeID, type NodeType } from "./node";
 
 const out = (node: NodeID, index = 0): Pin => ({ node, side: "out", index });
@@ -191,6 +191,7 @@ test("checkLevel leaves the board's inputs alone", () => {
 const HALF_ADDER: Level = {
   gate: "HALF" as NodeType,
   goal: "SUM is on when exactly one input is on; COUT when both are.",
+  layer: 3,
   inputs: ["A", "B"],
   outputs: ["SUM", "COUT"],
   target: ([a, b]) => [a !== b, !!(a && b)],
@@ -280,5 +281,53 @@ describe("a level with two outputs", () => {
       [true, false, true, true],
       [false, true, false, false],
     ]);
+  });
+});
+
+describe("the stack", () => {
+  // Two levels on L1 and one on L2, so a layer can be part solved.
+  const stub = (layer: number): Level => ({ ...LEVELS[1]!, layer });
+  const levels = [stub(1), stub(1), stub(2)];
+
+  test("lists nine layers, L1 to L9, each with a floor", () => {
+    expect(LAYERS.map((layer) => layer.number)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    expect(LAYERS[2]!.floor).toBe("adder assembly");
+    expect(LAYERS[8]!.floor).toBe("the exit hall");
+  });
+
+  test("every level belongs to a layer, in order up the stack", () => {
+    const layers = LEVELS.map((level) => level.layer);
+    expect(layers).toEqual([...layers].sort());
+    expect(layers.every((n) => LAYERS.some((layer) => layer.number === n))).toBe(true);
+    expect(layerLevels(1)).toEqual([0]);
+  });
+
+  test("a layer is in progress while its first level can be played", () => {
+    expect(layerState(1, 0, levels)).toBe("in progress");
+    expect(layerState(1, 1, levels)).toBe("in progress");
+  });
+
+  test("a layer is built once every level in it is solved", () => {
+    expect(layerState(1, 2, levels)).toBe("built");
+    expect(layerState(2, 3, levels)).toBe("built");
+  });
+
+  test("a layer is locked until its first level can be played", () => {
+    expect(layerState(2, 0, levels)).toBe("locked");
+    expect(layerState(2, 1, levels)).toBe("locked");
+    expect(layerState(2, 2, levels)).toBe("in progress");
+  });
+
+  test("a layer with no levels in the game is locked, even with everything solved", () => {
+    expect(layerState(3, 3, levels)).toBe("locked");
+    expect(layerState(9, LEVELS.length)).toBe("locked");
+  });
+
+  test("only a layer's last level leads up a floor, and only to a layer with levels", () => {
+    expect(floorAbove(0, levels)).toBeNull();
+    expect(floorAbove(1, levels)?.floor).toBe("the logic line");
+    expect(floorAbove(2, levels)).toBeNull();
+    expect(floorAbove(0)?.number).toBe(2);
+    expect(floorAbove(LEVELS.length - 1)).toBeNull();
   });
 });

@@ -23,7 +23,7 @@ function runAll(session: Session) {
 }
 
 const NOT_LEVEL = 1;
-const saved = (solved: number, levelIndex = solved): SaveData => ({ solved, levelIndex, board: null, flags: [] });
+const saved = (solved: number, levelIndex = solved): SaveData => ({ solved, levelIndex, boards: {}, flags: [] });
 
 // A session on the NOT level, with the NAND level already solved.
 function fresh(solved = 1) {
@@ -127,6 +127,22 @@ describe("saved games", () => {
     expect(later.result?.passed).toBe(true);
   });
 
+  test("a save from before each level kept its own board loads that board on its level", () => {
+    const { session, store } = fresh();
+    buildNot(session.game);
+    session.save();
+    const { boards, ...rest } = store.load()!;
+    const old = { ...rest, board: boards.NOT };
+
+    const later = new Session(memorySave(old));
+    later.resume();
+    expect(later.levelIndex).toBe(NOT_LEVEL);
+    expect(later.game.edges.size).toBe(3);
+    later.start(0);
+    later.start(NOT_LEVEL);
+    expect(later.game.edges.size).toBe(3);
+  });
+
   test("a save from before levels named their terminals resumes with its board intact", () => {
     // The AND level, part built: A and B into a NAND, written when inputs
     // were ALPHA and BETA, the output had no name, and nodes had no signals.
@@ -187,11 +203,92 @@ describe("saved games", () => {
     expect(store.load()?.solved).toBe(0);
   });
 
+  test("a board that doesn't look like a board is dropped, keeping the rest of the save", () => {
+    const session = new Session(memorySave({ solved: 2, levelIndex: 1, boards: { NOT: 7, AND: { nodes: "x" } }, flags: [] }));
+    session.resume();
+    expect(session.levelIndex).toBe(1);
+    expect(session.solved).toBe(2);
+    expect(session.game.edges.size).toBe(0);
+  });
+
   test("no save means nothing to continue", () => {
     const session = new Session(memorySave());
     expect(session.hasSave).toBe(false);
     session.resume();
     expect(session.levelIndex).toBe(0);
     expect(session.hasSave).toBe(true);
+  });
+});
+
+describe("one board per level", () => {
+  const AND_LEVEL = 2;
+
+  test("leaving a half-built level and coming back restores its board", () => {
+    const { session } = fresh(2);
+    const a = find(session.game, "INPUT");
+    const g = placeNode(session.game, "NAND", { x: 20, y: 10 })!.id;
+    wire(session.game, out(a), inp(g, 0));
+    session.save();
+
+    session.start(AND_LEVEL);
+    placeNode(session.game, "NOT", { x: 20, y: 10 });
+    session.save();
+    expect(session.game.edges.size).toBe(0);
+
+    session.start(NOT_LEVEL);
+    expect(session.game.nodes.has(g)).toBe(true);
+    expect(session.game.edges.size).toBe(1);
+    session.start(AND_LEVEL);
+    expect([...session.game.nodes.values()].some((n) => n.type === "NOT")).toBe(true);
+  });
+
+  test("a solved level's board is restored too", () => {
+    const { session, store } = fresh();
+    buildNot(session.game);
+    session.save();
+    runAll(session);
+    expect(session.result?.passed).toBe(true);
+    session.start(AND_LEVEL);
+
+    const later = new Session(store);
+    later.resume();
+    expect(later.levelIndex).toBe(AND_LEVEL);
+    later.start(NOT_LEVEL);
+    expect(later.game.edges.size).toBe(3);
+    runAll(later);
+    expect(later.result?.passed).toBe(true);
+  });
+
+  test("a level never visited opens on a fresh board", () => {
+    const { session } = fresh(2);
+    session.start(AND_LEVEL);
+    expect([...session.game.nodes.values()].map((n) => n.type)).toEqual(["INPUT", "INPUT", "OUTPUT"]);
+  });
+
+  test("clear replaces only the current level's board", () => {
+    const { session, store } = fresh(2);
+    buildNot(session.game);
+    session.save();
+    session.start(AND_LEVEL);
+    placeNode(session.game, "NOT", { x: 20, y: 10 });
+    session.save();
+
+    session.clear();
+    expect(session.levelIndex).toBe(AND_LEVEL);
+    expect(session.game.nodes.size).toBe(3);
+    expect(store.load()?.boards.AND?.nodes.length).toBe(3);
+    session.start(NOT_LEVEL);
+    expect(session.game.edges.size).toBe(3);
+  });
+
+  test("clear aborts a test run without a result", () => {
+    const { session } = fresh();
+    buildNot(session.game);
+    session.beginTest();
+    session.step();
+    session.clear();
+    expect(session.testing).toBe(false);
+    expect(session.result).toBeNull();
+    expect(session.game.edges.size).toBe(0);
   });
 });

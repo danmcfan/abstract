@@ -5,8 +5,12 @@ A logic-gate puzzle game: the player starts with NAND and builds every other par
 ## Progression
 
 **Layer**:
-A set of parts that are each built only from the layers below it (L1 NAND, L2 basic gates, L3 arithmetic, and so on up to L9, the door program). The level-select screen is the layer stack.
+A set of parts that are each built only from the layers below it (L1 NAND, L2 basic gates, L3 arithmetic, and so on up to L9, the door program). Defined in `LAYERS` in `src/sim/level.ts`; each level names its layer. A layer is built once every level in it is solved, in progress once its first level can be played, and locked otherwise.
 _Avoid_: tier, world, stage
+
+**Stack**:
+The level-select screen: the nine layers, L1 at the bottom, where the player opens a layer and picks one of its sheets. Passing a layer's last level takes the elevator up to the next floor.
+_Avoid_: level select, map, menu
 
 **Floor**:
 The place in the factory where a layer happens, such as "adder assembly" for L3. It's the story's name for a layer, never a separate unit of progress.
@@ -211,5 +215,5 @@ The dev-only page (`bitbox.html`) for orbiting, lighting and posing Bitbox.
 ## Saves
 
 **Save**:
-The player's progress, the board in progress and the story flags, kept in the browser (`src/sim/save.ts`). Continue resumes it; New Game erases it.
+The player's progress, the board left on each level and the story flags, kept in the browser (`src/sim/save.ts`). Continue resumes it; New Game erases it.
 _Avoid_: profile, slot, progress file

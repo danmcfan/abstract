@@ -9,7 +9,8 @@ import { Dialogue } from "./ui/Dialogue";
 import { hush, say } from "./ui/speech";
 import { Hud } from "./ui/Hud";
 import * as script from "./ui/script";
-import { continueGame, current, hasFlag, level, levelIndex, newGame, startLevel } from "./ui/state";
+import { Stack } from "./ui/Stack";
+import { continueGame, current, hasFlag, level, levelIndex, newGame, once, startLevel } from "./ui/state";
 import { Title } from "./ui/Title";
 import { useTutorial } from "./ui/tutorial";
 
@@ -19,8 +20,16 @@ const requested = Number(params.get("level")) - 1;
 const jump = import.meta.env.DEV && requested >= 0 && requested < LEVELS.length;
 if (jump) startLevel(requested);
 
+// The stack opens over the board, which stays as it was underneath, or over
+// the title, which it returns to. Arriving from the floor below, it names
+// the layer the elevator rides up to.
+interface StackView {
+  arrive?: number;
+}
+
 function App() {
   const [screen, setScreen] = createSignal<"title" | "play">(jump ? "play" : "title");
+  const [stack, setStack] = createSignal<StackView | null>(null);
   const play = (begin: () => void) => {
     begin();
     setScreen("play");
@@ -29,11 +38,27 @@ function App() {
     hush();
     setScreen("title");
   };
+  const openStack = (arrive?: number) => {
+    hush();
+    setStack({ arrive });
+    if (arrive) once(`floor:${arrive}`, () => say(script.floor(arrive)));
+  };
+  // Picking the level already on the board leaves it alone, test result
+  // and all.
+  const pick = (index: number) => {
+    hush();
+    setStack(null);
+    if (index !== levelIndex()) startLevel(index);
+    setScreen("play");
+  };
+  const closeStack = () => {
+    hush();
+    setStack(null);
+  };
 
   return (
-    <Show
-      when={screen() === "play"}
-      fallback={
+    <>
+      <Show when={screen() === "title" && !stack()}>
         <Title
           onContinue={() =>
             play(() => {
@@ -41,22 +66,32 @@ function App() {
               if (hasFlag(`intro:${level().gate}`)) say(script.welcomeBack(level()));
             })
           }
+          onStack={() => {
+            continueGame();
+            openStack();
+          }}
           onNew={() => play(newGame)}
         />
-      }
-    >
-      <Play onMenu={menu} />
-    </Show>
+      </Show>
+      <Show when={screen() === "play"}>
+        <Play onMenu={menu} onStack={openStack} />
+      </Show>
+      <Show when={stack()} keyed>
+        {(view) => <Stack arrive={view.arrive} onPick={pick} onClose={closeStack} />}
+      </Show>
+      <Show when={screen() === "play" || stack()}>
+        <Dialogue />
+      </Show>
+    </>
   );
 }
 
-function Play(props: { onMenu: () => void }) {
+function Play(props: { onMenu: () => void; onStack: (arrive?: number) => void }) {
   useTutorial();
   return (
     <>
       <Board />
-      <Hud onMenu={props.onMenu} />
-      <Dialogue />
+      <Hud onMenu={props.onMenu} onStack={props.onStack} />
     </>
   );
 }

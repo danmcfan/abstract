@@ -1,14 +1,19 @@
 import type { Edge, Game } from "./circuit";
-import { outputCount, type Label, type Node } from "./node";
+import { LEVELS } from "./level";
+import { outputCount, type Label, type Node, type NodeType } from "./node";
 
-// A saved game: how far the player has got, the board they were working on,
-// and story flags (such as which robot lines they've already heard).
+// A saved game: how far the player has got, the level they're on, the board
+// they left on each level, and story flags (such as which robot lines
+// they've already heard).
 export interface SaveData {
   solved: number;
   levelIndex: number;
-  board: SavedBoard | null;
+  boards: Boards;
   flags: string[];
 }
+
+// Each level's board, by the gate the level builds.
+export type Boards = Partial<Record<NodeType, SavedBoard>>;
 
 export interface SavedBoard {
   nodes: Node[];
@@ -23,10 +28,12 @@ export interface SaveStore {
   clear(): void;
 }
 
-export function memorySave(initial: SaveData | null = null): SaveStore {
+// Reads back what it was given the way a stored save is read, so a save in
+// an old shape loads as it would from the browser.
+export function memorySave(initial: unknown = null): SaveStore {
   let value = initial;
   return {
-    load: () => value && structuredClone(value),
+    load: () => parseSave(structuredClone(value)),
     save: (data) => void (value = structuredClone(data)),
     clear: () => void (value = null),
   };
@@ -43,7 +50,7 @@ export function localSave(key = "abstract.save"): SaveStore {
         const raw = localStorage.getItem(key);
         if (raw) return parseSave(JSON.parse(raw));
         const legacy = Number(localStorage.getItem(LEGACY_KEY));
-        return legacy > 0 ? { solved: legacy + 1, levelIndex: legacy + 1, board: null, flags: [] } : null;
+        return legacy > 0 ? { solved: legacy + 1, levelIndex: legacy + 1, boards: {}, flags: [] } : null;
       } catch {
         return null;
       }
@@ -91,12 +98,22 @@ export function loadBoard(board: SavedBoard): Game {
   };
 }
 
-// Anything that doesn't look like a save reads as no save.
+const isBoard = (board: unknown): board is SavedBoard =>
+  typeof board === "object" && board !== null && Array.isArray((board as SavedBoard).nodes) && Array.isArray((board as SavedBoard).edges);
+
+// Anything that doesn't look like a save reads as no save, and a board that
+// doesn't look like a board is dropped. Saves from before each level kept
+// its own board held one board, for the level they were on.
 function parseSave(value: unknown): SaveData | null {
   if (typeof value !== "object" || value === null) return null;
-  const v = value as Partial<SaveData>;
+  const v = value as Partial<SaveData> & { board?: unknown };
   if (typeof v.solved !== "number" || typeof v.levelIndex !== "number") return null;
-  const board = v.board && Array.isArray(v.board.nodes) && Array.isArray(v.board.edges) ? v.board : null;
+  const boards: Boards = {};
+  if (typeof v.boards === "object" && v.boards !== null) {
+    for (const [gate, board] of Object.entries(v.boards)) if (isBoard(board)) boards[gate as NodeType] = board;
+  }
+  const legacy = LEVELS[v.levelIndex];
+  if (isBoard(v.board) && legacy) boards[legacy.gate] = v.board;
   const flags = Array.isArray(v.flags) ? v.flags.filter((f) => typeof f === "string") : [];
-  return { solved: v.solved, levelIndex: v.levelIndex, board, flags };
+  return { solved: v.solved, levelIndex: v.levelIndex, boards, flags };
 }

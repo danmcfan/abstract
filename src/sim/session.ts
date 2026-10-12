@@ -1,11 +1,12 @@
 import type { Game } from "./circuit";
-import { applyInputs, checkLevel, LEVELS, loadLevel, type CheckResult, type Level } from "./level";
-import { loadBoard, saveBoard, type SaveStore } from "./save";
+import { applyInputs, checkLevel, LEVELS, loadLevel, playableCount, type CheckResult, type Level } from "./level";
+import { loadBoard, saveBoard, type Boards, type SaveStore } from "./save";
 
-// One player's play: the current level and board, a test run stepping
-// through the truth table one row at a time, solved progress, and story
-// flags. Time lives outside; the caller decides when to step. The board is
-// edited in place by the caller, which calls save() afterwards.
+// One player's play: the current level and board, the board left on every
+// other level, a test run stepping through the truth table one row at a
+// time, solved progress, and story flags. Time lives outside; the caller
+// decides when to step. The board is edited in place by the caller, which
+// calls save() afterwards.
 export class Session {
   levelIndex = 0;
   game: Game = loadLevel(LEVELS[0]!);
@@ -20,10 +21,13 @@ export class Session {
   rowResults: (boolean[] | undefined)[] = [];
   result: CheckResult | null = null;
   flags = new Set<string>();
+  private boards: Boards = {};
   private check: CheckResult | null = null;
 
   constructor(private store: SaveStore) {
-    this.solved = store.load()?.solved ?? 0;
+    const data = store.load();
+    this.solved = data?.solved ?? 0;
+    this.boards = data?.boards ?? {};
   }
 
   // Whether there's a game to continue.
@@ -36,22 +40,17 @@ export class Session {
   get savedLevel(): number {
     const data = this.store.load();
     if (!data) return 0;
-    const unlocked = Math.min(data.solved + 1, LEVELS.length);
-    return Math.max(0, Math.min(data.levelIndex, unlocked - 1));
+    return Math.max(0, Math.min(data.levelIndex, playableCount(data.solved) - 1));
   }
 
-  // Picks up the saved game where it left off, board and all.
+  // Picks up the saved game where it left off, boards and all.
   resume(): void {
     const data = this.store.load();
     if (!data) return this.reset();
-    const index = this.savedLevel;
     this.solved = Math.min(data.solved, LEVELS.length);
     this.flags = new Set(data.flags);
-    this.start(index);
-    if (data.board && data.levelIndex === index) {
-      this.game = loadBoard(data.board);
-      this.save();
-    }
+    this.boards = data.boards;
+    this.start(this.savedLevel);
   }
 
   // Throws away the saved game and starts over from the first level.
@@ -59,14 +58,16 @@ export class Session {
     this.store.clear();
     this.solved = 0;
     this.flags = new Set();
+    this.boards = {};
     this.start(0);
   }
 
   save(): void {
+    this.boards[this.level.gate] = saveBoard(this.game);
     this.store.save({
       solved: this.solved,
       levelIndex: this.levelIndex,
-      board: saveBoard(this.game),
+      boards: this.boards,
       flags: [...this.flags],
     });
   }
@@ -76,13 +77,26 @@ export class Session {
   }
 
   get unlockedCount(): number {
-    return Math.min(this.solved + 1, LEVELS.length);
+    return playableCount(this.solved);
   }
 
-  // Loads a fresh board, aborting any test run without recording a result.
+  // Opens a level on the board the player left there, or a fresh one if
+  // they've never been, aborting any test run without recording a result.
   start(index: number): void {
+    const level = LEVELS[index]!;
+    const board = this.boards[level.gate];
     this.levelIndex = index;
-    this.game = loadLevel(LEVELS[index]!);
+    this.load(board ? loadBoard(board) : loadLevel(level));
+  }
+
+  // Throws away the current level's board for a fresh one. Other levels'
+  // boards are kept.
+  clear(): void {
+    this.load(loadLevel(this.level));
+  }
+
+  private load(game: Game): void {
+    this.game = game;
     this.run++;
     this.testing = false;
     this.check = null;

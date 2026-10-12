@@ -1,31 +1,26 @@
-import { For, Show } from "solid-js";
+import { For, Show, createEffect, createSignal, on } from "solid-js";
 import { placeNode } from "../sim/circuit";
 import { GRID_HEIGHT, GRID_WIDTH } from "../sim/grid";
-import { LEVELS, matches, partsBin, truthTable } from "../sim/level";
+import { floorAbove, layerOf, LEVELS, matches, partsBin, truthTable } from "../sim/level";
 import { say } from "./speech";
 import { GateIcon } from "./GateIcon";
 import * as script from "./script";
-import {
-  currentRow,
-  level,
-  levelIndex,
-  mutate,
-  result,
-  rowResults,
-  runTest,
-  startLevel,
-  testing,
-  unlockedCount,
-} from "./state";
+import { clearBoard, currentRow, level, levelIndex, mutate, result, rowResults, runTest, startLevel, testing } from "./state";
 
 const bit = (value: boolean) => (value ? "1" : "0");
 const bits = (values: boolean[]) => values.map(bit).join("");
 const pad = (n: number) => String(n).padStart(2, "0");
 
 // The overlay, drawn like sheets pinned to the drafting board: the level's
-// title block and truth table, the parts bin, and the sheet index.
-export function Hud(props: { onMenu: () => void }) {
+// title block and truth table, the parts bin, and the button that opens the
+// stack. Passing a layer's last level leads up to the next floor, through
+// the stack.
+export function Hud(props: { onMenu: () => void; onStack: (arrive?: number) => void }) {
   const rows = () => truthTable(level());
+  const layer = () => layerOf(levelIndex());
+  const above = () => floorAbove(levelIndex());
+  const [clearing, setClearing] = createSignal(false);
+  createEffect(on(levelIndex, () => setClearing(false)));
 
   const status = () => {
     if (testing()) return { text: "Testing…", tone: "text-pencil" };
@@ -83,12 +78,36 @@ export function Hud(props: { onMenu: () => void }) {
             </tbody>
           </table>
 
-          <div class="shrink-0 min-[900px]:mt-3.5 min-[900px]:flex min-[900px]:items-center min-[900px]:gap-3">
+          <div class="flex shrink-0 flex-col items-start gap-2 min-[900px]:mt-3.5 min-[900px]:flex-row min-[900px]:items-center min-[900px]:gap-3">
             <button id="test" class="btn" disabled={testing()} onClick={() => void runTest()}>
               Run test
             </button>
+            <button id="clear" class="btn btn-ghost btn-sm" disabled={clearing()} onClick={() => setClearing(true)}>
+              Clear
+            </button>
           </div>
         </div>
+
+        <Show when={clearing()}>
+          <div class="mt-3 border-2 border-dashed border-fail p-2.5" role="alertdialog" aria-label="Clear this board?">
+            <p class="mb-2 text-[13px]">Clear this board?</p>
+            <div class="flex gap-3">
+              <button
+                id="clear-confirm"
+                class="btn btn-sm border-fail bg-fail"
+                onClick={() => {
+                  setClearing(false);
+                  clearBoard();
+                }}
+              >
+                Clear
+              </button>
+              <button id="clear-keep" class="btn btn-ghost btn-sm" onClick={() => setClearing(false)}>
+                Keep it
+              </button>
+            </div>
+          </div>
+        </Show>
 
         <Show when={status()}>
           {(s) => (
@@ -98,26 +117,28 @@ export function Hud(props: { onMenu: () => void }) {
           )}
         </Show>
         <Show when={result()?.passed && levelIndex() + 1 < LEVELS.length}>
-          <button id="next" class="btn mt-2.5" onClick={() => startLevel(levelIndex() + 1)}>
-            Next level ▸
-          </button>
+          <Show
+            when={above()}
+            fallback={
+              <button id="next" class="btn mt-2.5" onClick={() => startLevel(levelIndex() + 1)}>
+                Next level ▸
+              </button>
+            }
+          >
+            {(next) => (
+              <button id="up" class="btn mt-2.5" onClick={() => props.onStack(next().number)}>
+                Up to {next().floor} ▸
+              </button>
+            )}
+          </Show>
         </Show>
       </section>
 
       <nav class="fixed top-3 right-3 flex gap-1.5 max-[899px]:top-auto max-[899px]:right-auto max-[899px]:bottom-3 max-[899px]:left-3 min-[900px]:top-5 min-[900px]:right-5">
-        <For each={Array.from({ length: unlockedCount() }, (_, i) => i)}>
-          {(i) => (
-            <button
-              class={`size-8 border-2 border-ink text-xs font-bold max-[899px]:hidden ${i === levelIndex() ? "bg-ink text-paper" : "bg-surface text-ink hover:bg-wash"}`}
-              aria-label={`Level ${i + 1}`}
-              aria-current={i === levelIndex() ? "step" : undefined}
-              onClick={() => startLevel(i)}
-            >
-              {pad(i + 1)}
-            </button>
-          )}
-        </For>
-        <button id="help" class="btn btn-ghost btn-sm ml-1.5 max-[899px]:ml-0" onClick={() => say(script.help(level()))}>
+        <button id="open-stack" class="btn btn-ghost btn-sm" onClick={() => props.onStack()}>
+          L{layer().number} · {layer().floor}
+        </button>
+        <button id="help" class="btn btn-ghost btn-sm" onClick={() => say(script.help(level()))}>
           ? Help
         </button>
         <button id="menu" class="btn btn-ghost btn-sm" onClick={() => props.onMenu()}>

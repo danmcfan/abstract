@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Plays every level in a real browser with agent-browser, using real mouse
 # drags to place gates and draw wires, and saves a screenshot per level plus a
-# video of the whole run.
+# video of the whole run. It climbs the stack between layers, and screenshots
+# the stack (stack-*.png) on the way.
 #
 # Usage: bun run playthrough [out-dir]
 #   (or, against a server you already run: BASE_URL=http://localhost:5173/ scripts/playthrough.sh)
@@ -51,6 +52,12 @@ wire() {
 # Closes the robot's popup if it's up, so it can't cover the board.
 hush() { agent-browser eval "document.querySelector('#dialog-close')?.click()" >/dev/null; }
 
+# Fails the run with a message unless a JS expression is true.
+expect() { [[ $(js "$1") == true ]] || { echo "failed: $2" >&2; exit 1; }; }
+
+# Starts a level from the stack, which must be open, by its sheet number.
+sheet() { ab click "button[data-level=\"$1\"]"; sleep 0.5; hush; }
+
 check() {
   hush
   ab click "#test"
@@ -66,18 +73,31 @@ ab set viewport 1280 800
 agent-browser record restart "$OUT/playthrough.webm" "${BASE}?level=1" >/dev/null
 until [[ $(js "typeof __abstract") == *object* ]]; do sleep 0.5; done
 
-# Level 1: NAND comes wired; just test it.
+# Level 1: NAND comes wired; just test it. It's L1's only level, so passing
+# leads up to L2 through the stack, where Bitbox names the floor.
 check 3 1
+expect "document.querySelector('#up').textContent.includes('Up to the logic line')" "level 1 leads up to the logic line"
+ab click "#up"; sleep 1.2
+expect "document.querySelector('#dialogue').textContent.includes('logic line')" "Bitbox names the new floor"
+hush
+expect "document.querySelector('[data-layer=\"1\"]').parentElement.dataset.state === 'built'" "L1 is built"
+expect "document.querySelector('[data-layer=\"2\"]').parentElement.dataset.state === 'in progress'" "L2 is in progress"
+expect "document.querySelector('[data-layer=\"3\"]').parentElement.dataset.state === 'locked'" "L3 is locked"
+agent-browser screenshot "$OUT/stack-up.png" >/dev/null
 
 # Level 2: NOT is a NAND with both inputs tied together.
-ab click "#next"; sleep 0.5; hush
+sheet 2
 A=$(terminal INPUT A); O=$(terminal OUTPUT OUT)
 N=$(add NAND 22 20)
 wire "$A" "$N" 0; wire "$A" "$N" 1; wire "$N" "$O"
 check 2 2
 
-# Level 3: AND is NAND followed by NOT.
+# Level 3: AND is NAND followed by NOT. A stray gate goes on first, to try
+# Clear.
 ab click "#next"; sleep 0.5; hush
+add NOT 28 10 >/dev/null
+ab click "#clear"; ab click "#clear-confirm"
+expect "__abstract.nodes().length === 3" "Clear leaves only the terminals"
 A=$(terminal INPUT A); B=$(terminal INPUT B); O=$(terminal OUTPUT OUT)
 N=$(add NAND 16 21); T=$(add NOT 28 21)
 wire "$A" "$N" 0; wire "$B" "$N" 1; wire "$N" "$T"; wire "$T" "$O"
@@ -107,6 +127,25 @@ T=$(add NOT 12 28); GA=$(add AND 20 10); GB=$(add AND 20 24); R=$(add OR 30 17)
 wire "$S" "$T"; wire "$A" "$GA" 0; wire "$T" "$GA" 1; wire "$B" "$GB" 0; wire "$S" "$GB" 1
 wire "$GA" "$R" 0; wire "$GB" "$R" 1; wire "$R" "$O"
 check 5 6
+
+# MUX is the last level so far, and L3 has none yet, so there's no way up.
+expect "!document.querySelector('#up') && !document.querySelector('#next')" "no way up from the last level"
+
+# The HUD button opens the stack on the current layer, and each level keeps
+# its board: going back to NOT finds it still wired.
+expect "document.querySelector('#open-stack').textContent.includes('L2 · the logic line')" "the HUD names the current layer"
+ab click "#open-stack"; sleep 0.8; hush
+expect "document.querySelector('[data-layer=\"2\"]').parentElement.dataset.state === 'built'" "L2 is built"
+agent-browser screenshot "$OUT/stack-built.png" >/dev/null
+sheet 2
+expect "__abstract.levelIndex === 1 && __abstract.game.edges.size === 3" "NOT keeps its board"
+
+# The title offers the stack once there's a save.
+ab click "#menu"; sleep 0.5
+ab click "#title-stack"; sleep 0.8
+expect "!!document.querySelector('#stack [aria-current=step]')" "the stack opens from the title on the saved level"
+ab click "#stack-close"; sleep 0.3
+expect "!!document.querySelector('#continue')" "Back returns to the title"
 
 # The video is a convenience: a failed encode warns but doesn't fail the run.
 agent-browser record stop >/dev/null 2>&1 || echo "warning: video not saved (agent-browser needs ffmpeg)" >&2
