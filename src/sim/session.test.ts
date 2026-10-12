@@ -104,6 +104,57 @@ describe("session", () => {
     expect(session.solved).toBe(1);
   });
 
+  test("a passing run stamps the sheet", () => {
+    const { session } = fresh();
+    buildNot(session.game);
+    expect(session.stamped).toBe(false);
+    session.beginTest();
+    session.step();
+    expect(session.stamped).toBe(false);
+    while (session.step());
+    expect(session.stamped).toBe(true);
+  });
+
+  test("passing a level already solved stamps it again", () => {
+    const { session } = fresh(3);
+    buildNot(session.game);
+    runAll(session);
+    expect(session.stamped).toBe(true);
+  });
+
+  test("a failing run doesn't stamp", () => {
+    const { session } = fresh();
+    runAll(session);
+    expect(session.result?.passed).toBe(false);
+    expect(session.stamped).toBe(false);
+  });
+
+  test("the stamp comes off when the board changes", () => {
+    const { session, store } = fresh();
+    buildNot(session.game);
+    runAll(session);
+    session.edit((game) => placeNode(game, "NAND", { x: 30, y: 20 }));
+    expect(session.stamped).toBe(false);
+    expect(session.result?.passed).toBe(true);
+    expect(store.load()?.board?.nodes.length).toBe(4);
+  });
+
+  test("the stamp comes off when a new run starts", () => {
+    const { session } = fresh();
+    buildNot(session.game);
+    runAll(session);
+    session.beginTest();
+    expect(session.stamped).toBe(false);
+  });
+
+  test("the stamp comes off on another level", () => {
+    const { session } = fresh();
+    buildNot(session.game);
+    runAll(session);
+    session.start(0);
+    expect(session.stamped).toBe(false);
+  });
+
   test("progress loads from the store", () => {
     expect(new Session(memorySave(saved(2))).unlockedCount).toBe(3);
   });
