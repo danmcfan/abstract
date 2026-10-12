@@ -40,9 +40,9 @@ describe("session", () => {
     expect(session.beginTest()).toBe(false);
     expect(session.step()).toBe(true);
     expect(session.currentRow).toBe(0);
-    expect(session.rowResults).toEqual([[false]]);
+    expect(session.rowResults).toEqual([[0]]);
     expect(session.step()).toBe(true);
-    expect(session.rowResults).toEqual([[false], [false]]);
+    expect(session.rowResults).toEqual([[0], [0]]);
     expect(session.step()).toBe(false);
     expect(session.testing).toBe(false);
     expect(session.currentRow).toBeNull();
@@ -54,7 +54,7 @@ describe("session", () => {
     buildNot(session.game);
     expect(session.unlockedCount).toBe(2);
     runAll(session);
-    expect(session.rowResults).toEqual([[true], [false]]);
+    expect(session.rowResults).toEqual([[1], [0]]);
     expect(session.result?.passed).toBe(true);
     expect(session.solved).toBe(2);
     expect(session.unlockedCount).toBe(3);
@@ -98,7 +98,7 @@ describe("session", () => {
     const { session } = fresh();
     buildNot(session.game, "NOT");
     runAll(session);
-    expect(session.rowResults).toEqual([[true], [false]]);
+    expect(session.rowResults).toEqual([[1], [0]]);
     expect(session.result?.forbidden).toEqual(["NOT"]);
     expect(session.result?.passed).toBe(false);
     expect(session.solved).toBe(1);

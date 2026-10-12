@@ -1,5 +1,6 @@
 import type { Game } from "./circuit";
-import { applyInputs, checkLevel, LEVELS, loadLevel, type CheckResult, type Level } from "./level";
+import { applyInputs, checkLevel, LEVELS, loadLevel, truthTable, type CheckResult, type Level, type Row } from "./level";
+import type { Value } from "./node";
 import { loadBoard, saveBoard, type SaveStore } from "./save";
 
 // One player's play: the current level and board, a test run stepping
@@ -15,9 +16,9 @@ export class Session {
   run = 0;
   testing = false;
   currentRow: number | null = null;
-  // Per truth table row: undefined until tested, else what the circuit
+  // Per row of the table: undefined until tested, else what the circuit
   // output, one value per output.
-  rowResults: (boolean[] | undefined)[] = [];
+  rowResults: (Value[] | undefined)[] = [];
   result: CheckResult | null = null;
   flags = new Set<string>();
   private check: CheckResult | null = null;
@@ -75,6 +76,12 @@ export class Session {
     return LEVELS[this.levelIndex]!;
   }
 
+  // The rows the level panel shows: the truth table, then any rows the last
+  // test run found failing out of sight.
+  get tableRows(): Row[] {
+    return [...truthTable(this.level), ...(this.result?.hidden.failed ?? [])];
+  }
+
   get unlockedCount(): number {
     return Math.min(this.solved + 1, LEVELS.length);
   }
@@ -105,7 +112,8 @@ export class Session {
   }
 
   // Shows the next row on the board. Once every row has been shown, ends
-  // the run and records the result. Returns whether a row was shown.
+  // the run, records the result, and adds the rows that failed out of sight
+  // to the table. Returns whether a row was shown.
   step(): boolean {
     const check = this.check;
     if (!this.testing || !check) return false;
@@ -121,6 +129,7 @@ export class Session {
     this.check = null;
     this.currentRow = null;
     this.result = check;
+    this.rowResults = [...this.rowResults, ...check.hidden.failed.map((row) => row.actual)];
     if (check.passed && this.levelIndex + 1 > this.solved) {
       this.solved = this.levelIndex + 1;
       this.save();

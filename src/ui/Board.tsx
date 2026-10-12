@@ -1,15 +1,15 @@
-import { For, Show, createMemo, createSignal, onCleanup, onMount } from "solid-js";
-import { pinPosition, type Pin } from "../sim/circuit";
+import { For, Show, createMemo, createSignal, onCleanup, onMount, untrack } from "solid-js";
+import { pinPosition, widthOf, type Pin } from "../sim/circuit";
 import { createGestures, type Gestures } from "../sim/gesture";
-import { GRID_HEIGHT, GRID_WIDTH } from "../sim/grid";
+import type { Size } from "../sim/grid";
 import { createRouter } from "../sim/route";
 import { NodeView } from "./NodeView";
 import { current, mutate, testing } from "./state";
 import { wirePath } from "./wirePath";
 
 // A drafting sheet drawn in SVG. The viewBox is in grid cells, so one user
-// unit is one cell and the drawing stays crisp at any size. Colours and
-// strokes live in styles.css.
+// unit is one cell and the drawing stays crisp at any size, and a level's
+// larger board scales down to fit. Colours and strokes live in styles.css.
 
 const BOARD_MARGIN = 1.5;
 const VIEW_MARGIN = 1;
@@ -29,8 +29,10 @@ function toBoard(clientX: number, clientY: number): { x: number; y: number } {
 }
 
 export function Board() {
-  const [viewBox, setViewBox] = createSignal(fitViewBox());
-  const onResize = () => setViewBox(fitViewBox());
+  const grid = createMemo(() => current().grid, undefined, { equals: (a, b) => a.width === b.width && a.height === b.height });
+  const [resized, setResized] = createSignal(0);
+  const viewBox = createMemo(() => (resized(), fitViewBox(grid())));
+  const onResize = () => setResized((n) => n + 1);
   window.addEventListener("resize", onResize);
   // The HUD changes size with the level, so fit around it whenever it does.
   const hud = new ResizeObserver(onResize);
@@ -60,9 +62,19 @@ export function Board() {
   // Rerouting only happens when the layout changes, not when signals do.
   const route = createRouter();
   const routing = createMemo(() => route(current()));
-  const wires = createMemo(() => [...routing().routes].map(([id, route]) => ({ id, route, d: wirePath(route) })));
+  // A wire's width only changes along with the layout, so reading the board
+  // here mustn't rerun this on every signal change.
+  const wires = createMemo(() =>
+    [...routing().routes].map(([id, route]) => {
+      const width = untrack(() => {
+        const edge = current().edges.get(id)!;
+        return widthOf(current().nodes.get(edge.from)!, { side: "out", index: edge.fromIndex });
+      });
+      return { id, route, d: wirePath(route), width };
+    }),
+  );
 
-  const isEdgeHigh = (id: number) => !!current().edges.get(id)?.isHigh;
+  const isEdgeHigh = (id: number) => !!current().edges.get(id)?.value;
   const isPinHigh = (pin: Pin) => !!current().nodes.get(pin.node)?.signals[pin.index];
   const preview = () => {
     const w = wiring();
@@ -103,7 +115,7 @@ export function Board() {
         {/* A cyan glow under live wires and lit lamps. In user space, so
             perfectly straight wires (a zero-height bounding box) aren't
             clipped away. */}
-        <filter id="glow" filterUnits="userSpaceOnUse" x="-5" y="-5" width={GRID_WIDTH + 10} height={GRID_HEIGHT + 10}>
+        <filter id="glow" filterUnits="userSpaceOnUse" x="-5" y="-5" width={grid().width + 10} height={grid().height + 10}>
           <feGaussianBlur in="SourceAlpha" stdDeviation="0.22" result="blur" />
           <feFlood flood-color="#7FD0FF" flood-opacity="0.9" />
           <feComposite in2="blur" operator="in" result="glow" />
@@ -118,26 +130,29 @@ export function Board() {
         class="plate-shadow"
         x={-BOARD_MARGIN + 0.5}
         y={-BOARD_MARGIN + 0.5}
-        width={GRID_WIDTH + BOARD_MARGIN * 2}
-        height={GRID_HEIGHT + BOARD_MARGIN * 2}
+        width={grid().width + BOARD_MARGIN * 2}
+        height={grid().height + BOARD_MARGIN * 2}
       />
       <rect
         class="plate"
         x={-BOARD_MARGIN}
         y={-BOARD_MARGIN}
-        width={GRID_WIDTH + BOARD_MARGIN * 2}
-        height={GRID_HEIGHT + BOARD_MARGIN * 2}
+        width={grid().width + BOARD_MARGIN * 2}
+        height={grid().height + BOARD_MARGIN * 2}
       />
-      <rect x={0} y={0} width={GRID_WIDTH} height={GRID_HEIGHT} fill="url(#minor)" />
-      <rect x={0} y={0} width={GRID_WIDTH} height={GRID_HEIGHT} fill="url(#major)" />
-      <rect class="work-area" x={0} y={0} width={GRID_WIDTH} height={GRID_HEIGHT} />
+      <rect x={0} y={0} width={grid().width} height={grid().height} fill="url(#minor)" />
+      <rect x={0} y={0} width={grid().width} height={grid().height} fill="url(#major)" />
+      <rect class="work-area" x={0} y={0} width={grid().width} height={grid().height} />
 
       <g class="wires">
         <For each={wires()}>
           {(wire) => (
-            <g class="wire" classList={{ high: isEdgeHigh(wire.id), unrouted: !wire.route.routed }} data-edge={wire.id}>
+            <g class="wire" classList={{ high: isEdgeHigh(wire.id), unrouted: !wire.route.routed, bus: wire.width > 1 }} data-edge={wire.id}>
               <path class="core" d={wire.d} />
               <path class="flow" d={wire.d} />
+              <Show when={wire.width > 1}>
+                <BusMark at={wire.route.points[0]!} width={wire.width} />
+              </Show>
             </g>
           )}
         </For>
@@ -163,6 +178,21 @@ export function Board() {
   );
 }
 
+// A bus is marked with its width the schematic way: a short slash across it
+// just after it leaves its pin, with the width beside it.
+function BusMark(props: { at: { x: number; y: number }; width: number }) {
+  const x = props.at.x + 0.8;
+  const y = props.at.y;
+  return (
+    <>
+      <path class="bus-mark" d={`M ${x - 0.3} ${y + 0.4} L ${x + 0.3} ${y - 0.4}`} />
+      <text class="bus-width" x={x + 0.35} y={y - 0.7}>
+        {props.width}
+      </text>
+    </>
+  );
+}
+
 function snapshot(g: Gestures): Pick<Gestures, "hoveredNode" | "hoveredPin" | "preview"> {
   return { hoveredNode: g.hoveredNode, hoveredPin: g.hoveredPin, preview: g.preview };
 }
@@ -173,7 +203,7 @@ const HUD_IDS = ["level-panel", "parts-bin"];
 // A viewBox that fits the whole board into the part of the window the HUD
 // leaves free: right of the level panel on wide windows, below it on narrow
 // ones, and above the parts bin.
-function fitViewBox(): string {
+function fitViewBox(grid: Size): string {
   const w = window.innerWidth;
   const h = window.innerHeight;
   const panel = document.getElementById("level-panel")?.getBoundingClientRect();
@@ -187,10 +217,10 @@ function fitViewBox(): string {
   };
   const freeWidth = w - inset.left - inset.right;
   const freeHeight = h - inset.top - inset.bottom;
-  const span = Math.max(GRID_WIDTH, GRID_HEIGHT) + (BOARD_MARGIN + VIEW_MARGIN) * 2;
+  const span = Math.max(grid.width, grid.height) + (BOARD_MARGIN + VIEW_MARGIN) * 2;
   const unitsPerPixel = span / Math.min(freeWidth, freeHeight);
   // Place the board's centre in the middle of the free area.
-  const x = GRID_WIDTH / 2 - (inset.left + freeWidth / 2) * unitsPerPixel;
-  const y = GRID_HEIGHT / 2 - (inset.top + freeHeight / 2) * unitsPerPixel;
+  const x = grid.width / 2 - (inset.left + freeWidth / 2) * unitsPerPixel;
+  const y = grid.height / 2 - (inset.top + freeHeight / 2) * unitsPerPixel;
   return `${x} ${y} ${w * unitsPerPixel} ${h * unitsPerPixel}`;
 }

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { edgeInto, moveNode, newGame, pinPosition, placeNode, removeNode, setInput, unwire, wire, type Game, type Pin } from "./circuit";
-import { GRID_HEIGHT, GRID_WIDTH, overlaps } from "./grid";
+import { DEFAULT_GRID, overlaps } from "./grid";
 // Defines the parts levels give, such as MUX.
 import "./level";
 import type { NodeID, NodeType } from "./node";
@@ -30,7 +30,7 @@ describe("placeNode", () => {
 
   test("refuses when the board is full", () => {
     const game = newGame();
-    for (let i = 0; i < (GRID_WIDTH * GRID_HEIGHT) / 16; i++) placeNode(game, "INPUT", { x: 0, y: 0 });
+    for (let i = 0; i < (DEFAULT_GRID.width * DEFAULT_GRID.height) / 16; i++) placeNode(game, "INPUT", { x: 0, y: 0 });
     expect(placeNode(game, "INPUT", { x: 20, y: 20 })).toBeNull();
   });
 
@@ -89,7 +89,7 @@ describe("removeNode", () => {
     const o = add(game, "OUTPUT", 40, 10);
     wire(game, out(a), inp(g));
     wire(game, out(g), inp(o));
-    setInput(game, a, false);
+    setInput(game, a, 0);
     expect(high(game, o)).toBe(true);
     removeNode(game, g);
     expect(game.edges.size).toBe(0);
@@ -107,16 +107,16 @@ describe("setInput", () => {
     wire(game, out(a), inp(g));
     const edge = wire(game, out(g), inp(o))!;
     expect(high(game, o)).toBe(true);
-    setInput(game, a, true);
+    setInput(game, a, 1);
     expect(high(game, g)).toBe(false);
     expect(high(game, o)).toBe(false);
-    expect(edge.isHigh).toBe(false);
+    expect(edge.value).toBe(0);
   });
 
   test("ignores non-INPUT nodes", () => {
     const game = newGame();
     const o = add(game, "OUTPUT", 40, 10);
-    setInput(game, o, true);
+    setInput(game, o, 1);
     expect(high(game, o)).toBe(false);
   });
 });
@@ -127,7 +127,7 @@ describe("unwire", () => {
     const a = add(game, "INPUT", 4, 10);
     const o = add(game, "OUTPUT", 40, 10);
     wire(game, out(a), inp(o));
-    setInput(game, a, true);
+    setInput(game, a, 1);
     expect(high(game, o)).toBe(true);
     unwire(game, inp(o));
     expect(game.edges.size).toBe(0);
@@ -154,9 +154,9 @@ describe("a three-input part", () => {
     wire(game, out(b), inp(mux, 1));
     wire(game, out(sel), inp(mux, 2));
     wire(game, out(mux), inp(o));
-    setInput(game, b, true);
+    setInput(game, b, 1);
     expect(high(game, o)).toBe(false);
-    setInput(game, sel, true);
+    setInput(game, sel, 1);
     expect(high(game, o)).toBe(true);
   });
 });

@@ -1,10 +1,12 @@
-import { inputCount, nodeSize, outputCount, partSpec, pinOffset, type NodeType } from "../sim/node";
+import { bitOf, inputCount, nodeSize, outputCount, partSpec, pinOffset, type NodeType } from "../sim/node";
 
 // Gates are drawn as their schematic symbols: AND is a D, OR a curved
 // shield, XOR an OR with an extra back line, NOT a triangle, and the
 // inverted gates add a bubble. A part with no symbol is a box with its pin
-// names inside. Paths are in node-local grid cells, sized to the node, with
-// leads running out to where its pins sit.
+// names inside. A split or join is a bar with its bus on one side and a
+// numbered single-signal pin for each bit on the other. Paths are in
+// node-local grid cells, sized to the node, with leads running out to where
+// its pins sit.
 
 export interface Glyph {
   width: number;
@@ -13,12 +15,14 @@ export interface Glyph {
   // A second back line, for XOR and XNOR.
   back?: string;
   bubble?: { cx: number; cy: number; r: number };
-  inLeads: string;
+  // One lead per input pin, in pin order.
+  inLeads: string[];
   // One lead per output pin, in pin order.
   outLeads: string[];
-  // Where the gate's name sits, inside the body.
-  label: { x: number; y: number; size: number };
-  // A box part's pin names, beside their pins.
+  // Where the gate's name sits, inside the body. A split or join has none.
+  label?: { x: number; y: number; size: number };
+  // A box part's pin names, or a split's or join's bit numbers, beside their
+  // pins.
   pinLabels: { x: number; y: number; text: string; anchor: "start" | "end" }[];
 }
 
@@ -26,8 +30,10 @@ const TOP = 0.45;
 const BOTTOM = 3.55;
 const BUBBLE = 0.3;
 
-export function glyph(type: NodeType): Glyph {
-  const { width, height } = nodeSize(type);
+// busWidth is how many signals a split or join carries.
+export function glyph(type: NodeType, busWidth = 1): Glyph {
+  const { width, height } = nodeSize(type, busWidth);
+  if (type === "SPLIT" || type === "JOIN") return bundle(type, busWidth, width, height);
   if (!hasSymbol(type)) return box(type, width, height);
   const mid = height / 2;
   const inverted = type === "NAND" || type === "NOR" || type === "XNOR" || type === "NOT";
@@ -64,7 +70,7 @@ export function glyph(type: NodeType): Glyph {
   }
 
   const ys = inputCount(type) === 1 ? [mid] : [1, height - 1];
-  const inLeads = ys.map((y) => `M 0 ${y} H 1.45`).join(" ");
+  const inLeads = ys.map((y) => `M 0 ${y} H 1.45`);
   const bubble = inverted ? { cx: front + BUBBLE, cy: mid, r: BUBBLE } : undefined;
   const outLeads = [`M ${bubble ? front + BUBBLE * 2 : front} ${mid} H ${width}`];
   const back = shifted ? `M 0.6 ${TOP} Q 1.2 ${mid} 0.6 ${BOTTOM}` : undefined;
@@ -87,12 +93,34 @@ function box(type: NodeType, width: number, height: number): Glyph {
     width,
     height,
     body: `M ${left} ${TOP} H ${right} V ${height - TOP} H ${left} Z`,
-    inLeads: ins.map((y) => `M 0 ${y} H ${left}`).join(" "),
+    inLeads: ins.map((y) => `M 0 ${y} H ${left}`),
     outLeads: outs.map((y) => `M ${right} ${y} H ${width}`),
     label: { x: width / 2, y: height / 2, size: 0.5 },
     pinLabels: [
       ...ins.map((y, i) => ({ x: left + 0.2, y, text: spec?.inputs[i] ?? "", anchor: "start" as const })),
       ...outs.map((y, i) => ({ x: right - 0.2, y, text: spec?.outputs[i] ?? "", anchor: "end" as const })),
     ],
+  };
+}
+
+const BAR = { left: 1.2, right: 1.8, inset: 0.4 };
+
+function bundle(type: "SPLIT" | "JOIN", busWidth: number, width: number, height: number): Glyph {
+  const bus = height / 2;
+  const bits = Array.from({ length: busWidth }, (_, i) => pinOffset(type, type === "SPLIT" ? "out" : "in", i, busWidth));
+  const busLead = type === "SPLIT" ? `M 0 ${bus} H ${BAR.left}` : `M ${BAR.right} ${bus} H ${width}`;
+  const bitLeads = bits.map((y) => (type === "SPLIT" ? `M ${BAR.right} ${y} H ${width}` : `M 0 ${y} H ${BAR.left}`));
+  return {
+    width,
+    height,
+    body: `M ${BAR.left} ${BAR.inset} H ${BAR.right} V ${height - BAR.inset} H ${BAR.left} Z`,
+    inLeads: type === "SPLIT" ? [busLead] : bitLeads,
+    outLeads: type === "SPLIT" ? bitLeads : [busLead],
+    pinLabels: bits.map((y, i) => ({
+      x: type === "SPLIT" ? BAR.right + 0.2 : 0.2,
+      y: y - 0.4,
+      text: String(bitOf(busWidth, i)),
+      anchor: "start" as const,
+    })),
   };
 }

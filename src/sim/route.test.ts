@@ -122,7 +122,7 @@ describe("createRouter", () => {
     const route = createRouter();
     const key = layoutKey(game);
     const first = route(game);
-    setInput(game, a, true);
+    setInput(game, a, 1);
     expect(layoutKey(game)).toBe(key);
     expect(route(game)).toBe(first);
   });

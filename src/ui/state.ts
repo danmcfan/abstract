@@ -33,6 +33,7 @@ export const unlockedCount = read(() => session.unlockedCount);
 export const testing = read(() => session.testing);
 export const currentRow = read(() => session.currentRow);
 export const rowResults = read(() => session.rowResults);
+export const tableRows = read(() => session.tableRows);
 export const result = read(() => session.result);
 
 export const hasSave = read(() => session.hasSave);

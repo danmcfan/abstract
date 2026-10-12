@@ -1,7 +1,7 @@
 import { For, Show } from "solid-js";
-import { placeNode } from "../sim/circuit";
-import { GRID_HEIGHT, GRID_WIDTH } from "../sim/grid";
-import { LEVELS, matches, partsBin, truthTable } from "../sim/level";
+import { placeNode, type Game } from "../sim/circuit";
+import { LEVELS, matches, partsBin, terminalWidth, wiring } from "../sim/level";
+import type { NodeType, Value } from "../sim/node";
 import { say } from "./speech";
 import { GateIcon } from "./GateIcon";
 import * as script from "./script";
@@ -14,18 +14,26 @@ import {
   rowResults,
   runTest,
   startLevel,
+  tableRows,
   testing,
   unlockedCount,
 } from "./state";
 
-const bit = (value: boolean) => (value ? "1" : "0");
-const bits = (values: boolean[]) => values.map(bit).join("");
 const pad = (n: number) => String(n).padStart(2, "0");
+// A bus value's signals, high bit first, for hovering over its number.
+const binary = (value: Value, width: number) => value.toString(2).padStart(width, "0");
+
+// New parts land in the middle of the board.
+const place = (type: NodeType, width = 1) => mutate((g: Game) => placeNode(g, type, { x: g.grid.width / 2, y: g.grid.height / 2 }, "", width));
 
 // The overlay, drawn like sheets pinned to the drafting board: the level's
 // title block and truth table, the parts bin, and the sheet index.
 export function Hud(props: { onMenu: () => void }) {
-  const rows = () => truthTable(level());
+  const labels = () => [...level().inputs, ...level().outputs];
+  const widths = () => labels().map((label) => terminalWidth(level(), label));
+  // A row's outputs as the test column writes them: single signals run
+  // together as bits, bus values are numbers apart.
+  const written = (values: Value[]) => values.join(widths().some((width) => width > 1) ? " " : "");
 
   const status = () => {
     if (testing()) return { text: "Testing…", tone: "text-pencil" };
@@ -59,21 +67,30 @@ export function Hud(props: { onMenu: () => void }) {
           <table class="w-full max-w-[260px] border-collapse text-center text-[13px] tabular-nums">
             <thead>
               <tr class="text-ink">
-                <For each={[...level().inputs, ...level().outputs]}>{(label) => <th class="border-[1.5px] border-ink px-2 py-0.5">{label}</th>}</For>
+                <For each={labels()}>{(label) => <th class="border-[1.5px] border-ink px-2 py-0.5">{label}</th>}</For>
                 <th class="w-12 border-[1.5px] border-ink px-1 py-0.5 text-xs font-normal text-pencil">test</th>
               </tr>
             </thead>
             <tbody>
-              <For each={rows()}>
+              <For each={tableRows()}>
                 {(row, i) => {
                   const actual = () => rowResults()[i()];
                   const ok = () => matches(actual() ?? [], row.expected);
                   return (
                     <tr class={currentRow() === i() ? "bg-wash font-bold" : ""}>
-                      <For each={[...row.inputs, ...row.expected]}>{(value) => <td class="border-[1.5px] border-ink px-2 py-0.5">{bit(value)}</td>}</For>
-                      <td class="border-[1.5px] border-ink px-1 py-0.5" title={actual() === undefined || ok() ? undefined : `got ${bits(actual()!)}`}>
+                      <For each={[...row.inputs, ...row.expected]}>
+                        {(value, column) => (
+                          <td
+                            class="border-[1.5px] border-ink px-2 py-0.5"
+                            title={widths()[column()]! > 1 ? binary(value, widths()[column()]!) : undefined}
+                          >
+                            {value}
+                          </td>
+                        )}
+                      </For>
+                      <td class="border-[1.5px] border-ink px-1 py-0.5" title={actual() === undefined || ok() ? undefined : `got ${written(actual()!)}`}>
                         <Show when={actual() !== undefined} fallback={<span class="text-pencil/50">·</span>}>
-                          <span class={ok() ? "text-pass" : "text-fail"}>{ok() ? "✓" : `✗${bits(actual()!)}`}</span>
+                          <span class={ok() ? "text-pass" : "text-fail"}>{ok() ? "✓" : `✗${written(actual()!)}`}</span>
                         </Show>
                       </td>
                     </tr>
@@ -139,13 +156,34 @@ export function Hud(props: { onMenu: () => void }) {
               class="flex flex-col items-center gap-0.5 px-2.5 pt-1.5 pb-1 text-[11px] font-bold text-ink hover:bg-wash disabled:opacity-40 max-[899px]:px-2"
               data-gate={type}
               disabled={testing()}
-              onClick={() => mutate((g) => placeNode(g, type, { x: GRID_WIDTH / 2, y: GRID_HEIGHT / 2 }))}
+              onClick={() => place(type)}
             >
               <GateIcon type={type} class="h-6 w-9" />
               {type}
             </button>
           )}
         </For>
+        {/* Split and join are wiring the level supplies, not parts, so they
+            sit apart at the end, and only on levels with buses. */}
+        <Show when={wiring(level()).length > 0}>
+          <span class="flex items-center border-x-2 border-ink px-2.5 text-[11px] tracking-[0.1em] text-pencil uppercase max-[899px]:hidden">
+            Wiring
+          </span>
+          <For each={wiring(level())}>
+            {(w) => (
+              <button
+                class="flex flex-col items-center gap-0.5 px-2.5 pt-1.5 pb-1 text-[11px] font-bold text-ink hover:bg-wash disabled:opacity-40 max-[899px]:px-2"
+                data-gate={w.type}
+                data-width={w.width}
+                disabled={testing()}
+                onClick={() => place(w.type, w.width)}
+              >
+                <GateIcon type={w.type} width={Math.min(w.width, 4)} class="h-6 w-9" />
+                {`${w.type} ${w.width}`}
+              </button>
+            )}
+          </For>
+        </Show>
       </section>
     </div>
   );

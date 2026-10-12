@@ -51,7 +51,7 @@ A connection from one output pin to one input pin. `Edge` in code. Wires route t
 _Avoid_: edge (outside code), link, trace
 
 **Signal**:
-The on/off value on a wire or pin. "On" is drawn lit blue; in code it's `isHigh`.
+The on/off value on a wire or pin. "On" is drawn lit blue. In code a wire's signals are its `value`, a number with one bit per signal; a node that shows as on is `isHigh`.
 _Avoid_: current, power, voltage
 
 **Settle**:

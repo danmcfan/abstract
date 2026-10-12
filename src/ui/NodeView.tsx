@@ -1,13 +1,15 @@
 import { For, Show, createMemo } from "solid-js";
-import { pinPosition, pins, type Pin } from "../sim/circuit";
-import type { Node } from "../sim/node";
+import { edgeInto, pinPosition, pins, widthOf, type Pin } from "../sim/circuit";
+import { bitCell, type Node } from "../sim/node";
 import { glyph } from "./glyph";
 import { current } from "./state";
 
 const samePin = (a: Pin | null, b: Pin) => !!a && a.node === b.node && a.side === b.side && a.index === b.index;
 
 // Gates are inked schematic symbols. Inputs are knife switches and the
-// output is a lamp, each on a small white panel. Drawn in node-local cells.
+// output is a lamp, each on a small white panel; a bus terminal is a row of
+// bit switches or lamps with its value written beside them. Drawn in
+// node-local cells.
 export function NodeView(props: { node: Node; hovered: boolean; hoveredPin: Pin | null }) {
   // moveNode replaces rect, so these only change when the node does.
   const rect = createMemo(() => (current(), props.node.rect));
@@ -25,11 +27,14 @@ export function NodeView(props: { node: Node; hovered: boolean; hoveredPin: Pin 
     >
       <rect class="hit" x={0} y={0} width={width} height={height} />
       <rect class="halo" x={0.1} y={0.1} width={width - 0.2} height={height - 0.2} rx={0.3} />
-      <Show when={type === "INPUT"}>
+      <Show when={type === "INPUT" && props.node.width === 1}>
         <KnifeSwitch name={props.node.label} on={isHigh()} width={width} height={height} />
       </Show>
-      <Show when={type === "OUTPUT"}>
+      <Show when={type === "OUTPUT" && props.node.width === 1}>
         <Lamp name={props.node.label} width={width} height={height} />
+      </Show>
+      <Show when={(type === "INPUT" || type === "OUTPUT") && props.node.width > 1}>
+        <BitRow node={props.node} />
       </Show>
       <Show when={type !== "INPUT" && type !== "OUTPUT"}>
         <Gate node={props.node} />
@@ -44,7 +49,7 @@ export function NodeView(props: { node: Node; hovered: boolean; hoveredPin: Pin 
           return (
             <circle
               class="pin"
-              classList={{ hovered: samePin(props.hoveredPin, pin) }}
+              classList={{ hovered: samePin(props.hoveredPin, pin), bus: widthOf(props.node, pin) > 1 }}
               cx={cx}
               cy={cy}
               r={0.26}
@@ -58,18 +63,23 @@ export function NodeView(props: { node: Node; hovered: boolean; hoveredPin: Pin 
 }
 
 function Gate(props: { node: Node }) {
-  const g = glyph(props.node.type);
+  const g = glyph(props.node.type, props.node.width);
   const signal = (i: number) => (current(), !!props.node.signals[i]);
+  const bus = (side: Pin["side"], index: number) => widthOf(props.node, { side, index }) > 1;
   return (
     <>
-      <path class="lead in" d={g.inLeads} />
-      <For each={g.outLeads}>{(d, i) => <path class="lead out" classList={{ high: signal(i()) }} d={d} />}</For>
+      <For each={g.inLeads}>{(d, i) => <path class="lead in" classList={{ bus: bus("in", i()) }} d={d} />}</For>
+      <For each={g.outLeads}>{(d, i) => <path class="lead out" classList={{ high: signal(i()), bus: bus("out", i()) }} d={d} />}</For>
       <Show when={g.back}>{(d) => <path class="body-line" d={d()} />}</Show>
       <path class="body" d={g.body} />
       <Show when={g.bubble}>{(b) => <circle class="bubble" cx={b().cx} cy={b().cy} r={b().r} />}</Show>
-      <text class="gate-label" x={g.label.x} y={g.label.y} style={{ "font-size": `${g.label.size}px` }}>
-        {props.node.type}
-      </text>
+      <Show when={g.label}>
+        {(label) => (
+          <text class="gate-label" x={label().x} y={label().y} style={{ "font-size": `${label().size}px` }}>
+            {props.node.type}
+          </text>
+        )}
+      </Show>
       <For each={g.pinLabels}>
         {(p) => (
           <text class="pin-label" x={p.x} y={p.y} style={{ "text-anchor": p.anchor }}>
@@ -114,6 +124,44 @@ function Lamp(props: { name: string; width: number; height: number }) {
       <path class="lead in" d={`M 0 ${y} H ${x - r}`} />
       <circle class="bulb" cx={x} cy={y} r={r} />
       <path class="filament" d={`M ${x - d} ${y - d} L ${x + d} ${y + d} M ${x + d} ${y - d} L ${x - d} ${y + d}`} />
+    </>
+  );
+}
+
+// A bus terminal: a row of bit switches (an input) or lamps (an output), high
+// bit first, with the value they make as a number after them. An input's
+// value is its switches; an output shows the value on its wire.
+function BitRow(props: { node: Node }) {
+  const { width: bits, type } = props.node;
+  const { width, height } = props.node.rect;
+  const y = height / 2;
+  const isInput = type === "INPUT";
+  const value = () => {
+    current();
+    return isInput ? (props.node.signals[0] ?? 0) : (edgeInto(current(), props.node.id, 0)?.value ?? 0);
+  };
+  const numberX = bitCell(bits, 0) + 1 + 1.5;
+  return (
+    <>
+      <rect class="panel" x={0.35} y={0.35} width={width - 0.7} height={height - 0.7} rx={0.25} />
+      <text class="terminal-label small" x={1 + bits / 2} y={height - 0.72}>
+        {props.node.label}
+      </text>
+      <path class={`lead bus ${isInput ? "out" : "in"}`} classList={{ high: value() !== 0 }} d={isInput ? `M ${width - 1} ${y} H ${width}` : `M 0 ${y} H 1`} />
+      <For each={Array.from({ length: bits }, (_, i) => bits - 1 - i)}>
+        {(bit) => {
+          const on = () => ((value() >> bit) & 1) === 1;
+          const x = bitCell(bits, bit) + 0.5;
+          return isInput ? (
+            <rect class="bit switch" classList={{ high: on() }} x={x - 0.36} y={y - 0.36} width={0.72} height={0.72} rx={0.12} />
+          ) : (
+            <circle class="bit lamp" classList={{ high: on() }} cx={x} cy={y} r={0.36} />
+          );
+        }}
+      </For>
+      <text class="bus-value" x={numberX} y={y}>
+        {value()}
+      </text>
     </>
   );
 }
