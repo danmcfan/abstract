@@ -12,7 +12,7 @@ export function DesktopNotice(props: { onContinue: () => void }) {
         <RobotScreen expression={script.smallScreen.face} class="mx-auto my-4 aspect-square w-full max-w-[180px]" />
         <p class="mb-3 font-hand text-lg">"{script.smallScreen.text}"</p>
         <p class="mb-5 text-sm">
-          Layers of Abstraction needs a bigger screen and a mouse. Visit <b class="text-ink">abstract.dannyobrien.dev</b> on a desktop.
+          Layers of Abstraction needs a bigger screen. Visit <b class="text-ink">abstract.dannyobrien.dev</b> on a desktop.
         </p>
         <a
           id="continue-anyway"
