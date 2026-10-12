@@ -1,7 +1,7 @@
 import { For, Show } from "solid-js";
 import { placeNode } from "../sim/circuit";
 import { GRID_HEIGHT, GRID_WIDTH } from "../sim/grid";
-import { LEVELS, partsBin, truthTable } from "../sim/level";
+import { LEVELS, matches, partsBin, truthTable } from "../sim/level";
 import { say } from "./speech";
 import { GateIcon } from "./GateIcon";
 import * as script from "./script";
@@ -19,7 +19,7 @@ import {
 } from "./state";
 
 const bit = (value: boolean) => (value ? "1" : "0");
-const INPUT_NAMES = { ALPHA: "A", BETA: "B", NONE: "" };
+const bits = (values: boolean[]) => values.map(bit).join("");
 const pad = (n: number) => String(n).padStart(2, "0");
 
 // The overlay, drawn like sheets pinned to the drafting board: the level's
@@ -59,8 +59,7 @@ export function Hud(props: { onMenu: () => void }) {
           <table class="w-full max-w-[260px] border-collapse text-center text-[13px] tabular-nums">
             <thead>
               <tr class="text-ink">
-                <For each={level().inputs}>{(label) => <th class="border-[1.5px] border-ink px-2 py-0.5">{INPUT_NAMES[label]}</th>}</For>
-                <th class="border-[1.5px] border-ink px-2 py-0.5">OUT</th>
+                <For each={[...level().inputs, ...level().outputs]}>{(label) => <th class="border-[1.5px] border-ink px-2 py-0.5">{label}</th>}</For>
                 <th class="w-12 border-[1.5px] border-ink px-1 py-0.5 text-xs font-normal text-pencil">test</th>
               </tr>
             </thead>
@@ -68,14 +67,13 @@ export function Hud(props: { onMenu: () => void }) {
               <For each={rows()}>
                 {(row, i) => {
                   const actual = () => rowResults()[i()];
-                  const ok = () => actual() === row.expected;
+                  const ok = () => matches(actual() ?? [], row.expected);
                   return (
                     <tr class={currentRow() === i() ? "bg-wash font-bold" : ""}>
-                      <For each={row.inputs}>{(value) => <td class="border-[1.5px] border-ink px-2 py-0.5">{bit(value)}</td>}</For>
-                      <td class="border-[1.5px] border-ink px-2 py-0.5">{bit(row.expected)}</td>
-                      <td class="border-[1.5px] border-ink px-1 py-0.5" title={actual() === undefined || ok() ? undefined : `got ${bit(actual()!)}`}>
+                      <For each={[...row.inputs, ...row.expected]}>{(value) => <td class="border-[1.5px] border-ink px-2 py-0.5">{bit(value)}</td>}</For>
+                      <td class="border-[1.5px] border-ink px-1 py-0.5" title={actual() === undefined || ok() ? undefined : `got ${bits(actual()!)}`}>
                         <Show when={actual() !== undefined} fallback={<span class="text-pencil/50">·</span>}>
-                          <span class={ok() ? "text-pass" : "text-fail"}>{ok() ? "✓" : `✗${bit(actual()!)}`}</span>
+                          <span class={ok() ? "text-pass" : "text-fail"}>{ok() ? "✓" : `✗${bits(actual()!)}`}</span>
                         </Show>
                       </td>
                     </tr>

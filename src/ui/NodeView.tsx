@@ -26,10 +26,10 @@ export function NodeView(props: { node: Node; hovered: boolean; hoveredPin: Pin 
       <rect class="hit" x={0} y={0} width={width} height={height} />
       <rect class="halo" x={0.1} y={0.1} width={width - 0.2} height={height - 0.2} rx={0.3} />
       <Show when={type === "INPUT"}>
-        <KnifeSwitch name={props.node.label === "BETA" ? "B" : "A"} width={width} height={height} />
+        <KnifeSwitch name={props.node.label} on={isHigh()} width={width} height={height} />
       </Show>
       <Show when={type === "OUTPUT"}>
-        <Lamp width={width} height={height} />
+        <Lamp name={props.node.label} width={width} height={height} />
       </Show>
       <Show when={type !== "INPUT" && type !== "OUTPUT"}>
         <Gate node={props.node} />
@@ -59,23 +59,31 @@ export function NodeView(props: { node: Node; hovered: boolean; hoveredPin: Pin 
 
 function Gate(props: { node: Node }) {
   const g = glyph(props.node.type);
+  const signal = (i: number) => (current(), !!props.node.signals[i]);
   return (
     <>
       <path class="lead in" d={g.inLeads} />
-      <path class="lead out" d={g.outLead} />
+      <For each={g.outLeads}>{(d, i) => <path class="lead out" classList={{ high: signal(i()) }} d={d} />}</For>
       <Show when={g.back}>{(d) => <path class="body-line" d={d()} />}</Show>
       <path class="body" d={g.body} />
       <Show when={g.bubble}>{(b) => <circle class="bubble" cx={b().cx} cy={b().cy} r={b().r} />}</Show>
       <text class="gate-label" x={g.label.x} y={g.label.y} style={{ "font-size": `${g.label.size}px` }}>
         {props.node.type}
       </text>
+      <For each={g.pinLabels}>
+        {(p) => (
+          <text class="pin-label" x={p.x} y={p.y} style={{ "text-anchor": p.anchor }}>
+            {p.text}
+          </text>
+        )}
+      </For>
     </>
   );
 }
 
 // A knife switch: the lever lifts open when off and closes onto its contact
 // when on.
-function KnifeSwitch(props: { name: string; width: number; height: number }) {
+function KnifeSwitch(props: { name: string; on: boolean; width: number; height: number }) {
   const y = props.height / 2;
   return (
     <>
@@ -83,7 +91,7 @@ function KnifeSwitch(props: { name: string; width: number; height: number }) {
       <text class="terminal-label" x={2} y={props.height - 0.78}>
         {props.name}
       </text>
-      <path class="lead out" d={`M 3 ${y} H ${props.width}`} />
+      <path class="lead out" classList={{ high: props.on }} d={`M 3 ${y} H ${props.width}`} />
       <circle class="contact" cx={3} cy={y} r={0.2} />
       <line class="lever" x1={1.05} y1={y} x2={2.95} y2={y} />
       <circle class="pivot" cx={1.05} cy={y} r={0.24} />
@@ -92,7 +100,7 @@ function KnifeSwitch(props: { name: string; width: number; height: number }) {
 }
 
 // A lamp: the schematic bulb, a circle with a cross, lit when on.
-function Lamp(props: { width: number; height: number }) {
+function Lamp(props: { name: string; width: number; height: number }) {
   const x = props.width / 2 + 0.2;
   const y = props.height / 2;
   const r = 0.75;
@@ -101,7 +109,7 @@ function Lamp(props: { width: number; height: number }) {
     <>
       <rect class="panel" x={0.35} y={0.35} width={props.width - 0.7} height={props.height - 0.7} rx={0.25} />
       <text class="terminal-label small" x={x} y={props.height - 0.72}>
-        OUT
+        {props.name}
       </text>
       <path class="lead in" d={`M 0 ${y} H ${x - r}`} />
       <circle class="bulb" cx={x} cy={y} r={r} />

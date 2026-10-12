@@ -1,5 +1,5 @@
 import { pinPosition, type EdgeID, type Game, type Pin } from "./circuit";
-import { inputCount } from "./node";
+import { inputCount, outputCount } from "./node";
 import { GRID_HEIGHT, GRID_WIDTH } from "./grid";
 
 // Wires run along grid lines between lattice points. A wire leaves its output
@@ -79,9 +79,9 @@ export function routeWires(game: Game): Routing {
   // other wire can squeeze past and look connected.
   const reserved = new Map<number, string>();
   for (const node of game.nodes.values()) {
-    if (node.type !== "OUTPUT") {
-      const p = pinPosition(node, "out", 0);
-      reserved.set(key(p.x + 1, p.y), `${node.id}:0`);
+    for (let i = 0; i < outputCount(node.type); i++) {
+      const p = pinPosition(node, "out", i);
+      reserved.set(key(p.x + 1, p.y), `${node.id}:${i}`);
     }
     for (let i = 0; i < inputCount(node.type); i++) {
       const p = pinPosition(node, "in", i);

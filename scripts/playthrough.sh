@@ -31,7 +31,7 @@ pin() { js "(p => Math.round(p.x) + ' ' + Math.round(p.y))(__abstract.pinScreen(
 body() { js "(p => Math.round(p.x) + ' ' + Math.round(p.y))(__abstract.nodeScreen($1))" | tr -d '"'; }
 board() { js "(p => Math.round(p.x) + ' ' + Math.round(p.y))(__abstract.boardScreen($1, $2))" | tr -d '"'; }
 
-terminal() { js "__abstract.nodes().find(n => n.type === '$1' && n.label === '${2:-NONE}').id"; }
+terminal() { js "__abstract.nodes().find(n => n.type === '$1' && n.label === '$2').id"; }
 newest() { js "Math.max(...__abstract.nodes().map(n => n.id))"; }
 
 # Adds a gate from the toolbox and drags it to board cell (x, y).
@@ -71,21 +71,21 @@ check 3 1
 
 # Level 2: NOT is a NAND with both inputs tied together.
 ab click "#next"; sleep 0.5; hush
-A=$(terminal INPUT ALPHA); O=$(terminal OUTPUT)
+A=$(terminal INPUT A); O=$(terminal OUTPUT OUT)
 N=$(add NAND 22 20)
 wire "$A" "$N" 0; wire "$A" "$N" 1; wire "$N" "$O"
 check 2 2
 
 # Level 3: AND is NAND followed by NOT.
 ab click "#next"; sleep 0.5; hush
-A=$(terminal INPUT ALPHA); B=$(terminal INPUT BETA); O=$(terminal OUTPUT)
+A=$(terminal INPUT A); B=$(terminal INPUT B); O=$(terminal OUTPUT OUT)
 N=$(add NAND 16 21); T=$(add NOT 28 21)
 wire "$A" "$N" 0; wire "$B" "$N" 1; wire "$N" "$T"; wire "$T" "$O"
 check 3 3
 
 # Level 4: OR is NOT A NAND NOT B.
 ab click "#next"; sleep 0.5; hush
-A=$(terminal INPUT ALPHA); B=$(terminal INPUT BETA); O=$(terminal OUTPUT)
+A=$(terminal INPUT A); B=$(terminal INPUT B); O=$(terminal OUTPUT OUT)
 TA=$(add NOT 15 13); TB=$(add NOT 15 30); N=$(add NAND 28 21)
 wire "$A" "$TA"; wire "$B" "$TB"; wire "$TA" "$N" 0; wire "$TB" "$N" 1; wire "$N" "$O"
 check 3 4

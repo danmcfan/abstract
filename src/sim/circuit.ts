@@ -1,5 +1,5 @@
 import { GRID_HEIGHT, GRID_WIDTH, overlaps, snap, type Rect } from "./grid";
-import { evaluate, inputCount, nodeSize, outputCount, type Label, type Node, type NodeID, type NodeType } from "./node";
+import { evaluate, inputCount, nodeSize, outputCount, pinOffset, type Label, type Node, type NodeID, type NodeType } from "./node";
 
 // The board: nodes, the wires between them, and the signals on both. Every
 // command leaves the circuit settled, so readers never see stale signals.
@@ -24,8 +24,8 @@ export interface Game {
   nextEdgeID: EdgeID;
 }
 
-// A connection point on a node. Input pins sit on the left edge, the output
-// pin on the right edge.
+// A connection point on a node. Input pins sit on the left edge, output pins
+// on the right edge.
 export interface Pin {
   node: NodeID;
   side: "in" | "out";
@@ -40,10 +40,10 @@ export function newGame(): Game {
 
 // Adds a node at the free spot nearest center, searching outward ring by
 // ring. Returns null when the board has no room.
-export function placeNode(game: Game, type: NodeType, center: { x: number; y: number }, label: Label = "NONE"): Node | null {
+export function placeNode(game: Game, type: NodeType, center: { x: number; y: number }, label: Label = ""): Node | null {
   const rect = freeRect(game, type, center);
   if (!rect) return null;
-  const node: Node = { id: game.nextNodeID++, type, label, rect, isHigh: false };
+  const node: Node = { id: game.nextNodeID++, type, label, rect, isHigh: false, signals: [] };
   game.nodes.set(node.id, node);
   settle(game);
   return node;
@@ -112,10 +112,8 @@ export function edgeInto(game: Game, node: NodeID, index: number): Edge | undefi
 }
 
 export function pinPosition(node: Node, side: Pin["side"], index: number): { x: number; y: number } {
-  const { x, y, width, height } = node.rect;
-  if (side === "out") return { x: x + width, y: y + height / 2 };
-  if (inputCount(node.type) === 1) return { x, y: y + height / 2 };
-  return { x, y: y + 1 + index * (height - 2) };
+  const { x, y, width } = node.rect;
+  return { x: side === "out" ? x + width : x, y: y + pinOffset(node.type, side, index) };
 }
 
 export function pins(node: Node): Pin[] {
@@ -190,15 +188,19 @@ function settle(game: Game): void {
   const visit = (node: Node): void => {
     if (done.has(node.id)) return;
     done.add(node.id);
-    if (node.type === "INPUT") return;
-    const inputs = [false, false];
+    if (node.type === "INPUT") {
+      node.signals = [node.isHigh];
+      return;
+    }
+    const inputs = Array.from({ length: inputCount(node.type) }, () => false);
     for (const edge of into.get(node.id) ?? []) {
       const from = game.nodes.get(edge.from)!;
       visit(from);
-      edge.isHigh = from.isHigh;
-      inputs[edge.toIndex] = from.isHigh;
+      edge.isHigh = from.signals[edge.fromIndex] ?? false;
+      inputs[edge.toIndex] = edge.isHigh;
     }
-    node.isHigh = evaluate(node.type, inputs[0]!, inputs[1]!);
+    node.signals = evaluate(node.type, inputs);
+    node.isHigh = node.type === "OUTPUT" ? inputs[0]! : node.signals.some(Boolean);
   };
   for (const node of game.nodes.values()) visit(node);
 }

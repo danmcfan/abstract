@@ -40,9 +40,9 @@ describe("session", () => {
     expect(session.beginTest()).toBe(false);
     expect(session.step()).toBe(true);
     expect(session.currentRow).toBe(0);
-    expect(session.rowResults).toEqual([false]);
+    expect(session.rowResults).toEqual([[false]]);
     expect(session.step()).toBe(true);
-    expect(session.rowResults).toEqual([false, false]);
+    expect(session.rowResults).toEqual([[false], [false]]);
     expect(session.step()).toBe(false);
     expect(session.testing).toBe(false);
     expect(session.currentRow).toBeNull();
@@ -54,7 +54,7 @@ describe("session", () => {
     buildNot(session.game);
     expect(session.unlockedCount).toBe(2);
     runAll(session);
-    expect(session.rowResults).toEqual([true, false]);
+    expect(session.rowResults).toEqual([[true], [false]]);
     expect(session.result?.passed).toBe(true);
     expect(session.solved).toBe(2);
     expect(session.unlockedCount).toBe(3);
@@ -98,7 +98,7 @@ describe("session", () => {
     const { session } = fresh();
     buildNot(session.game, "NOT");
     runAll(session);
-    expect(session.rowResults).toEqual([true, false]);
+    expect(session.rowResults).toEqual([[true], [false]]);
     expect(session.result?.forbidden).toEqual(["NOT"]);
     expect(session.result?.passed).toBe(false);
     expect(session.solved).toBe(1);
@@ -125,6 +125,49 @@ describe("saved games", () => {
     expect(later.flags.has("heard:hello")).toBe(true);
     runAll(later);
     expect(later.result?.passed).toBe(true);
+  });
+
+  test("a save from before levels named their terminals resumes with its board intact", () => {
+    // The AND level, part built: A and B into a NAND, written when inputs
+    // were ALPHA and BETA, the output had no name, and nodes had no signals.
+    const rect = (x: number, y: number, width = 4) => ({ x, y, width, height: 4 });
+    const old = {
+      solved: 2,
+      levelIndex: 2,
+      flags: [],
+      board: {
+        nodes: [
+          { id: 0, type: "INPUT", label: "ALPHA", rect: rect(2, 12), isHigh: true },
+          { id: 1, type: "INPUT", label: "BETA", rect: rect(2, 24), isHigh: true },
+          { id: 2, type: "OUTPUT", label: "NONE", rect: rect(42, 18), isHigh: false },
+          { id: 3, type: "NAND", label: "NONE", rect: rect(16, 18, 6), isHigh: false },
+        ],
+        edges: [
+          { id: 0, from: 0, fromIndex: 0, to: 3, toIndex: 0, isHigh: true },
+          { id: 1, from: 1, fromIndex: 0, to: 3, toIndex: 1, isHigh: true },
+        ],
+        nextNodeID: 4,
+        nextEdgeID: 2,
+      },
+    } as unknown as SaveData;
+    const session = new Session(memorySave(old));
+    session.resume();
+    expect(session.levelIndex).toBe(2);
+    const nodes = [...session.game.nodes.values()];
+    expect(nodes.map((n) => [n.type, n.label])).toEqual([
+      ["INPUT", "A"],
+      ["INPUT", "B"],
+      ["OUTPUT", "OUT"],
+      ["NAND", ""],
+    ]);
+    expect(session.game.edges.size).toBe(2);
+    expect(nodes[0]!.isHigh).toBe(true);
+
+    const not = placeNode(session.game, "NOT", { x: 30, y: 20 })!.id;
+    wire(session.game, out(3), inp(not));
+    wire(session.game, out(not), inp(2));
+    runAll(session);
+    expect(session.result?.passed).toBe(true);
   });
 
   test("resume never lands past the unlocked levels", () => {

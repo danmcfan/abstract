@@ -63,7 +63,7 @@ export function Board() {
   const wires = createMemo(() => [...routing().routes].map(([id, route]) => ({ id, route, d: wirePath(route) })));
 
   const isEdgeHigh = (id: number) => !!current().edges.get(id)?.isHigh;
-  const isPinHigh = (pin: Pin) => !!current().nodes.get(pin.node)?.isHigh;
+  const isPinHigh = (pin: Pin) => !!current().nodes.get(pin.node)?.signals[pin.index];
   const preview = () => {
     const w = wiring();
     const from = w && current().nodes.get(w.from.node);

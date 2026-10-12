@@ -16,7 +16,7 @@ export function GateIcon(props: { type: NodeType; class?: string }) {
       stroke-linecap="round"
       stroke-linejoin="round"
     >
-      <path d={`${g().inLeads} ${g().outLead}`} />
+      <path d={[g().inLeads, ...g().outLeads].join(" ")} />
       <Show when={g().back}>{(d) => <path d={d()} />}</Show>
       <path d={g().body} fill="var(--color-surface)" />
       <Show when={g().bubble}>{(b) => <circle cx={b().cx} cy={b().cy} r={b().r} fill="var(--color-surface)" />}</Show>
