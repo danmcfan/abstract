@@ -16,6 +16,7 @@ jobs:
       - run: bun install --frozen-lockfile
       - name: Install agent-browser
         run: |
+          sudo apt-get update && sudo apt-get install -y ffmpeg
           npm install -g agent-browser@0.33.2
           agent-browser install --with-deps
       - run: bun run verify

@@ -90,7 +90,8 @@ TA=$(add NOT 15 13); TB=$(add NOT 15 30); N=$(add NAND 28 21)
 wire "$A" "$TA"; wire "$B" "$TB"; wire "$TA" "$N" 0; wire "$TB" "$N" 1; wire "$N" "$O"
 check 3 4
 
-agent-browser record stop >/dev/null
+# The video is a convenience: a failed encode warns but doesn't fail the run.
+agent-browser record stop >/dev/null 2>&1 || echo "warning: video not saved (agent-browser needs ffmpeg)" >&2
 errors=$(agent-browser errors 2>&1 || true)
 if [[ -n $errors ]]; then
   echo "page errors:" >&2
