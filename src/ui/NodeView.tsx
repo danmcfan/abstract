@@ -88,7 +88,7 @@ function KnifeSwitch(props: { name: string; on: boolean; width: number; height: 
   return (
     <>
       <rect class="panel" x={0.35} y={0.35} width={props.width - 0.7} height={props.height - 0.7} rx={0.25} />
-      <text class="terminal-label" x={2} y={props.height - 0.78}>
+      <text classList={{ "terminal-label": true, small: props.name.length > 1 }} x={2} y={props.height - 0.78}>
         {props.name}
       </text>
       <path class="lead out" classList={{ high: props.on }} d={`M 3 ${y} H ${props.width}`} />

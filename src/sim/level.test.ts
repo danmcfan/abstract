@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { newGame, pinPosition, placeNode, setInput, wire, type Game, type Pin } from "./circuit";
-import { checkLevel, LEVELS, loadLevel, partsBin, truthTable, type Level } from "./level";
+import { checkLevel, LEVELS, loadLevel, matches, partsBin, truthTable, type Level } from "./level";
 import { definePart, type Label, type NodeID, type NodeType } from "./node";
 
 const out = (node: NodeID, index = 0): Pin => ({ node, side: "out", index });
@@ -18,8 +18,16 @@ function gate(game: Game, type: NodeType): NodeID {
 
 function levelGame(index: number) {
   const game = loadLevel(LEVELS[index]!);
-  return { game, a: terminal(game, "INPUT", "A"), b: terminal(game, "INPUT", "B"), o: terminal(game, "OUTPUT", "OUT") };
+  return {
+    game,
+    a: terminal(game, "INPUT", "A"),
+    b: terminal(game, "INPUT", "B"),
+    sel: terminal(game, "INPUT", "SEL"),
+    o: terminal(game, "OUTPUT", "OUT"),
+  };
 }
+
+const levelIndex = (type: NodeType) => LEVELS.findIndex((level) => level.gate === type);
 
 describe("solutions", () => {
   test("the NAND level comes wired and passes as is", () => {
@@ -61,6 +69,88 @@ describe("solutions", () => {
     wire(game, out(nand), inp(o));
     expect(checkLevel(game, 3).passed).toBe(true);
   });
+
+  test("XOR from four NANDs", () => {
+    const { game, a, b, o } = levelGame(4);
+    const first = gate(game, "NAND");
+    const left = gate(game, "NAND");
+    const right = gate(game, "NAND");
+    const last = gate(game, "NAND");
+    wire(game, out(a), inp(first, 0));
+    wire(game, out(b), inp(first, 1));
+    wire(game, out(a), inp(left, 0));
+    wire(game, out(first), inp(left, 1));
+    wire(game, out(first), inp(right, 0));
+    wire(game, out(b), inp(right, 1));
+    wire(game, out(left), inp(last, 0));
+    wire(game, out(right), inp(last, 1));
+    wire(game, out(last), inp(o));
+    expect(checkLevel(game, 4).passed).toBe(true);
+  });
+
+  test("MUX from A AND NOT SEL, OR B AND SEL", () => {
+    const index = levelIndex("MUX");
+    const { game, a, b, sel, o } = levelGame(index);
+    const not = gate(game, "NOT");
+    const andA = gate(game, "AND");
+    const andB = gate(game, "AND");
+    const or = gate(game, "OR");
+    wire(game, out(sel), inp(not));
+    wire(game, out(a), inp(andA, 0));
+    wire(game, out(not), inp(andA, 1));
+    wire(game, out(b), inp(andB, 0));
+    wire(game, out(sel), inp(andB, 1));
+    wire(game, out(andA), inp(or, 0));
+    wire(game, out(andB), inp(or, 1));
+    wire(game, out(or), inp(o));
+    expect(checkLevel(game, index).passed).toBe(true);
+  });
+});
+
+test("XOR comes after OR and is on when exactly one input is on", () => {
+  const index = LEVELS.findIndex((level) => level.gate === "XOR");
+  expect(LEVELS[index - 1]!.gate).toBe("OR");
+  expect(truthTable(LEVELS[index]!)).toEqual([
+    { inputs: [false, false], expected: [false] },
+    { inputs: [false, true], expected: [true] },
+    { inputs: [true, false], expected: [true] },
+    { inputs: [true, true], expected: [false] },
+  ]);
+});
+
+describe("the MUX level", () => {
+  const index = levelIndex("MUX");
+
+  test("comes after the parts its solution needs", () => {
+    expect(partsBin(index)).toEqual(expect.arrayContaining(["NOT", "AND", "OR"]));
+  });
+
+  test("has three input terminals, A, B and SEL, top to bottom", () => {
+    const { game, a, b, sel } = levelGame(index);
+    const y = (id: NodeID) => game.nodes.get(id)!.rect.y;
+    expect([a, b, sel].every((id) => id >= 0)).toBe(true);
+    expect(y(a)).toBeLessThan(y(b));
+    expect(y(b)).toBeLessThan(y(sel));
+  });
+
+  test("its truth table has 8 rows: A when SEL is off, B when SEL is on", () => {
+    const rows = truthTable(LEVELS[index]!);
+    expect(rows.map((row) => row.inputs.map(Number).join(""))).toEqual(["000", "001", "010", "011", "100", "101", "110", "111"]);
+    expect(rows.map((row) => row.expected[0])).toEqual([false, false, false, true, true, false, true, true]);
+  });
+
+  test("the MUX part does what its level asks", () => {
+    const { game, a, b, sel, o } = levelGame(index);
+    const mux = gate(game, "MUX");
+    wire(game, out(a), inp(mux, 0));
+    wire(game, out(b), inp(mux, 1));
+    wire(game, out(sel), inp(mux, 2));
+    wire(game, out(mux), inp(o));
+    // It isn't in its own level's parts bin, but its rows must still match.
+    const result = checkLevel(game, index);
+    expect(result.rows.every((row) => matches(row.actual, row.expected))).toBe(true);
+    expect(result.forbidden).toEqual(["MUX"]);
+  });
 });
 
 describe("checkLevel", () => {
@@ -87,6 +177,7 @@ test("each solved level adds its gate to the parts bin", () => {
   expect(partsBin(0)).toEqual([]);
   expect(partsBin(1)).toEqual(["NAND"]);
   expect(partsBin(3)).toEqual(["NAND", "NOT", "AND"]);
+  expect(partsBin(5)).toEqual(["NAND", "NOT", "AND", "OR", "XOR"]);
 });
 
 test("checkLevel leaves the board's inputs alone", () => {

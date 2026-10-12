@@ -26,6 +26,14 @@ export const LEVELS: Level[] = [
   { gate: "NOT", goal: "Output is on when A is off.", inputs: ["A"], outputs: ["OUT"], target: ([a]) => [!a] },
   { gate: "AND", goal: "Output is on when A and B are both on.", inputs: ["A", "B"], outputs: ["OUT"], target: ([a, b]) => [!!(a && b)] },
   { gate: "OR", goal: "Output is on when A or B is on.", inputs: ["A", "B"], outputs: ["OUT"], target: ([a, b]) => [!!(a || b)] },
+  { gate: "XOR", goal: "Output is on when exactly one of A and B is on.", inputs: ["A", "B"], outputs: ["OUT"], target: ([a, b]) => [a !== b] },
+  {
+    gate: "MUX",
+    goal: "Output is A when SEL is off, and B when SEL is on.",
+    inputs: ["A", "B", "SEL"],
+    outputs: ["OUT"],
+    target: ([a, b, sel]) => [!!(sel ? b : a)],
+  },
 ];
 
 for (const level of LEVELS) definePart(level.gate, level);

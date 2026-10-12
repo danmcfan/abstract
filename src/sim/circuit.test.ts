@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { edgeInto, moveNode, newGame, placeNode, removeNode, setInput, unwire, wire, type Game, type Pin } from "./circuit";
+import { edgeInto, moveNode, newGame, pinPosition, placeNode, removeNode, setInput, unwire, wire, type Game, type Pin } from "./circuit";
 import { GRID_HEIGHT, GRID_WIDTH, overlaps } from "./grid";
+// Defines the parts levels give, such as MUX.
+import "./level";
 import type { NodeID, NodeType } from "./node";
 
 const out = (node: NodeID): Pin => ({ node, side: "out", index: 0 });
@@ -130,5 +132,31 @@ describe("unwire", () => {
     unwire(game, inp(o));
     expect(game.edges.size).toBe(0);
     expect(high(game, o)).toBe(false);
+  });
+});
+
+describe("a three-input part", () => {
+  test("spaces its input pins evenly down its left edge, on grid cells", () => {
+    const node = placeNode(newGame(), "MUX", { x: 20, y: 20 })!;
+    const ys = [0, 1, 2].map((i) => pinPosition(node, "in", i).y - node.rect.y);
+    expect(ys).toEqual([1, 3, 5]);
+    expect(pinPosition(node, "in", 2).x).toBe(node.rect.x);
+  });
+
+  test("settles from all three of its inputs", () => {
+    const game = newGame();
+    const a = add(game, "INPUT", 4, 6);
+    const b = add(game, "INPUT", 4, 16);
+    const sel = add(game, "INPUT", 4, 26);
+    const mux = add(game, "MUX", 20, 16);
+    const o = add(game, "OUTPUT", 40, 16);
+    wire(game, out(a), inp(mux, 0));
+    wire(game, out(b), inp(mux, 1));
+    wire(game, out(sel), inp(mux, 2));
+    wire(game, out(mux), inp(o));
+    setInput(game, b, true);
+    expect(high(game, o)).toBe(false);
+    setInput(game, sel, true);
+    expect(high(game, o)).toBe(true);
   });
 });
