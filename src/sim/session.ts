@@ -65,11 +65,13 @@ export class Session {
     this.start(0);
   }
 
-  // Applies a change to the board and saves it. Any change takes the
-  // stamp off, since the board it vouched for is gone.
+  // Applies a change to the board and saves it. A change that alters the
+  // board takes the stamp off, since the board it vouched for is gone; one
+  // that leaves it as it was, like a rejected wire, keeps the stamp.
   edit(change: (game: Game) => void): void {
+    const before = JSON.stringify(saveBoard(this.game));
     change(this.game);
-    this.stamped = false;
+    if (JSON.stringify(saveBoard(this.game)) !== before) this.stamped = false;
     this.save();
   }
 

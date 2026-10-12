@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { placeNode, wire, type Game, type Pin } from "./circuit";
+import { moveNode, placeNode, setInput, wire, type Game, type Pin } from "./circuit";
 import type { NodeID, NodeType } from "./node";
 import { memorySave, type SaveData } from "./save";
 import { Session } from "./session";
@@ -137,6 +137,19 @@ describe("session", () => {
     expect(session.stamped).toBe(false);
     expect(session.result?.passed).toBe(true);
     expect(store.load()?.board?.nodes.length).toBe(4);
+  });
+
+  test("the stamp stays through an edit that leaves the board as it was", () => {
+    const { session } = fresh();
+    buildNot(session.game);
+    runAll(session);
+    const nand = find(session.game, "NAND");
+    const a = find(session.game, "INPUT");
+    session.edit((game) => setInput(game, nand, true));
+    session.edit((game) => wire(game, out(nand), out(a)));
+    const onA = session.game.nodes.get(a)!.rect;
+    session.edit((game) => moveNode(game, nand, onA.x, onA.y));
+    expect(session.stamped).toBe(true);
   });
 
   test("the stamp comes off when a new run starts", () => {
