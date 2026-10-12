@@ -104,7 +104,6 @@ export class Session {
   place(type: NodeType): void {
     if (!placeNode(this.game, type, { x: GRID_WIDTH / 2, y: GRID_HEIGHT / 2 })) return;
     this.sound.play("place");
-    this.save();
   }
 
   // Returns false if a run is already going. Every row is checked here, out

@@ -29,8 +29,7 @@ export function mutate(change: (game: Game) => void): void {
 }
 
 export function placePart(type: NodeType): void {
-  session.place(type);
-  touch();
+  mutate(() => session.place(type));
 }
 
 export const levelIndex = read(() => session.levelIndex);
