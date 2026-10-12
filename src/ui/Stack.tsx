@@ -16,7 +16,7 @@ const BADGE: Record<LayerState, string> = {
   locked: "border-pencil text-pencil",
 };
 
-// The level select, drawn as the vision board's stack: nine layers read
+// The stack, drawn as on the vision board: nine layers read
 // bottom to top, inked in once built and dashed pencil while locked. Opening
 // a layer shows its sheets, and picking one starts that level. The elevator
 // in the shaft beside it sits at the current layer; arriving from the floor
