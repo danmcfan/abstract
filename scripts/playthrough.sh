@@ -90,6 +90,14 @@ TA=$(add NOT 15 13); TB=$(add NOT 15 30); N=$(add NAND 28 21)
 wire "$A" "$TA"; wire "$B" "$TB"; wire "$TA" "$N" 0; wire "$TB" "$N" 1; wire "$N" "$O"
 check 3 4
 
+# Level 5: MUX is (A AND NOT SEL) OR (B AND SEL).
+ab click "#next"; sleep 0.5; hush
+A=$(terminal INPUT ALPHA); B=$(terminal INPUT BETA); S=$(terminal INPUT SEL); O=$(terminal OUTPUT)
+T=$(add NOT 12 28); GA=$(add AND 20 10); GB=$(add AND 20 24); R=$(add OR 30 17)
+wire "$S" "$T"; wire "$A" "$GA" 0; wire "$T" "$GA" 1; wire "$B" "$GB" 0; wire "$S" "$GB" 1
+wire "$GA" "$R" 0; wire "$GB" "$R" 1; wire "$R" "$O"
+check 5 5
+
 # The video is a convenience: a failed encode warns but doesn't fail the run.
 agent-browser record stop >/dev/null 2>&1 || echo "warning: video not saved (agent-browser needs ffmpeg)" >&2
 errors=$(agent-browser errors 2>&1 || true)

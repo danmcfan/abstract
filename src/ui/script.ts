@@ -54,8 +54,17 @@ const LEVELS: Partial<Record<NodeType, LevelScript>> = {
       { face: "thinking", text: "Tricky one. What would a NAND do if you flipped both of its inputs first?" },
     ],
     hint: [{ face: "thinking", text: "Flip A and flip B, then send both into a NAND. Check it against the table." }, CONTROLS],
+    solved: [{ face: "amazed", text: "OR, done! Flip, and, or. Bigger parts are all made of those." }],
+  },
+  MUX: {
+    intro: [
+      { face: "thinking", text: "Three inputs this time. A MUX picks which signal gets through." },
+      { face: "idle", text: "When SEL is off, OUT copies A. When SEL is on, OUT copies B." },
+      { face: "thinking", text: "Two questions: is A on while SEL is off? Is B on while SEL is on?" },
+    ],
+    hint: [{ face: "thinking", text: "Build A AND NOT SEL, and B AND SEL. Then OR the two together." }, CONTROLS],
     solved: [
-      { face: "amazed", text: "OR, done! That's every schematic I have room for, for now." },
+      { face: "amazed", text: "MUX, done! A switch you flip with a wire instead of a finger." },
       { face: "happy", text: "There are more floors to this factory. We'll get there, partner." },
     ],
   },
