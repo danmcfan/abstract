@@ -39,7 +39,7 @@ _Avoid_: component, element, block
 A node that computes an output from its inputs: NAND, NOT, AND, OR, and later parts.
 
 **Terminal**:
-A node at the board's edge that the level places and the player can't remove: an input (A, B: a switch the player can flip) or the output (OUT: the lamp).
+A node at the board's edge that the level places and the player can't remove: an input (a switch the player can flip) or an output (a lamp). Each level gives its terminals short names, such as A, B, SEL or CIN in and SUM or COUT out; a level with one output calls it OUT. A part's pins carry the same names.
 _Avoid_: port, I/O
 
 **Pin**:
@@ -55,13 +55,25 @@ The on/off value on a wire or pin. "On" is drawn lit blue; in code it's `isHigh`
 _Avoid_: current, power, voltage
 
 **Settle**:
-Propagate signals through the board until every node's output matches its inputs. Every circuit command settles before it returns.
+Propagate signals through the board until every node's output matches its inputs. Every circuit command settles before it returns. Wires may form loops, so settling can take several passes.
 _Avoid_: propagate, tick, update
+
+**Unstable**:
+A board that never settles, because a loop keeps flipping its own signal (a NOT wired to itself). An unstable board fails its test run.
+_Avoid_: oscillating, broken
+
+**Bus**:
+A wire that carries several signals at once, up to 8, drawn thicker and marked with its width. A pin can be a bus pin, and a bus only connects pins of the same width.
+_Avoid_: cable, ribbon
+
+**Split** / **Join**:
+Nodes that turn a bus into single-signal wires (split) or single-signal wires into a bus (join). Every level with buses supplies them; they aren't parts, so the player never builds them.
+_Avoid_: splitter, mux (a MUX is a part)
 
 ## Parts
 
 **Part**:
-Something the player can place from the parts bin. Every part is a gate the player has built, apart from NAND, which Bitbox remembers.
+Something the player can place from the parts bin. Every part is a gate the player has built, apart from NAND, which Bitbox remembers. On the board a part behaves as its level's truth table says, not as the player's schematic is wired.
 _Avoid_: chip, component, tool
 
 **Parts bin**:
@@ -80,6 +92,17 @@ Every combination of a level's inputs with the expected output, counting up in b
 **Test run**:
 Stepping the board through every truth table row, one row at a time on screen, then recording pass or fail. Started by Run test.
 _Avoid_: check, simulation, evaluation
+
+**Timing table**:
+The test for a memory level: a list of steps, where each step sets the inputs, may tick the clock, and gives the expected outputs. A memory part's outputs depend on what came before, so a truth table can't describe it.
+_Avoid_: sequence, waveform
+
+**Step**:
+One row of a timing table.
+
+**Clock**:
+The CLK input terminal on a memory or control level. A **tick** turns it on and then off. Each memory part's level says when it takes in a value: a D latch while the clock is on, a D flip-flop (and every part built on it) when the clock turns on. During a test run the run drives the clock; while building, the player ticks it by hand with Tick, or lets it run.
+_Avoid_: timer, pulse
 
 ## Bitbox
 

@@ -14,6 +14,7 @@ The game is about climbing layers of abstraction, from NAND to a CPU, the way na
 
 - The player starts with only **NAND**. Each solved level puts the part it asked for into the **parts bin**, and later levels can use it as one node.
 - A level's parts bin is NAND plus every part from an earlier level (`partsBin()` in `src/sim/level.ts`). A test run **fails** if the board uses anything else, even if the truth table matches.
+- **Split** and **join** are wiring the level supplies, like terminals, not parts. The rule covers what computes, not how buses are bundled.
 - Levels are grouped into **layers** (see the [vision board](../vision/board.html)): each layer is built only from the layers below it.
 
 ## Consequences
