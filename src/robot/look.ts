@@ -19,11 +19,27 @@ export const PALETTE = {
   chalk: new THREE.Color("#EAF2FF"),
 };
 
-// Three flat tones, so lighting reads as shading drawn by hand.
-const tones = new THREE.DataTexture(new Uint8Array([90, 185, 255]), 3, 1, THREE.RedFormat);
-tones.minFilter = THREE.NearestFilter;
-tones.magFilter = THREE.NearestFilter;
-tones.needsUpdate = true;
+// Flat tones by how squarely a surface faces the sun: turned away, glancing,
+// and full on. Shade then reads as hand-drawn bands with crisp edges, not a
+// soft gradient. Each band starts at a dot(normal, light).
+const BANDS: [from: number, tone: number][] = [
+  [-1, 0],
+  [0.06, 0.55],
+  [0.42, 1],
+];
+const tones = (() => {
+  const size = 64;
+  const data = new Uint8Array(size);
+  for (let i = 0; i < size; i++) {
+    const facing = ((i + 0.5) / size) * 2 - 1;
+    data[i] = Math.round(255 * BANDS.reduce((tone, [from, t]) => (facing >= from ? t : tone), 0));
+  }
+  const texture = new THREE.DataTexture(data, size, 1, THREE.RedFormat);
+  texture.minFilter = THREE.NearestFilter;
+  texture.magFilter = THREE.NearestFilter;
+  texture.needsUpdate = true;
+  return texture;
+})();
 
 export function toon(color: THREE.ColorRepresentation = PALETTE.surface): THREE.MeshToonMaterial {
   return new THREE.MeshToonMaterial({ color, gradientMap: tones });
@@ -33,19 +49,13 @@ export function glowing(color: THREE.ColorRepresentation = PALETTE.glow): THREE.
   return new THREE.MeshBasicMaterial({ color, toneMapped: false });
 }
 
-// One ink for every outline, so the scene can fade all of them together
-// from darkness.
+// One ink for every outline, so they can all be hidden together.
 export const ink = new THREE.MeshBasicMaterial({ color: PALETTE.ink, side: THREE.BackSide });
-ink.onBeforeCompile = (shader) => {
-  shader.vertexShader = shader.vertexShader.replace(
-    "#include <begin_vertex>",
-    "vec3 transformed = position + normal * 0.022;",
-  );
-};
 
-// A mesh with an inked outline: a slightly fattened copy drawn inside out.
-// Normals are welded first so hard edges don't split the outline.
-export function inked(geometry: THREE.BufferGeometry, material: THREE.Material | THREE.Material[]): THREE.Mesh {
+// A mesh with an inked outline: a copy fattened along its normals by
+// outline units, drawn inside out. Small parts take thinner lines. Normals
+// are welded first so hard edges don't split the outline.
+export function inked(geometry: THREE.BufferGeometry, material: THREE.Material | THREE.Material[], outline = 0.02): THREE.Mesh {
   const mesh = new THREE.Mesh(geometry, material);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
@@ -53,6 +63,16 @@ export function inked(geometry: THREE.BufferGeometry, material: THREE.Material |
   for (const name of Object.keys(hull.attributes)) if (name !== "position") hull.deleteAttribute(name);
   const welded = mergeVertices(hull);
   welded.computeVertexNormals();
+  const position = welded.getAttribute("position");
+  const normal = welded.getAttribute("normal");
+  for (let i = 0; i < position.count; i++) {
+    position.setXYZ(
+      i,
+      position.getX(i) + normal.getX(i) * outline,
+      position.getY(i) + normal.getY(i) * outline,
+      position.getZ(i) + normal.getZ(i) * outline,
+    );
+  }
   mesh.add(new THREE.Mesh(welded, ink));
   return mesh;
 }

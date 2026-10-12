@@ -4,8 +4,12 @@ import type { Arm, Pose } from "./clips";
 import { canvasTexture, glowing, halo, inked, PALETTE, toon } from "./look";
 
 // The helper robot, concept B from the vision board ("the crate"): a toaster
-// of a body on a tread, a boxy head with a CRT face, a spring antenna and
-// two wiry arms. About two units tall, facing +z, standing on y = 0.
+// of a body on a tank tread, a boxy CRT head with a spring antenna, and two
+// ribbed arms. About two units tall, facing +z, standing on y = 0.
+//
+// Like every robot on the board it shows its screws and rivets, and it's
+// salvaged: one rivet and one bezel screw are missing, its screen is cracked
+// (drawn in face.ts), and its battery is down a bar.
 
 export interface Robot {
   group: THREE.Group;
@@ -15,127 +19,331 @@ export interface Robot {
   apply(pose: Pose): void;
 }
 
-export const FACE_SIZE = { width: 288, height: 204 };
+// The screen's canvas, in the same proportions as the glass.
+export const FACE_SIZE = { width: 300, height: 200 };
 
-const TREAD_HEIGHT = 0.28;
+const TREAD_HEIGHT = 0.32;
+// The tread's belt runs round two wheels this far either side of centre.
+const AXLE = 0.38;
+const BELT_RADIUS = 0.12;
+const WHEEL_RADIUS = 0.085; // clips.ts turns the wheels to match this
+
+const LINE = 0.018; // outline weight for big parts
+const FINE = 0.009; // and for small ones
+
+const box = (w: number, h: number, d: number, r: number, segments = 3) => new RoundedBoxGeometry(w, h, d, segments, r);
+// A cylinder lying along x, for things on the robot's sides.
+const sideways = (geometry: THREE.BufferGeometry) => geometry.rotateZ(Math.PI / 2);
+// A cylinder lying along z, for things on its front and back.
+const facing = (geometry: THREE.BufferGeometry) => geometry.rotateX(Math.PI / 2);
 
 export function createRobot(): Robot {
   const group = new THREE.Group();
   const white = toon(PALETTE.surface);
   const wash = toon(PALETTE.wash);
+  const steel = toon("#b7c7de");
+  const belt = toon("#3d5f9c");
+  const cleat = toon("#2c4a80");
   const inkFlat = new THREE.MeshBasicMaterial({ color: PALETTE.ink });
+  const slot = new THREE.MeshBasicMaterial({ color: PALETTE.void });
 
-  // The tread: one wide pill with three wheels showing on its face.
+  // A domed rivet or screw head on a surface facing +z; place and turn it
+  // onto the surface. Screws get a slot, each at its own angle.
+  let screws = 0;
+  const fastener = (radius: number, screw = false) => {
+    const head = inked(facing(new THREE.SphereGeometry(radius, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2)), steel, FINE * 0.8);
+    if (screw) {
+      const cut = new THREE.Mesh(new THREE.BoxGeometry(radius * 1.5, radius * 0.32, radius * 0.5), inkFlat);
+      cut.position.z = radius * 0.8;
+      cut.rotation.z = (screws++ * 2.2) % Math.PI;
+      head.add(cut);
+    }
+    return head;
+  };
+  // Where a fastener fell out: just the hole.
+  const hole = (radius: number) => new THREE.Mesh(new THREE.CircleGeometry(radius * 0.7, 14), slot);
+
+  // ---------------------------------------------------------------- tread
   const base = new THREE.Group();
   group.add(base);
-  const tread = inked(new RoundedBoxGeometry(1.04, TREAD_HEIGHT, 0.5, 4, 0.13), white);
-  tread.position.y = TREAD_HEIGHT / 2;
-  base.add(tread);
-  const wheels: THREE.Object3D[] = [];
-  for (const x of [-0.34, 0, 0.34]) {
-    const wheel = new THREE.Group();
-    wheel.position.set(x, TREAD_HEIGHT / 2, 0.255);
-    const rim = inked(new THREE.CylinderGeometry(0.085, 0.085, 0.03, 20), wash);
-    rim.rotation.x = Math.PI / 2;
-    wheel.add(rim);
-    // A spoke, so you can see the wheels turn.
-    const spoke = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.018, 0.01), inkFlat);
-    spoke.position.z = 0.017;
-    wheel.add(spoke);
-    base.add(wheel);
-    wheels.push(wheel);
-  }
+  // The belt rides high enough that its cleats touch the floor.
+  const treadY = CLEAT_RADIUS + 0.015;
 
+  // The belt: a stadium-shaped band, with cleats that run round it as it rolls.
+  const beltShape = stadium(AXLE, BELT_RADIUS);
+  beltShape.holes.push(stadium(AXLE, BELT_RADIUS - 0.035));
+  const band = inked(new THREE.ExtrudeGeometry(beltShape, { depth: 0.46, bevelEnabled: false, curveSegments: 16 }).translate(0, 0, -0.23), belt, LINE);
+  band.position.y = treadY;
+  base.add(band);
+  const cleatGeometry = box(0.05, 0.03, 0.47, 0.008, 1);
+  const cleats = Array.from({ length: 22 }, () => {
+    const c = inked(cleatGeometry, cleat, FINE);
+    base.add(c);
+    return c;
+  });
+
+  // Inside the belt: a white chassis with road wheels on both faces.
+  const chassis = inked(new THREE.ExtrudeGeometry(stadium(AXLE, BELT_RADIUS - 0.04), { depth: 0.4, bevelEnabled: false, curveSegments: 16 }).translate(0, 0, -0.2), white, FINE);
+  chassis.position.y = treadY;
+  base.add(chassis);
+  const wheels: THREE.Object3D[] = [];
+  for (const z of [0.205, -0.205]) {
+    for (const x of [-AXLE, 0, AXLE]) {
+      const r = x === 0 ? 0.065 : 0.082;
+      const wheel = new THREE.Group();
+      wheel.position.set(x, treadY, z);
+      if (z < 0) wheel.rotation.y = Math.PI;
+      wheel.add(inked(facing(new THREE.CylinderGeometry(r, r, 0.03, 24)), wash, FINE));
+      const hub = inked(facing(new THREE.CylinderGeometry(r * 0.45, r * 0.5, 0.05, 16)), white, FINE * 0.8);
+      wheel.add(hub);
+      // Three bolts, so you can see the wheels turn.
+      for (let i = 0; i < 3; i++) {
+        const a = (i / 3) * Math.PI * 2;
+        const bolt = new THREE.Mesh(new THREE.CircleGeometry(r * 0.1, 8), inkFlat);
+        bolt.position.set(Math.cos(a) * r * 0.7, Math.sin(a) * r * 0.7, 0.0155);
+        wheel.add(bolt);
+      }
+      base.add(wheel);
+      wheels.push(wheel);
+    }
+  }
+  // A deck plate the torso sits on.
+  const deck = inked(box(0.82, 0.03, 0.42, 0.012, 2), steel, FINE);
+  deck.position.y = TREAD_HEIGHT - 0.01;
+  base.add(deck);
+
+  // ---------------------------------------------------------------- torso
   // The torso pivots where it sits on the tread.
   const torso = new THREE.Group();
   torso.position.y = TREAD_HEIGHT;
   base.add(torso);
 
-  const body = inked(new RoundedBoxGeometry(0.88, 0.74, 0.6, 3, 0.05), white);
-  body.position.y = 0.37 + 0.02;
+  const body = inked(box(0.88, 0.74, 0.6, 0.05), white, LINE);
+  body.position.y = 0.39;
   torso.add(body);
+  const TOP = 0.76;
+  const FRONT = 0.3;
+
+  // Front: a riveted plate with vents and the crate's stencilled part number.
+  const plate = inked(box(0.72, 0.58, 0.03, 0.014, 2), white, FINE);
+  plate.position.set(0, 0.4, FRONT);
+  torso.add(plate);
+  const PLATE = FRONT + 0.015;
   for (const [x, y] of [
-    [-0.36, 0.67],
-    [0.36, 0.67],
-    [-0.36, 0.11],
-    [0.36, 0.11],
-  ]) {
-    const rivet = new THREE.Mesh(new THREE.SphereGeometry(0.022, 10, 8), wash);
-    rivet.position.set(x!, y!, 0.3);
+    [-0.32, 0.65],
+    [0.32, 0.65],
+    [-0.32, 0.15],
+  ] as const) {
+    const rivet = fastener(0.02);
+    rivet.position.set(x, y, PLATE);
     torso.add(rivet);
   }
+  const lost = hole(0.02);
+  lost.position.set(0.32, 0.15, PLATE + 0.001);
+  torso.add(lost);
   for (let i = 0; i < 3; i++) {
-    const vent = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.022, 0.012), inkFlat);
-    vent.position.set(0, 0.52 - i * 0.075, 0.302);
+    const vent = new THREE.Mesh(box(0.44, 0.026, 0.02, 0.008, 1), slot);
+    vent.position.set(0, 0.56 - i * 0.075, PLATE - 0.006);
     torso.add(vent);
   }
-  // A crate label, stencilled on.
-  const plate = canvasTexture(128, 48, (g) => {
+  const tag = inked(box(0.32, 0.11, 0.014, 0.01, 1), wash, FINE * 0.7);
+  tag.position.set(0, 0.24, PLATE + 0.004);
+  torso.add(tag);
+  const stencil = canvasTexture(256, 88, (g) => {
     g.fillStyle = "#1D4E9E";
-    g.font = 'bold 26px "Courier Prime", "Courier New", monospace';
+    g.font = 'bold 52px "Courier Prime", "Courier New", monospace';
     g.textAlign = "center";
     g.textBaseline = "middle";
-    g.fillText("74HC00", 64, 26);
+    g.fillText("74HC00", 128, 48);
   });
-  const label = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.1125), new THREE.MeshBasicMaterial({ map: plate.texture, transparent: true }));
-  label.position.set(0, 0.22, 0.302);
+  const label = new THREE.Mesh(new THREE.PlaneGeometry(0.29, 0.1), new THREE.MeshBasicMaterial({ map: stencil.texture, transparent: true }));
+  label.position.set(0, 0.24, PLATE + 0.012);
   torso.add(label);
 
-  const arms = { left: createArm(white, -1), right: createArm(white, 1) };
-  arms.left.shoulder.position.set(-0.46, 0.6, 0);
-  arms.right.shoulder.position.set(0.46, 0.6, 0);
+  // Top: the toaster's two bread slots, either side of the neck.
+  for (const z of [0.17, -0.17]) {
+    const bread = new THREE.Mesh(box(0.52, 0.01, 0.07, 0.004, 1), slot);
+    bread.position.set(0, TOP + 0.001, z);
+    torso.add(bread);
+  }
+
+  // Right side: the toaster lever in its track. Left side: the browning dial.
+  const track = new THREE.Mesh(box(0.01, 0.34, 0.05, 0.004, 1), slot);
+  track.position.set(0.441, 0.34, -0.17);
+  torso.add(track);
+  const lever = inked(box(0.07, 0.04, 0.085, 0.012, 2), wash, FINE);
+  lever.position.set(0.475, 0.46, -0.17);
+  torso.add(lever);
+  const dial = inked(sideways(new THREE.CylinderGeometry(0.065, 0.07, 0.035, 20)), wash, FINE);
+  dial.position.set(-0.457, 0.3, -0.15);
+  torso.add(dial);
+  const pointer = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.012, 0.075), inkFlat);
+  pointer.position.set(-0.476, 0.3 + 0.022, -0.15);
+  pointer.rotation.x = -0.7;
+  torso.add(pointer);
+
+  // Back: a screwed-on battery hatch, its charge meter one bar short.
+  const BACK = -0.3;
+  const hatch = inked(box(0.56, 0.44, 0.024, 0.014, 2), white, FINE);
+  hatch.position.set(0, 0.4, BACK);
+  torso.add(hatch);
+  for (const [x, y] of [
+    [-0.24, 0.585],
+    [0.24, 0.585],
+    [-0.24, 0.215],
+    [0.24, 0.215],
+  ] as const) {
+    const screw = fastener(0.018, true);
+    screw.position.set(x, y, BACK - 0.012);
+    screw.rotation.y = Math.PI;
+    torso.add(screw);
+  }
+  const meter = new THREE.Mesh(box(0.3, 0.09, 0.012, 0.008, 1), slot);
+  meter.position.set(0, 0.48, BACK - 0.012);
+  torso.add(meter);
+  const charge = glowing(PALETTE.glow);
+  const flat = new THREE.MeshBasicMaterial({ color: PALETTE.blueprint });
+  for (let i = 0; i < 4; i++) {
+    const bar = new THREE.Mesh(new THREE.PlaneGeometry(0.05, 0.05), i < 3 ? charge : flat);
+    bar.position.set(0.096 - i * 0.064, 0.48, BACK - 0.019);
+    bar.rotation.y = Math.PI;
+    torso.add(bar);
+  }
+
+  // Shoulder sockets, where the arms plug in.
+  for (const side of [-1, 1]) {
+    const socket = inked(sideways(new THREE.CylinderGeometry(0.075, 0.075, 0.03, 20)), steel, FINE);
+    socket.position.set(side * 0.45, 0.6, 0);
+    torso.add(socket);
+  }
+  const arms = { left: createArm(white, wash, steel, -1), right: createArm(white, wash, steel, 1) };
+  arms.left.shoulder.position.set(-0.49, 0.6, 0);
+  arms.right.shoulder.position.set(0.49, 0.6, 0);
   torso.add(arms.left.shoulder, arms.right.shoulder);
 
-  const neck = inked(new THREE.CylinderGeometry(0.08, 0.09, 0.14, 16), wash);
-  neck.position.y = 0.83;
-  torso.add(neck);
+  // A bellows neck.
+  const core = inked(new THREE.CylinderGeometry(0.055, 0.055, 0.13, 14), steel, FINE);
+  core.position.y = 0.82;
+  torso.add(core);
+  for (const y of [0.785, 0.825, 0.865]) {
+    const ring = inked(new THREE.CylinderGeometry(0.085, 0.085, 0.022, 18), wash, FINE * 0.8);
+    ring.position.y = y;
+    torso.add(ring);
+  }
 
+  // ----------------------------------------------------------------- head
   // The head pivots on its neck.
   const head = new THREE.Group();
   head.position.y = 0.88;
   torso.add(head);
-  const skull = inked(new RoundedBoxGeometry(0.8, 0.6, 0.56, 4, 0.08), white);
+  const skull = inked(box(0.8, 0.6, 0.56, 0.08, 4), white, LINE);
   skull.position.y = 0.3;
   head.add(skull);
+  const FACE = 0.28;
 
-  // The CRT: a dark rounded screen, its face drawn on a canvas.
+  // The CRT tube's tail, which makes it a television from the side.
+  const tail = inked(box(0.58, 0.42, 0.22, 0.06, 3), white, LINE);
+  tail.position.set(0, 0.29, -FACE - 0.08);
+  head.add(tail);
+  for (let i = 0; i < 4; i++) {
+    const vent = new THREE.Mesh(box(0.34, 0.02, 0.01, 0.006, 1), slot);
+    vent.position.set(0, 0.4 - i * 0.065, -FACE - 0.19);
+    head.add(vent);
+  }
+
+  // The screen: a bezel frame round curved glass, with the face drawn on it.
+  // Its edges are drawn on as flat ink: an outline hull would cross the glass.
+  const frame = roundedRect(0.7, 0.5, 0.09);
+  frame.holes.push(roundedRect(0.6, 0.4, 0.06));
+  const bezel = new THREE.Mesh(new THREE.ExtrudeGeometry(frame, { depth: 0.035, bevelEnabled: false, curveSegments: 10 }), wash);
+  bezel.castShadow = bezel.receiveShadow = true;
+  bezel.position.set(0, 0.3, FACE - 0.005);
+  head.add(bezel);
+  for (const edge of [outline(0.7, 0.5, 0.09, 0.012), outline(0.612, 0.412, 0.066, 0.012)]) {
+    const line = new THREE.Mesh(edge, inkFlat);
+    line.position.set(0, 0.3, FACE + 0.0305);
+    head.add(line);
+  }
   const screen = canvasTexture(FACE_SIZE.width, FACE_SIZE.height, () => {});
-  const glass = inked(roundedPanel(0.62, 0.44, 0.1, 0.02), [
-    new THREE.MeshBasicMaterial({ map: screen.texture, toneMapped: false }),
-    new THREE.MeshBasicMaterial({ color: PALETTE.void }),
-  ]);
-  glass.position.set(0, 0.3, 0.3);
+  const glass = new THREE.Mesh(bulge(0.61, 0.41, 0.024), new THREE.MeshBasicMaterial({ map: screen.texture, toneMapped: false }));
+  glass.position.set(0, 0.3, FACE + 0.003);
   head.add(glass);
   const faceContext = (screen.texture.image as HTMLCanvasElement).getContext("2d")!;
+  const BEZEL = FACE + 0.03;
+  for (const [x, y] of [
+    [-0.31, 0.51],
+    [0.31, 0.51],
+    [0.31, 0.09],
+  ] as const) {
+    const screw = fastener(0.016, true);
+    screw.position.set(x, y, BEZEL);
+    head.add(screw);
+  }
+  const loose = hole(0.016);
+  loose.position.set(-0.31, 0.09, BEZEL + 0.001);
+  head.add(loose);
 
+  // Ears: a hex bolt on the left, a tuning knob on the right.
   for (const side of [-1, 1]) {
-    const bolt = inked(new THREE.CylinderGeometry(0.045, 0.045, 0.04, 12), wash);
-    bolt.rotation.z = Math.PI / 2;
-    bolt.position.set(side * 0.415, 0.3, 0);
-    head.add(bolt);
+    const housing = inked(sideways(new THREE.CylinderGeometry(0.08, 0.085, 0.03, 22)), wash, FINE);
+    housing.position.set(side * 0.41, 0.3, 0);
+    head.add(housing);
+  }
+  const nut = inked(sideways(new THREE.CylinderGeometry(0.045, 0.045, 0.035, 6)), steel, FINE);
+  nut.position.set(-0.44, 0.3, 0);
+  head.add(nut);
+  const knob = inked(sideways(new THREE.CylinderGeometry(0.05, 0.055, 0.05, 12)), white, FINE);
+  knob.position.set(0.45, 0.3, 0);
+  head.add(knob);
+  const notch = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.04, 0.01), inkFlat);
+  notch.position.set(0.476, 0.315, 0);
+  head.add(notch);
+
+  // A little grille on top, behind the antenna.
+  for (let i = 0; i < 3; i++) {
+    const vent = new THREE.Mesh(box(0.24, 0.01, 0.022, 0.005, 1), slot);
+    vent.position.set(0, 0.6 + 0.001, -0.1 - i * 0.05);
+    head.add(vent);
   }
 
   // The spring antenna, with its light on top.
   const antenna = new THREE.Group();
   antenna.position.y = 0.6;
   head.add(antenna);
-  const socket = inked(new THREE.CylinderGeometry(0.05, 0.06, 0.04, 14), wash);
-  socket.position.y = 0.02;
+  const mount = inked(new THREE.CylinderGeometry(0.06, 0.07, 0.03, 16), steel, FINE);
+  mount.position.y = 0.015;
+  antenna.add(mount);
+  const socket = inked(new THREE.CylinderGeometry(0.035, 0.045, 0.04, 14), wash, FINE);
+  socket.position.y = 0.045;
   antenna.add(socket);
   const coil = new THREE.Group();
-  coil.position.y = 0.04;
+  coil.position.y = 0.06;
   antenna.add(coil);
-  coil.add(new THREE.Mesh(new THREE.TubeGeometry(new Helix(0.035, 0.24, 4.5), 120, 0.011, 6), inkFlat));
+  coil.add(new THREE.Mesh(new THREE.TubeGeometry(new Helix(0.035, 0.22, 4.5), 120, 0.011, 6), inkFlat));
   const tip = new THREE.Group();
-  tip.position.y = 0.27;
+  tip.position.y = 0.25;
   coil.add(tip);
+  const collar = inked(new THREE.CylinderGeometry(0.024, 0.03, 0.03, 12), steel, FINE * 0.8);
+  tip.add(collar);
   const bulbMaterial = glowing(PALETTE.glow);
-  const bulb = inked(new THREE.SphereGeometry(0.045, 14, 10), bulbMaterial);
+  const bulb = inked(new THREE.SphereGeometry(0.045, 16, 12), bulbMaterial, FINE);
+  bulb.position.y = 0.05;
   bulb.castShadow = false;
   tip.add(bulb);
-  const bulbHalo = halo(0.36);
+  const bulbHalo = halo(0.26);
+  bulbHalo.position.y = 0.05;
   tip.add(bulbHalo);
   const dim = new THREE.Color("#9FB6D6");
+
+  const placeCleats = (travel: number) => {
+    const point = new THREE.Vector2();
+    cleats.forEach((c, i) => {
+      const angle = beltPoint(((i / cleats.length) * BELT_PERIMETER + travel) % BELT_PERIMETER, point);
+      c.position.set(point.x, treadY + point.y, 0);
+      c.rotation.z = angle;
+    });
+  };
+  placeCleats(0);
 
   return {
     group,
@@ -144,7 +352,8 @@ export function createRobot(): Robot {
     apply(pose) {
       base.position.x = pose.slide;
       group.rotation.y = pose.turn;
-      for (const wheel of wheels) wheel.rotation.z = pose.wheels;
+      for (const wheel of wheels) wheel.rotation.z = wheel.rotation.y ? -pose.wheels : pose.wheels;
+      placeCleats(-pose.wheels * WHEEL_RADIUS);
       torso.position.y = TREAD_HEIGHT + pose.hop;
       torso.rotation.set(pose.lean, 0, pose.roll);
       torso.scale.set(1 + pose.squash * 0.5, 1 - pose.squash, 1 + pose.squash * 0.5);
@@ -159,34 +368,47 @@ export function createRobot(): Robot {
   };
 }
 
-// A wiry arm: shoulder, upper arm, elbow, forearm, and a hand. side is -1
-// for the arm on the left (as you look at it), +1 on the right. The right
-// hand is a claw, the left a round mitt.
-function createArm(material: THREE.Material, side: -1 | 1) {
+// An arm: ball shoulder, banded conduit upper arm, elbow, conduit forearm
+// and a hand. side is -1 for the arm on the left (as you look at it), +1 on the
+// right. The right hand is a two-fingered claw, the left a round mitt.
+function createArm(white: THREE.Material, wash: THREE.Material, steel: THREE.Material, side: -1 | 1) {
   const shoulder = new THREE.Group();
-  const joint = inked(new THREE.SphereGeometry(0.06, 14, 10), material);
-  shoulder.add(joint);
-  const upper = inked(new THREE.CapsuleGeometry(0.038, 0.2, 4, 10), material);
-  upper.position.y = -0.13;
-  shoulder.add(upper);
+  shoulder.add(inked(new THREE.SphereGeometry(0.058, 16, 12), white, FINE));
+  shoulder.add(conduit(0.25, 0.03, steel));
   const elbow = new THREE.Group();
   elbow.position.y = -0.26;
   shoulder.add(elbow);
-  const fore = inked(new THREE.CapsuleGeometry(0.036, 0.17, 4, 10), material);
-  fore.position.y = -0.11;
-  elbow.add(fore);
+  elbow.add(inked(new THREE.SphereGeometry(0.044, 14, 10), steel, FINE));
+  elbow.add(conduit(0.22, 0.028, steel));
   const hand = new THREE.Group();
   hand.position.y = -0.24;
   elbow.add(hand);
+  const cuff = inked(new THREE.CylinderGeometry(0.04, 0.036, 0.045, 16), wash, FINE);
+  cuff.position.y = 0.01;
+  hand.add(cuff);
   if (side > 0) {
+    // Two fingers, each bent in at the knuckle to pinch.
     for (const finger of [-1, 1]) {
-      const claw = inked(new THREE.CapsuleGeometry(0.022, 0.07, 3, 8), material);
-      claw.position.set(finger * 0.03, -0.03, 0);
-      claw.rotation.z = finger * 0.45;
-      hand.add(claw);
+      const knuckle = new THREE.Group();
+      knuckle.position.set(finger * 0.022, -0.012, 0);
+      knuckle.rotation.z = finger * 0.4;
+      hand.add(knuckle);
+      const lower = inked(new THREE.CapsuleGeometry(0.016, 0.05, 3, 10), white, FINE);
+      lower.position.y = -0.03;
+      knuckle.add(lower);
+      const tipGroup = new THREE.Group();
+      tipGroup.position.y = -0.062;
+      tipGroup.rotation.z = -finger * 0.75;
+      knuckle.add(tipGroup);
+      const tip = inked(new THREE.ConeGeometry(0.016, 0.05, 10), white, FINE);
+      tip.rotation.z = Math.PI;
+      tip.position.y = -0.022;
+      tipGroup.add(tip);
     }
   } else {
-    hand.add(inked(new THREE.SphereGeometry(0.05, 12, 10), material));
+    const mitt = inked(new THREE.SphereGeometry(0.052, 16, 12), white, FINE);
+    mitt.position.y = -0.04;
+    hand.add(mitt);
   }
 
   return {
@@ -198,9 +420,61 @@ function createArm(material: THREE.Material, side: -1 | 1) {
   };
 }
 
-// A rounded rectangle slab facing +z. Its front face is material group 0,
-// with UVs spanning the rectangle; the sides are group 1.
-function roundedPanel(width: number, height: number, radius: number, depth: number): THREE.BufferGeometry {
+// A length of conduit hanging down from the origin, banded with steel rings.
+function conduit(length: number, radius: number, steel: THREE.Material): THREE.Object3D {
+  const tube = inked(new THREE.CylinderGeometry(radius, radius, length, 14), toon(PALETTE.surface), FINE);
+  tube.position.y = -length / 2;
+  for (const t of [0.25, 0.5, 0.75]) {
+    const band = inked(new THREE.CylinderGeometry(radius * 1.22, radius * 1.22, 0.02, 14), steel, FINE * 0.7);
+    band.position.y = length / 2 - t * length;
+    tube.add(band);
+  }
+  return tube;
+}
+
+// A flat ring of ink tracing a rounded rectangle, facing +z.
+function outline(width: number, height: number, radius: number, weight: number): THREE.BufferGeometry {
+  const shape = roundedRect(width, height, radius);
+  shape.holes.push(roundedRect(width - 2 * weight, height - 2 * weight, radius - weight));
+  return new THREE.ShapeGeometry(shape, 10);
+}
+
+// A pill along x, centred on the origin: semicircles round (+-half, 0).
+function stadium(half: number, radius: number): THREE.Shape {
+  const shape = new THREE.Shape();
+  shape.moveTo(-half, -radius);
+  shape.lineTo(half, -radius);
+  shape.absarc(half, 0, radius, -Math.PI / 2, Math.PI / 2, false);
+  shape.lineTo(-half, radius);
+  shape.absarc(-half, 0, radius, Math.PI / 2, (Math.PI * 3) / 2, false);
+  return shape;
+}
+
+// The path the cleats ride, just outside the belt, starting top left and
+// running clockwise as seen from the front.
+const CLEAT_RADIUS = BELT_RADIUS + 0.012;
+const BELT_PERIMETER = 4 * AXLE + 2 * Math.PI * CLEAT_RADIUS;
+
+// Puts the point at distance s along the belt into out; returns the cleat's tilt.
+function beltPoint(s: number, out: THREE.Vector2): number {
+  const straight = 2 * AXLE;
+  const arc = Math.PI * CLEAT_RADIUS;
+  if (s < 0) s += BELT_PERIMETER;
+  if (s < straight) return out.set(-AXLE + s, CLEAT_RADIUS), 0;
+  s -= straight;
+  if (s < arc) {
+    const a = s / CLEAT_RADIUS;
+    return out.set(AXLE + Math.sin(a) * CLEAT_RADIUS, Math.cos(a) * CLEAT_RADIUS), -a;
+  }
+  s -= arc;
+  if (s < straight) return out.set(AXLE - s, -CLEAT_RADIUS), -Math.PI;
+  s -= straight;
+  const a = s / CLEAT_RADIUS;
+  return out.set(-AXLE - Math.sin(a) * CLEAT_RADIUS, -Math.cos(a) * CLEAT_RADIUS), -Math.PI - a;
+}
+
+// A rounded rectangle centred on the origin.
+function roundedRect(width: number, height: number, radius: number): THREE.Shape {
   const w = width / 2 - radius;
   const h = height / 2 - radius;
   const shape = new THREE.Shape();
@@ -213,15 +487,19 @@ function roundedPanel(width: number, height: number, radius: number, depth: numb
   shape.absarc(-w, h, radius, Math.PI / 2, Math.PI, false);
   shape.lineTo(-width / 2, -h);
   shape.absarc(-w, -h, radius, Math.PI, Math.PI * 1.5, false);
-  const geometry = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false, curveSegments: 8 });
-  geometry.translate(0, 0, -depth);
+  return shape;
+}
+
+// CRT glass: a rectangle facing +z that bulges out by depth in the middle.
+function bulge(width: number, height: number, depth: number): THREE.BufferGeometry {
+  const geometry = new THREE.PlaneGeometry(width, height, 24, 16);
   const position = geometry.getAttribute("position");
-  const uv = geometry.getAttribute("uv");
   for (let i = 0; i < position.count; i++) {
-    uv.setXY(i, position.getX(i) / width + 0.5, position.getY(i) / height + 0.5);
+    const x = (position.getX(i) / width) * 2;
+    const y = (position.getY(i) / height) * 2;
+    position.setZ(i, depth * (1 - x * x) * (1 - y * y));
   }
-  // Extrude puts the caps in group 0 and the sides in group 1; only the
-  // front cap shows.
+  geometry.computeVertexNormals();
   return geometry;
 }
 

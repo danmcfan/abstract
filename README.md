@@ -31,6 +31,8 @@ scripts/playthrough.sh   # with dev running: solves every level in a browser, sa
 
 The play-through drives the real game with [agent-browser](https://github.com/vercel-labs/agent-browser). In dev builds, `?level=N` skips the title and jumps to a level, and `window.__abstract` exposes the game state and screen positions of nodes and pins.
 
+With dev running, [`/bitbox.html`](http://localhost:5173/bitbox.html) is Bitbox's model sheet. It's a dev-only page where you can orbit him, change lighting and backdrop, play any expression at any speed, pose him by hand with sliders, and save a PNG. Its settings are kept in the URL, and `window.__bitbox` lets scripts drive it.
+
 Every push to `main` deploys to GitHub Pages via `.github/workflows/deploy.yml`.
 
 ## Layout
@@ -41,6 +43,6 @@ Every push to `main` deploys to GitHub Pages via `.github/workflows/deploy.yml`.
   - `gesture.ts`: turns pointer input into circuit edits.
   - `level.ts`: level definitions. `session.ts`: progress through them. `save.ts`: the saved game.
 - `src/ui/`: SolidJS components. `Title.tsx` is the title sheet; `Board.tsx` draws the circuit as SVG and handles input; `Hud.tsx` is the overlay (level, truth table, parts bin); `Dialogue.tsx` is the robot's popup, and `script.ts` is everything it says.
-- `src/robot/`: the robot in 3D. `robot.ts` builds it, `clips.ts` poses it for each expression, `face.ts` draws its screen, and `stage.ts` renders it.
+- `src/robot/`: the robot in 3D. `robot.ts` builds it, `clips.ts` poses it for each expression, `face.ts` draws its screen, `stage.ts` renders it in the game, and `viewer.ts` renders it on the model sheet.
 - `docs/vision/board.html`: the vision board, the reference for the look, the robot and the story. Open it in a browser.
 - `docs/adr/`: architecture decisions, such as moving from a 3D board to 2D SVG.

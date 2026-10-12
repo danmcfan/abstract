@@ -56,7 +56,48 @@ export function drawFace(g: CanvasRenderingContext2D, expression: Expression, ti
   roll.addColorStop(1, "rgba(127, 208, 255, 0)");
   g.fillStyle = roll;
   g.fillRect(0, band - 30, width, 60);
+  glass(g, width, height);
   g.restore();
+}
+
+// The curved glass over the picture: dark at the corners, a sheen across the
+// top, and a crack in one corner from wherever the robot was salvaged.
+function glass(g: CanvasRenderingContext2D, width: number, height: number) {
+  const vignette = g.createRadialGradient(width / 2, height / 2, height * 0.38, width / 2, height / 2, width * 0.66);
+  vignette.addColorStop(0, "rgba(4, 14, 36, 0)");
+  vignette.addColorStop(1, "rgba(4, 14, 36, 0.6)");
+  g.fillStyle = vignette;
+  g.fillRect(0, 0, width, height);
+
+  // Two diagonal streaks of reflection across the top-left corner.
+  const streak = (from: number, to: number, alpha: number) => {
+    g.fillStyle = `rgba(220, 238, 255, ${alpha})`;
+    g.beginPath();
+    g.moveTo(width * from, 0);
+    g.lineTo(width * to, 0);
+    g.lineTo(0, width * to * 0.9);
+    g.lineTo(0, width * from * 0.9);
+    g.fill();
+  };
+  streak(0.1, 0.36, 0.06);
+  streak(0.42, 0.47, 0.05);
+
+  g.strokeStyle = "rgba(200, 228, 255, 0.55)";
+  g.lineWidth = 1.4;
+  g.lineCap = "round";
+  g.lineJoin = "round";
+  const x = width - 6;
+  g.beginPath();
+  g.moveTo(x, 10);
+  g.lineTo(x - 18, 24);
+  g.lineTo(x - 30, 22);
+  g.lineTo(x - 44, 31);
+  g.moveTo(x - 18, 24);
+  g.lineTo(x - 22, 42);
+  g.lineTo(x - 36, 50);
+  g.moveTo(x - 30, 22);
+  g.lineTo(x - 34, 12);
+  g.stroke();
 }
 
 type Draw = (g: CanvasRenderingContext2D, time: number, x: number, y: number) => void;

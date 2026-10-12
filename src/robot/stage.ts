@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { blend, pose, type Pose } from "./clips";
 import type { Expression } from "./expression";
 import { drawFace } from "./face";
-import { PALETTE } from "./look";
+import { createLights } from "./lights";
 import { createRobot } from "./robot";
 import { progress, smoothstep } from "./timeline";
 
@@ -14,7 +14,7 @@ import { progress, smoothstep } from "./timeline";
 // Full shows the whole robot; close is head and shoulders, for talking.
 export type Shot = "full" | "close";
 
-const SHOTS: Record<Shot, { position: [number, number, number]; target: [number, number, number] }> = {
+export const SHOTS: Record<Shot, { position: [number, number, number]; target: [number, number, number] }> = {
   full: { position: [1.3, 1.45, 5.6], target: [0, 1.02, 0] },
   close: { position: [0.85, 1.85, 3.9], target: [0, 1.4, 0] },
 };
@@ -49,23 +49,7 @@ function createStage(): RobotStage {
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(26, 1, 0.1, 50);
 
-  scene.add(new THREE.HemisphereLight(PALETTE.surface, PALETTE.wash, 2.3));
-  const sun = new THREE.DirectionalLight(0xffffff, 2.2);
-  sun.position.set(2.5, 5, 4);
-  sun.castShadow = true;
-  sun.shadow.mapSize.set(1024, 1024);
-  sun.shadow.camera.left = -2;
-  sun.shadow.camera.right = 2;
-  sun.shadow.camera.top = 3;
-  sun.shadow.camera.bottom = -1;
-  sun.shadow.bias = -0.0005;
-  sun.shadow.normalBias = 0.02;
-  scene.add(sun);
-
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(8, 8), new THREE.ShadowMaterial({ color: PALETTE.ink, opacity: 0.16 }));
-  floor.rotation.x = -Math.PI / 2;
-  floor.receiveShadow = true;
-  scene.add(floor);
+  createLights(scene);
 
   const robot = createRobot();
   scene.add(robot.group);
