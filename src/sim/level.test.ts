@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { placeNode, wire, type Game, type Pin } from "./circuit";
-import { checkLevel, LEVELS, loadLevel, partsBin } from "./level";
+import { checkLevel, LEVELS, loadLevel, partsBin, truthTable } from "./level";
 import type { Label, NodeID, NodeType } from "./node";
 
 const out = (node: NodeID): Pin => ({ node, side: "out", index: 0 });
@@ -61,6 +61,35 @@ describe("solutions", () => {
     wire(game, out(nand), inp(o));
     expect(checkLevel(game, 3).passed).toBe(true);
   });
+
+  test("XOR from four NANDs", () => {
+    const { game, a, b, o } = levelGame(4);
+    const first = gate(game, "NAND");
+    const left = gate(game, "NAND");
+    const right = gate(game, "NAND");
+    const last = gate(game, "NAND");
+    wire(game, out(a), inp(first, 0));
+    wire(game, out(b), inp(first, 1));
+    wire(game, out(a), inp(left, 0));
+    wire(game, out(first), inp(left, 1));
+    wire(game, out(first), inp(right, 0));
+    wire(game, out(b), inp(right, 1));
+    wire(game, out(left), inp(last, 0));
+    wire(game, out(right), inp(last, 1));
+    wire(game, out(last), inp(o));
+    expect(checkLevel(game, 4).passed).toBe(true);
+  });
+});
+
+test("XOR comes after OR and is on when exactly one input is on", () => {
+  const index = LEVELS.findIndex((level) => level.gate === "XOR");
+  expect(LEVELS[index - 1]!.gate).toBe("OR");
+  expect(truthTable(LEVELS[index]!)).toEqual([
+    { inputs: [false, false], expected: false },
+    { inputs: [false, true], expected: true },
+    { inputs: [true, false], expected: true },
+    { inputs: [true, true], expected: false },
+  ]);
 });
 
 describe("checkLevel", () => {
@@ -87,6 +116,7 @@ test("each solved level adds its gate to the parts bin", () => {
   expect(partsBin(0)).toEqual([]);
   expect(partsBin(1)).toEqual(["NAND"]);
   expect(partsBin(3)).toEqual(["NAND", "NOT", "AND"]);
+  expect(partsBin(5)).toEqual(["NAND", "NOT", "AND", "OR", "XOR"]);
 });
 
 test("checkLevel leaves the board's inputs alone", () => {
