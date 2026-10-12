@@ -109,7 +109,7 @@ The CLK input terminal on a memory or control level. A **tick** turns it on and 
 _Avoid_: timer, pulse
 
 **Clock speed**:
-How many ticks per second Run gives the clock. The player sets it on a gauge that arrives with the clock at L6; nothing the player builds makes a part faster or slower.
+How many ticks per second Run gives the clock. The player sets it on a gauge, from 1 to 64, on every level with a clock and in the door program; nothing the player builds makes a part faster or slower.
 _Avoid_: frequency, tempo
 
 ## The computer
@@ -122,10 +122,10 @@ _Avoid_: processor, computer (for the part)
 A memory part that keeps one 8-signal value. The CPU has four, R0 to R3.
 
 **Register file**:
-The four registers as one part, which gives two registers' values and writes a third in the same tick.
+The four registers as one part, which gives two registers' values and writes one register in the same tick.
 
 **ALU**:
-The part, built in L4, that does one of six operations (add, subtract, and, or, xor, not) on two 8-signal values, chosen by its OP input. Its ZERO output is on when A is 0. It is built from eight **ALU slices**, each the ALU for one signal.
+The part, built in L4, that does one of six operations (add, subtract, and, or, xor, not) on two 8-signal values, chosen by its OP input. Its ZERO output is on when its A input is 0, whatever the operation. It is built from eight **ALU slices**, each the ALU for one signal.
 _Avoid_: calculator, math unit
 
 **Program counter**:
@@ -149,8 +149,14 @@ _Avoid_: command, op
 The player's table, written in L7 before the CPU is built, that gives each instruction a mnemonic and an opcode. The CPU and the door program both use it.
 _Avoid_: ISA (in player-facing text), language
 
+**Mnemonic**:
+The word the player chose for an instruction, such as `SET`.
+
+**Opcode**:
+The number, 0 to 15, the player chose for an instruction, which the CPU reads to know what to do.
+
 **Program memory**:
-The memory that holds the program the CPU runs, filled from the player's instruction set. The level supplies it, like a terminal; the player never builds it.
+The memory, 256 instructions long, that holds the program the CPU runs, filled from the player's instruction set. The level supplies it, like a terminal; the player never builds it.
 _Avoid_: ROM, code memory
 
 **RAM**:
@@ -169,17 +175,12 @@ _Avoid_: cycle, phase
 The program the player writes in their instruction set in L9. It reads the name from the keypad, works out the door code and sends it to the door.
 
 **Door code**:
-The number the door wants: the sum of the letters of TURING, kept to 8 signals (217).
+The number the door wants: the sum of the ASCII codes of the letters of TURING, kept to 8 signals (217).
 
 **Clue**:
-A pencil note in a sheet's margin about Alan Turing's life, shown once that sheet's level is solved. The clues together point to the name the door code comes from.
+A pencil note about Alan Turing's life in the margin of the last sheet of each of L1 to L6, shown once that level is solved. The six clues together point to the name the door code comes from.
 _Avoid_: hint (Bitbox gives hints), easter egg
 
-**Mnemonic**:
-The word the player chose for an instruction, such as `LOAD`.
-
-**Opcode**:
-The number the player chose for an instruction, which the CPU reads to know what to do.
 
 ## Bitbox
 

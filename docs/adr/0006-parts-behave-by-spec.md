@@ -19,3 +19,4 @@ A part on the board computes its level's spec: the truth table for a combination
 - Board cost doesn't grow with layer depth, so test runs can check many rows (issue #8).
 - Each level must define its part's behaviour in code, alongside its truth table or timing table.
 - The schematic can still be saved and shown later (a "zoom into a part" view, ADR 2), but only as a drawing.
+- [ADR 7](0007-player-numbers-the-instructions.md) makes one exception: the CPU's spec reads the player's instruction set.
