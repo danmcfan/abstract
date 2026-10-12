@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { placeNode, wire, type Game, type Pin } from "./circuit";
+import { moveNode, placeNode, setInput, wire, type Game, type Pin } from "./circuit";
 import type { NodeID, NodeType } from "./node";
 import { memorySave, type SaveData } from "./save";
 import { Session } from "./session";
@@ -102,6 +102,70 @@ describe("session", () => {
     expect(session.result?.forbidden).toEqual(["NOT"]);
     expect(session.result?.passed).toBe(false);
     expect(session.solved).toBe(1);
+  });
+
+  test("a passing run stamps the sheet", () => {
+    const { session } = fresh();
+    buildNot(session.game);
+    expect(session.stamped).toBe(false);
+    session.beginTest();
+    session.step();
+    expect(session.stamped).toBe(false);
+    while (session.step());
+    expect(session.stamped).toBe(true);
+  });
+
+  test("passing a level already solved stamps it again", () => {
+    const { session } = fresh(3);
+    buildNot(session.game);
+    runAll(session);
+    expect(session.stamped).toBe(true);
+  });
+
+  test("a failing run doesn't stamp", () => {
+    const { session } = fresh();
+    runAll(session);
+    expect(session.result?.passed).toBe(false);
+    expect(session.stamped).toBe(false);
+  });
+
+  test("the stamp comes off when the board changes", () => {
+    const { session, store } = fresh();
+    buildNot(session.game);
+    runAll(session);
+    session.edit((game) => placeNode(game, "NAND", { x: 30, y: 20 }));
+    expect(session.stamped).toBe(false);
+    expect(session.result?.passed).toBe(true);
+    expect(store.load()?.board?.nodes.length).toBe(4);
+  });
+
+  test("the stamp stays through an edit that leaves the board as it was", () => {
+    const { session } = fresh();
+    buildNot(session.game);
+    runAll(session);
+    const nand = find(session.game, "NAND");
+    const a = find(session.game, "INPUT");
+    session.edit((game) => setInput(game, nand, true));
+    session.edit((game) => wire(game, out(nand), out(a)));
+    const onA = session.game.nodes.get(a)!.rect;
+    session.edit((game) => moveNode(game, nand, onA.x, onA.y));
+    expect(session.stamped).toBe(true);
+  });
+
+  test("the stamp comes off when a new run starts", () => {
+    const { session } = fresh();
+    buildNot(session.game);
+    runAll(session);
+    session.beginTest();
+    expect(session.stamped).toBe(false);
+  });
+
+  test("the stamp comes off on another level", () => {
+    const { session } = fresh();
+    buildNot(session.game);
+    runAll(session);
+    session.start(0);
+    expect(session.stamped).toBe(false);
   });
 
   test("progress loads from the store", () => {
