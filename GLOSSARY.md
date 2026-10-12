@@ -67,7 +67,7 @@ A wire that carries several signals at once, up to 8, drawn thicker and marked w
 _Avoid_: cable, ribbon
 
 **Split** / **Join**:
-Nodes that turn a bus into single-signal wires (split) or single-signal wires into a bus (join). Every level with buses supplies them; they aren't parts, so the player never builds them.
+Nodes that turn a bus into single-signal wires (split) or single-signal wires into a bus (join). Every level with buses supplies them in the **Wiring** section at the end of the parts bin; they aren't parts, so the player never builds them.
 _Avoid_: splitter, mux (a MUX is a part)
 
 ## Parts
@@ -87,7 +87,7 @@ _Avoid_: blueprint, recipe
 ## Testing
 
 **Truth table**:
-Every combination of a level's inputs with the expected output, counting up in binary with A as the high bit.
+Every combination of a level's inputs with the expected outputs, counting up in binary with A as the high bit. A level with buses has too many rows to show, so its table shows only a few named cases, and the test run checks the other rows out of sight, adding any that fail to the table.
 
 **Test run**:
 Stepping the board through every truth table row, one row at a time on screen, then recording pass or fail. Started by Run test.
