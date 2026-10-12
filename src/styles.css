@@ -1,15 +1,22 @@
 @import "tailwindcss";
 
+/* Drafting mode from the vision board (docs/vision/board.html): white grid
+   paper, blue ink, typewriter type. */
 @theme {
-  --font-sans:
-    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Inter,
-    sans-serif;
-  --color-ink: #1d1d1f;
-  --color-muted: #6e6e73;
-  --color-signal: #2997ff;
-  --color-action: #0071e3;
-  --color-pass: #248a3d;
-  --color-fail: #d70015;
+  --font-type: "Courier Prime", "Courier New", Courier, monospace;
+  --font-hand: "Architects Daughter", "Segoe Print", "Bradley Hand", cursive;
+  --color-paper: #f5f8fc;
+  --color-surface: #ffffff;
+  --color-wash: #e4edf9;
+  --color-ink: #1d4e9e;
+  --color-ink-deep: #0f2c5e;
+  --color-pencil: #5a6578;
+  --color-void: #0a2150;
+  --color-glow: #7fd0ff;
+  --color-live: #2f6fc4;
+  --color-dead: #a3b0c2;
+  --color-pass: #23784a;
+  --color-fail: #c0392b;
 }
 
 html,
@@ -19,12 +26,94 @@ body {
 }
 
 body {
-  background: radial-gradient(
-    ellipse at 50% 40%,
-    #fbfbfd 0%,
-    #eceef2 55%,
-    #d9dce2 100%
-  );
+  font-family: var(--font-type);
+  color: var(--color-ink-deep);
+  background-color: var(--color-paper);
+  background-image:
+    linear-gradient(rgba(47, 111, 196, 0.16) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(47, 111, 196, 0.16) 1px, transparent 1px),
+    linear-gradient(rgba(47, 111, 196, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(47, 111, 196, 0.07) 1px, transparent 1px);
+  background-size:
+    60px 60px,
+    60px 60px,
+    12px 12px,
+    12px 12px;
+}
+
+:focus-visible {
+  outline: 3px dashed var(--color-live);
+  outline-offset: 3px;
+}
+
+/* Buttons from the vision board's parts bin: solid ink for the main action,
+   outlined for the rest, and they press down into their shadow. */
+@utility btn {
+  border: 2px solid var(--color-ink);
+  background: var(--color-ink);
+  color: var(--color-paper);
+  padding: 0.5rem 1.1rem;
+  font-weight: 700;
+  box-shadow: 4px 4px 0 var(--color-pencil);
+  transition:
+    transform 0.08s,
+    box-shadow 0.08s;
+  cursor: pointer;
+  &:active:not(:disabled) {
+    transform: translate(3px, 3px);
+    box-shadow: 1px 1px 0 var(--color-pencil);
+  }
+  &:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+}
+@utility btn-ghost {
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-weight: 400;
+  &:hover:not(:disabled) {
+    background: var(--color-wash);
+  }
+}
+@utility btn-sm {
+  padding: 0.25rem 0.7rem;
+  font-size: 0.85rem;
+  box-shadow: 3px 3px 0 var(--color-pencil);
+}
+/* A sheet pinned onto the drafting board. */
+@utility sheet {
+  background: var(--color-surface);
+  border: 2px solid var(--color-ink);
+  box-shadow: 5px 5px 0 rgba(29, 78, 158, 0.16);
+}
+
+.caret::after {
+  content: "▌";
+  color: var(--color-ink);
+  animation: caret 1s steps(1) infinite;
+}
+@keyframes caret {
+  50% {
+    opacity: 0;
+  }
+}
+@keyframes pop {
+  from {
+    transform: translateY(12px) scale(0.96);
+    opacity: 0;
+  }
+}
+.pop {
+  animation: pop 0.22s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
 }
 
 /* The board is SVG, drawn in grid cells; these style its shapes by state. */
@@ -36,24 +125,28 @@ body {
   display: block;
   user-select: none;
 }
-#board .plate {
-  fill: #fdfdfe;
-  stroke: rgba(0, 0, 0, 0.07);
-  stroke-width: 0.06;
-  filter: url(#lift);
+#board .plate-shadow {
+  fill: rgba(29, 78, 158, 0.12);
 }
-#board .dot {
-  fill: #c3c7ce;
+#board .plate {
+  fill: var(--color-surface);
+  stroke: var(--color-ink);
+  stroke-width: 0.14;
+}
+#board .minor {
+  fill: none;
+  stroke: rgba(47, 111, 196, 0.1);
+  stroke-width: 0.04;
 }
 #board .major {
   fill: none;
-  stroke: rgba(60, 64, 72, 0.06);
+  stroke: rgba(47, 111, 196, 0.24);
   stroke-width: 0.05;
 }
 #board .work-area {
   fill: none;
-  stroke: rgba(0, 0, 0, 0.06);
-  stroke-width: 0.05;
+  stroke: var(--color-ink);
+  stroke-width: 0.06;
 }
 #board .wire path {
   fill: none;
@@ -61,35 +154,35 @@ body {
   stroke-linejoin: round;
 }
 #board .wire .core {
-  stroke: #a7acb4;
-  stroke-width: 0.2;
+  stroke: var(--color-dead);
+  stroke-width: 0.18;
   transition: stroke 0.15s;
 }
 #board .wire .flow {
   stroke: transparent;
-  stroke-width: 0.08;
+  stroke-width: 0.07;
   stroke-dasharray: 0.25 0.85;
 }
 #board .wire.high .core {
-  stroke: #2997ff;
+  stroke: var(--color-live);
   filter: url(#glow);
 }
 #board .wire.high .flow {
-  stroke: rgba(255, 255, 255, 0.85);
+  stroke: rgba(255, 255, 255, 0.9);
   animation: flow 0.9s linear infinite;
 }
 #board .wire.unrouted .core {
   stroke-dasharray: 0.3 0.3;
 }
 #board .junctions circle {
-  fill: #a7acb4;
+  fill: var(--color-dead);
 }
 #board .junctions circle.high {
-  fill: #2997ff;
+  fill: var(--color-live);
 }
 #board .preview {
   fill: none;
-  stroke: #2997ff;
+  stroke: var(--color-live);
   stroke-width: 0.16;
   stroke-dasharray: 0.35 0.3;
   stroke-linecap: round;
@@ -101,72 +194,110 @@ body {
     stroke-dashoffset: -1.1;
   }
 }
+
 #board .node {
   cursor: grab;
 }
-#board .card {
-  fill: #fff;
-  stroke: #d9dce1;
-  stroke-width: 0.06;
-  filter: url(#lift);
-  transition: stroke 0.15s;
+#board .node .hit {
+  fill: transparent;
 }
-#board .node.hovered .card {
-  stroke: #0071e3;
-}
-#board .accent {
-  fill: var(--accent);
-}
-#board .led {
-  fill: #d5d8dd;
-}
-#board .node.high .led {
-  fill: #2997ff;
-  filter: url(#glow);
-}
-#board .bezel {
-  fill: #eef0f3;
-  stroke: #b9bec6;
+#board .node .halo {
+  fill: none;
+  stroke: var(--color-live);
   stroke-width: 0.08;
+  stroke-dasharray: 0.3 0.25;
+  opacity: 0;
+  transition: opacity 0.15s;
 }
-#board .lamp {
-  fill: #dfe2e6;
-  transition: fill 0.15s;
+#board .node.hovered .halo {
+  opacity: 1;
 }
-#board .node.high .lamp {
-  fill: #2997ff;
-  filter: url(#glow);
+#board .node .body,
+#board .node .bubble,
+#board .node .panel,
+#board .node .bulb {
+  fill: var(--color-surface);
+  stroke: var(--color-ink);
+  stroke-width: 0.14;
+  stroke-linejoin: round;
+}
+#board .node .body-line,
+#board .node .lead {
+  fill: none;
+  stroke: var(--color-ink);
+  stroke-width: 0.14;
+  stroke-linecap: round;
+}
+#board .node .panel {
+  stroke-width: 0.1;
+}
+#board .node.high .lead.out,
+#board .node.high .bubble {
+  stroke: var(--color-live);
+}
+#board .node.high .bubble {
+  fill: var(--color-wash);
 }
 #board .input {
   cursor: pointer;
 }
+#board .lever {
+  stroke: var(--color-ink);
+  stroke-width: 0.26;
+  stroke-linecap: round;
+  transform-box: fill-box;
+  transform-origin: left center;
+  transform: rotate(-35deg);
+  transition: transform 0.12s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+#board .input.high .lever {
+  transform: rotate(0deg);
+  stroke: var(--color-live);
+}
+#board .pivot {
+  fill: var(--color-ink);
+}
+#board .contact {
+  fill: var(--color-surface);
+  stroke: var(--color-ink);
+  stroke-width: 0.1;
+}
+#board .bulb {
+  transition: fill 0.15s;
+}
+#board .filament {
+  fill: none;
+  stroke: var(--color-ink);
+  stroke-width: 0.1;
+}
+#board .output.high .bulb {
+  fill: var(--color-glow);
+  filter: url(#glow);
+}
 #board text {
-  font-family:
-    -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue",
-    Inter, sans-serif;
-  fill: #1d1d1f;
+  font-family: var(--font-type);
+  fill: var(--color-ink);
   text-anchor: middle;
   dominant-baseline: central;
   pointer-events: none;
 }
 #board .gate-label {
-  font-size: 0.95px;
-  font-weight: 600;
-  letter-spacing: 0.04px;
+  font-weight: 700;
 }
 #board .terminal-label {
-  font-size: 0.6px;
-  font-weight: 600;
-  fill: #6e6e73;
-  letter-spacing: 0.04px;
+  font-size: 0.7px;
+  font-weight: 700;
+}
+#board .terminal-label.small {
+  font-size: 0.5px;
 }
 #board .pin {
-  fill: #fff;
-  stroke: #8e939b;
+  fill: var(--color-surface);
+  stroke: var(--color-ink);
   stroke-width: 0.08;
   cursor: crosshair;
 }
 #board .pin.hovered {
-  fill: #2997ff;
-  stroke: #0071e3;
+  fill: var(--color-glow);
+  stroke: var(--color-live);
 }

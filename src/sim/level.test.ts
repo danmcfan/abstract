@@ -22,28 +22,35 @@ function levelGame(index: number) {
 }
 
 describe("solutions", () => {
+  test("the NAND level comes wired and passes as is", () => {
+    const { game } = levelGame(0);
+    expect([...game.nodes.values()].map((node) => node.type)).toContain("NAND");
+    expect(game.edges.size).toBe(3);
+    expect(checkLevel(game, 0).passed).toBe(true);
+  });
+
   test("NOT from one NAND", () => {
-    const { game, a, o } = levelGame(0);
+    const { game, a, o } = levelGame(1);
     const nand = gate(game, "NAND");
     wire(game, out(a), inp(nand, 0));
     wire(game, out(a), inp(nand, 1));
     wire(game, out(nand), inp(o));
-    expect(checkLevel(game, 0).passed).toBe(true);
+    expect(checkLevel(game, 1).passed).toBe(true);
   });
 
   test("AND from NAND then NOT", () => {
-    const { game, a, b, o } = levelGame(1);
+    const { game, a, b, o } = levelGame(2);
     const nand = gate(game, "NAND");
     const not = gate(game, "NOT");
     wire(game, out(a), inp(nand, 0));
     wire(game, out(b), inp(nand, 1));
     wire(game, out(nand), inp(not));
     wire(game, out(not), inp(o));
-    expect(checkLevel(game, 1).passed).toBe(true);
+    expect(checkLevel(game, 2).passed).toBe(true);
   });
 
   test("OR from two NOTs into a NAND", () => {
-    const { game, a, b, o } = levelGame(2);
+    const { game, a, b, o } = levelGame(3);
     const notA = gate(game, "NOT");
     const notB = gate(game, "NOT");
     const nand = gate(game, "NAND");
@@ -52,37 +59,38 @@ describe("solutions", () => {
     wire(game, out(notA), inp(nand, 0));
     wire(game, out(notB), inp(nand, 1));
     wire(game, out(nand), inp(o));
-    expect(checkLevel(game, 2).passed).toBe(true);
+    expect(checkLevel(game, 3).passed).toBe(true);
   });
 });
 
 describe("checkLevel", () => {
   test("fails a wrong circuit and reports the failing rows", () => {
-    const { game, a, o } = levelGame(0);
+    const { game, a, o } = levelGame(1);
     wire(game, out(a), inp(o));
-    const result = checkLevel(game, 0);
+    const result = checkLevel(game, 1);
     expect(result.passed).toBe(false);
     expect(result.rows.map((row) => row.actual)).toEqual([false, true]);
   });
 
   test("fails when a gate outside the toolbox is used", () => {
-    const { game, a, o } = levelGame(0);
+    const { game, a, o } = levelGame(1);
     const not = gate(game, "NOT");
     wire(game, out(a), inp(not));
     wire(game, out(not), inp(o));
-    const result = checkLevel(game, 0);
+    const result = checkLevel(game, 1);
     expect(result.forbidden).toEqual(["NOT"]);
     expect(result.passed).toBe(false);
   });
 });
 
 test("each solved level adds its gate to the toolbox", () => {
-  expect(toolbox(0)).toEqual(["NAND"]);
-  expect(toolbox(2)).toEqual(["NAND", "NOT", "AND"]);
+  expect(toolbox(0)).toEqual([]);
+  expect(toolbox(1)).toEqual(["NAND"]);
+  expect(toolbox(3)).toEqual(["NAND", "NOT", "AND"]);
 });
 
 test("checkLevel leaves the board's inputs alone", () => {
-  const { game, a } = levelGame(0);
-  checkLevel(game, 0);
+  const { game, a } = levelGame(1);
+  checkLevel(game, 1);
   expect(game.nodes.get(a)!.isHigh).toBe(false);
 });

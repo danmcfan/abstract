@@ -1,4 +1,4 @@
-import { For, Show, createMemo, createSignal, onCleanup } from "solid-js";
+import { For, Show, createMemo, createSignal, onCleanup, onMount } from "solid-js";
 import { pinPosition, type Pin } from "../sim/circuit";
 import { createGestures, type Gestures } from "../sim/gesture";
 import { GRID_HEIGHT, GRID_WIDTH } from "../sim/grid";
@@ -7,14 +7,13 @@ import { NodeView } from "./NodeView";
 import { current, mutate, testing } from "./state";
 import { wirePath } from "./wirePath";
 
-// A clean breadboard drawn in SVG. The viewBox is in grid cells, so one user
+// A drafting sheet drawn in SVG. The viewBox is in grid cells, so one user
 // unit is one cell and the drawing stays crisp at any size. Colours and
 // strokes live in styles.css.
 
 const BOARD_MARGIN = 1.5;
 const VIEW_MARGIN = 1;
-// Screen space, in pixels, kept clear for the HUD on wide windows.
-const HUD_INSET = { left: 296, right: 24, top: 24, bottom: 84 };
+const GAP = 16;
 
 let svg: SVGSVGElement | undefined;
 
@@ -33,7 +32,18 @@ export function Board() {
   const [viewBox, setViewBox] = createSignal(fitViewBox());
   const onResize = () => setViewBox(fitViewBox());
   window.addEventListener("resize", onResize);
-  onCleanup(() => window.removeEventListener("resize", onResize));
+  // The HUD changes size with the level, so fit around it whenever it does.
+  const hud = new ResizeObserver(onResize);
+  onMount(() => {
+    for (const id of HUD_IDS) {
+      const el = document.getElementById(id);
+      if (el) hud.observe(el);
+    }
+  });
+  onCleanup(() => {
+    window.removeEventListener("resize", onResize);
+    hud.disconnect();
+  });
 
   const gestures = createGestures({ game: current, edit: mutate, locked: testing });
   // The gesture module is plain state; mirror it into signals after each event.
@@ -84,41 +94,43 @@ export function Board() {
       onContextMenu={onContextMenu}
     >
       <defs>
-        <pattern id="dots" width="1" height="1" patternUnits="userSpaceOnUse">
-          <circle cx="0" cy="0" r="0.06" class="dot" />
-          <circle cx="1" cy="0" r="0.06" class="dot" />
-          <circle cx="0" cy="1" r="0.06" class="dot" />
-          <circle cx="1" cy="1" r="0.06" class="dot" />
+        <pattern id="minor" width="1" height="1" patternUnits="userSpaceOnUse">
+          <path d="M 1 0 L 0 0 0 1" class="minor" />
         </pattern>
         <pattern id="major" width="5" height="5" patternUnits="userSpaceOnUse">
           <path d="M 5 0 L 0 0 0 5" class="major" />
         </pattern>
-        <filter id="lift" x="-20%" y="-20%" width="140%" height="160%">
-          <feDropShadow dx="0" dy="0.12" stdDeviation="0.12" flood-color="#000" flood-opacity="0.10" />
-          <feDropShadow dx="0" dy="0.35" stdDeviation="0.4" flood-color="#000" flood-opacity="0.06" />
-        </filter>
-        {/* In user space, so perfectly straight wires (a zero-height bounding
-            box) aren't clipped away. */}
+        {/* A cyan glow under live wires and lit lamps. In user space, so
+            perfectly straight wires (a zero-height bounding box) aren't
+            clipped away. */}
         <filter id="glow" filterUnits="userSpaceOnUse" x="-5" y="-5" width={GRID_WIDTH + 10} height={GRID_HEIGHT + 10}>
-          <feGaussianBlur stdDeviation="0.18" result="blur" />
+          <feGaussianBlur in="SourceAlpha" stdDeviation="0.22" result="blur" />
+          <feFlood flood-color="#7FD0FF" flood-opacity="0.9" />
+          <feComposite in2="blur" operator="in" result="glow" />
           <feMerge>
-            <feMergeNode in="blur" />
+            <feMergeNode in="glow" />
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
       </defs>
 
       <rect
+        class="plate-shadow"
+        x={-BOARD_MARGIN + 0.5}
+        y={-BOARD_MARGIN + 0.5}
+        width={GRID_WIDTH + BOARD_MARGIN * 2}
+        height={GRID_HEIGHT + BOARD_MARGIN * 2}
+      />
+      <rect
         class="plate"
         x={-BOARD_MARGIN}
         y={-BOARD_MARGIN}
         width={GRID_WIDTH + BOARD_MARGIN * 2}
         height={GRID_HEIGHT + BOARD_MARGIN * 2}
-        rx={1}
       />
+      <rect x={0} y={0} width={GRID_WIDTH} height={GRID_HEIGHT} fill="url(#minor)" />
       <rect x={0} y={0} width={GRID_WIDTH} height={GRID_HEIGHT} fill="url(#major)" />
-      <rect x={0} y={0} width={GRID_WIDTH} height={GRID_HEIGHT} fill="url(#dots)" />
-      <rect class="work-area" x={0} y={0} width={GRID_WIDTH} height={GRID_HEIGHT} rx={0.3} />
+      <rect class="work-area" x={0} y={0} width={GRID_WIDTH} height={GRID_HEIGHT} />
 
       <g class="wires">
         <For each={wires()}>
@@ -155,12 +167,24 @@ function snapshot(g: Gestures): Pick<Gestures, "hoveredNode" | "hoveredPin" | "p
   return { hoveredNode: g.hoveredNode, hoveredPin: g.hoveredPin, preview: g.preview };
 }
 
+// The HUD's level panel and parts bin, which the board fits around.
+const HUD_IDS = ["level-panel", "parts-bin"];
+
 // A viewBox that fits the whole board into the part of the window the HUD
-// leaves free.
+// leaves free: right of the level panel on wide windows, below it on narrow
+// ones, and above the parts bin.
 function fitViewBox(): string {
   const w = window.innerWidth;
   const h = window.innerHeight;
-  const inset = w >= 900 ? HUD_INSET : { left: 0, right: 0, top: 0, bottom: 72 };
+  const panel = document.getElementById("level-panel")?.getBoundingClientRect();
+  const bin = document.getElementById("parts-bin")?.getBoundingClientRect();
+  const wide = w >= 900;
+  const inset = {
+    left: wide && panel ? panel.right + GAP : 0,
+    right: wide ? GAP : 0,
+    top: !wide && panel ? panel.bottom : GAP,
+    bottom: bin ? h - bin.top + 4 : GAP,
+  };
   const freeWidth = w - inset.left - inset.right;
   const freeHeight = h - inset.top - inset.bottom;
   const span = Math.max(GRID_WIDTH, GRID_HEIGHT) + (BOARD_MARGIN + VIEW_MARGIN) * 2;

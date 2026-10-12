@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Layers of Abstraction: vision board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F5F8FC; --surface:#FFFFFF; --wash:#E4EDF9;
+  --grid-minor:rgba(47,111,196,.10); --grid-major:rgba(47,111,196,.22);
+  --ink:#1D4E9E; --ink-deep:#0F2C5E; --pencil:#5A6578; --void:#0F2C5E;
+  --glow:#7FD0FF; --amber:#F0A531;
+  --type:"Courier Prime","Courier New",Courier,monospace;
+  --hand:"Architects Daughter","Segoe Print","Bradley Hand",cursive;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#123A7C; --surface:#164487; --wash:rgba(255,255,255,.08);
+    --grid-minor:rgba(255,255,255,.07); --grid-major:rgba(255,255,255,.17);
+    --ink:#EAF2FF; --ink-deep:#FFFFFF; --pencil:#A9C3EA; --void:#0A2150;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#123A7C; --surface:#164487; --wash:rgba(255,255,255,.08);
+  --grid-minor:rgba(255,255,255,.07); --grid-major:rgba(255,255,255,.17);
+  --ink:#EAF2FF; --ink-deep:#FFFFFF; --pencil:#A9C3EA; --void:#0A2150;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px);-webkit-text-size-adjust:100%}
+body{
+  margin:0; color:var(--ink-deep); font-family:var(--type); font-size:16px; line-height:1.55;
+  background-color:var(--paper);
+  background-image:
+    linear-gradient(var(--grid-major) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid-major) 1px,transparent 1px),
+    linear-gradient(var(--grid-minor) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid-minor) 1px,transparent 1px);
+  background-size:60px 60px,60px 60px,12px 12px,12px 12px;
+  overflow-wrap:break-word;
+}
+svg{max-width:100%;height:auto;display:block}
+button{font:inherit;color:inherit;cursor:pointer}
+a{color:inherit}
+:focus-visible{outline:3px dashed var(--amber);outline-offset:3px}
+.hand{font-family:var(--hand);color:var(--ink)}
+.sheet{max-width:1120px;margin:0 auto;padding:28px 20px 80px}
+/* any grid/flex child may shrink below its content */
+.hero>*,.bots>*,.stack-wrap>*,.demo>*,.ws>*,.parts>*,.anims>*,.door>*,.screens>*,.board-row>*,.looks>*,.story>*{min-width:0}
+
+/* section header as drawing title tab */
+.sec{margin-top:88px}
+.sec-head{display:flex;align-items:stretch;border:2px solid var(--ink);width:fit-content;max-width:100%;margin-bottom:24px;background:var(--paper)}
+.sec-head .no{border-right:2px solid var(--ink);padding:6px 12px;font-size:.8rem;color:var(--pencil);display:flex;align-items:center;white-space:nowrap}
+.sec-head h2{margin:0;padding:6px 16px;font-size:1.35rem;line-height:1.25;letter-spacing:.02em;color:var(--ink)}
+.lede{max-width:62ch;margin:0 0 28px}
+.sub{margin:40px 0 6px;font-size:1.05rem;color:var(--ink)}
+.note{font-size:1.05rem;line-height:1.35}
+
+/* hero */
+.hero{display:grid;grid-template-columns:1.25fr 1fr;gap:24px;align-items:center;border:3px double var(--ink);padding:36px 32px 0;position:relative;background:color-mix(in srgb,var(--paper) 75%,transparent)}
+.hero h1{margin:0;font-weight:700;color:var(--ink);line-height:.95;font-size:clamp(2rem,calc(6.6vw - 10px),4.2rem);letter-spacing:-.02em;overflow-wrap:normal}
+.hero h1 span{display:block;padding:6px 0 8px;border-bottom:2px solid var(--ink)}
+.hero h1 span:nth-child(2){padding-left:1.2ch;border-bottom-style:dashed}
+.hero h1 span:nth-child(3){padding-left:2.4ch;border-bottom:none}
+.pitch{max-width:46ch;margin:22px 0 0;font-size:1.05rem}
+.hero-bot{position:relative;max-width:320px;width:100%;margin:0 auto;display:flex;flex-direction:column-reverse}
+.hero-bot .note{text-align:center;transform:rotate(-3deg);margin:-4px 0 0}
+.theme-btn{position:absolute;top:10px;right:10px;background:var(--paper);border:1.5px solid var(--ink);padding:4px 10px;font-size:.8rem;color:var(--ink)}
+.titleblock{grid-column:1/-1;margin:28px -32px 0 auto;border-top:2px solid var(--ink);border-left:2px solid var(--ink);display:grid;grid-template-columns:repeat(3,1fr);font-size:.78rem;width:min(560px,100%)}
+.titleblock div{padding:6px 12px;border-right:1px solid var(--ink);border-bottom:1px solid var(--ink)}
+.titleblock b{display:block;color:var(--pencil);font-weight:400;font-size:.7rem}
+.titleblock .big{grid-column:1/-1;font-size:1rem;font-weight:700;color:var(--ink)}
+
+/* sheet index */
+.index{margin-top:20px;display:flex;gap:8px;overflow-x:auto;padding:4px 2px 10px;scrollbar-width:thin}
+.index a{flex:none;text-decoration:none;border:1.5px solid var(--ink);background:var(--paper);padding:4px 10px;font-size:.82rem;color:var(--ink);white-space:nowrap}
+.index a span{color:var(--pencil);margin-right:6px}
+@media (min-width:901px){.index{flex-wrap:wrap;overflow:visible}}
+
+/* drawings */
+.stroke{fill:none;stroke:var(--ink);stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.thin{stroke-width:2}
+.fill{fill:var(--surface);stroke:var(--ink);stroke-width:3;stroke-linejoin:round}
+.void{fill:var(--void);stroke:var(--ink);stroke-width:3}
+.eye{fill:var(--glow)}
+.eyel{fill:none;stroke:var(--glow);stroke-width:3.5;stroke-linecap:round;stroke-linejoin:round}
+.led{fill:var(--amber)}
+.wash{fill:var(--wash)}
+.shadow{fill:var(--pencil);opacity:.25}
+.lbl{font-family:var(--type);font-size:13px;fill:var(--ink)}
+.lblh{font-family:var(--hand);font-size:14px;fill:var(--pencil)}
+.bob{animation:bob 3.2s ease-in-out infinite}
+.blink{transform-box:fill-box;transform-origin:center;animation:blink 5s infinite}
+@keyframes bob{50%{transform:translateY(-6px)}}
+@keyframes blink{0%,94%,100%{transform:scaleY(1)}96%{transform:scaleY(.1)}}
+.flame{fill:var(--glow);transform-box:fill-box;transform-origin:top;animation:flick .25s steps(2) infinite}
+@keyframes flick{50%{transform:scaleY(.6)}}
+.dot{animation:dots 1.2s infinite}
+.dot:nth-of-type(2){animation-delay:.2s}.dot:nth-of-type(3){animation-delay:.4s}
+@keyframes dots{0%,100%{opacity:.25}40%{opacity:1}}
+
+/* robots */
+.bots{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.bot{border:1.5px dashed var(--pencil);padding:16px 16px 18px;background:var(--paper);margin:0}
+.bot h3{margin:10px 0 2px;font-size:1.05rem;color:var(--ink)}
+.bot p{margin:4px 0 0;font-size:1.05rem;line-height:1.4}
+.bot svg{margin:0 auto;width:100%;max-width:170px}
+
+/* names */
+.names{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px}
+.tag-wrap{position:relative}
+.tag{display:block;width:100%;height:100%;position:relative;background:var(--surface);border:2px solid var(--ink);border-radius:0 8px 8px 0;padding:10px 12px 10px 34px;text-align:left}
+.tag::before{content:"";position:absolute;left:11px;top:50%;width:11px;height:11px;margin-top:-5.5px;border:2px solid var(--ink);border-radius:50%;background:var(--paper)}
+.tag strong{display:block;font-size:1.1rem;color:var(--ink)}
+.tag small{display:block;font-size:.8rem;line-height:1.35;color:var(--pencil)}
+.tag-wrap .circle{position:absolute;left:-8px;top:-8px;width:calc(100% + 16px);height:calc(100% + 16px);pointer-events:none;opacity:0;overflow:visible}
+.tag-wrap .circle ellipse{fill:none;stroke:var(--amber);stroke-width:3;stroke-dasharray:420;stroke-dashoffset:420}
+.tag[aria-pressed="true"] + .circle{opacity:1}
+.tag[aria-pressed="true"] + .circle ellipse{animation:draw .5s ease-out forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+
+/* expressions */
+.faces{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.face{margin:0;text-align:center;border:1.5px dashed var(--pencil);padding:10px 6px 8px;background:var(--paper)}
+.face svg{width:100%;max-width:130px;margin:0 auto}
+.face figcaption{font-size:.85rem;color:var(--ink);margin-top:4px}
+.face figcaption span{display:block;font-family:var(--hand);color:var(--pencil);font-size:.92rem;line-height:1.25}
+
+/* storyboard */
+.story{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.frame{margin:0}
+.frame .box{border:2px solid var(--ink);background:var(--surface);position:relative}
+.frame .box::after{content:attr(data-n);position:absolute;top:0;left:0;background:var(--ink);color:var(--paper);font-size:.75rem;padding:1px 7px}
+.frame figcaption{font-family:var(--hand);font-size:1rem;line-height:1.3;margin-top:8px;color:var(--ink)}
+
+/* layer stack */
+.stack-wrap{display:grid;grid-template-columns:minmax(0,760px) 1fr;gap:24px;align-items:end}
+.stack{display:flex;flex-direction:column-reverse}
+.layer{display:grid;grid-template-columns:2.6rem 1fr auto;gap:12px;align-items:center;padding:12px 14px;border:2px dashed var(--pencil);margin-top:-2px;background:var(--paper)}
+.layer .n{font-size:.8rem;color:var(--pencil)}
+.layer h3{margin:0;font-size:1rem;color:var(--ink)}
+.layer p{margin:2px 0 0;font-size:.85rem;color:var(--pencil);line-height:1.4}
+.layer .floor{display:block;font-family:var(--hand);font-size:.95rem;color:var(--ink)}
+.layer .st{font-size:.78rem;padding:2px 8px;border:1.5px solid var(--pencil);color:var(--pencil);white-space:nowrap}
+.layer.on{border:2px solid var(--ink);background:var(--wash)}
+.layer.on .st{border-color:var(--ink);color:var(--ink);background:var(--surface)}
+.layer.goal{border:2px solid var(--amber)}
+.layer.goal .st{border-color:var(--amber);color:var(--ink)}
+.stack-wrap .note p{margin:0 0 18px}
+
+/* panels with screws */
+.panel{border:2px solid var(--ink);background:var(--surface);position:relative}
+.screw{position:absolute;width:14px;height:14px;border:2px solid var(--ink);border-radius:50%;background:var(--paper)}
+.screw::after{content:"";position:absolute;left:1px;right:1px;top:4px;height:2px;background:var(--ink);transform:rotate(35deg)}
+.s1{top:6px;left:6px}.s2{top:6px;right:6px}.s3{bottom:6px;left:6px}.s4{bottom:6px;right:6px}
+
+/* NAND demo */
+.demo{display:grid;grid-template-columns:1.4fr 1fr;gap:24px;align-items:center;padding:26px 24px}
+.sw{cursor:pointer}
+.sw:focus{outline:none}
+.sw:focus-visible .pivot{stroke:var(--amber);stroke-width:5}
+.wire{fill:none;stroke:var(--pencil);stroke-width:3;stroke-linejoin:round}
+.wire.hi{stroke:var(--amber)}
+.flow{fill:none;stroke:var(--surface);stroke-width:1.5;stroke-dasharray:4 10;opacity:0}
+.flow.hi{opacity:.9;animation:flow .6s linear infinite}
+@keyframes flow{to{stroke-dashoffset:-14}}
+.gate{fill:var(--surface);stroke:var(--ink);stroke-width:3}
+.lamp{fill:var(--paper);stroke:var(--ink);stroke-width:3;transition:fill .15s}
+.lamp.hi{fill:var(--amber)}
+table.tt{border-collapse:collapse;font-size:.95rem;width:100%;max-width:260px}
+.tt th,.tt td{border:1.5px solid var(--ink);padding:6px 10px;text-align:center}
+.tt th{color:var(--ink)}
+.tt tr.cur td{background:var(--wash);font-weight:700}
+
+/* workspace mockup */
+.ws{border:3px solid var(--ink);background:var(--paper);display:grid;grid-template-columns:150px 1fr 200px;grid-template-areas:"bar bar bar" "pal board tbl" "dlg dlg dlg"}
+.ws-bar{grid-area:bar;display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:2px solid var(--ink);background:var(--surface)}
+.ws-bar h3{margin:0;font-size:1rem;color:var(--ink)}
+.ws-bar .bits{display:flex;gap:6px;align-items:center;font-size:.8rem;color:var(--pencil)}
+.ws-bar .acts{display:flex;gap:10px}
+.pal{grid-area:pal;border-right:2px solid var(--ink);padding:12px;display:flex;flex-direction:column;gap:10px}
+.pal h4,.tbl h4{margin:0 0 4px;font-size:.8rem;color:var(--pencil);font-weight:400}
+.chip{display:flex;align-items:center;gap:8px;font-size:.85rem;color:var(--ink)}
+.chip svg{width:40px;flex:none}
+.chip.locked{opacity:.4}
+.board{grid-area:board;padding:14px}
+.tbl{grid-area:tbl;border-left:2px solid var(--ink);padding:12px}
+.dlg{grid-area:dlg;border-top:2px solid var(--ink);display:flex;gap:14px;align-items:center;padding:12px 14px;background:var(--surface)}
+.dlg svg{width:56px;flex:none}
+.dlg p{margin:0;flex:1;min-height:3.2em;font-size:.98rem}
+.caret::after{content:"▌";animation:caret 1s steps(1) infinite;color:var(--ink)}
+@keyframes caret{50%{opacity:0}}
+
+/* buttons and parts */
+.btn{border:2px solid var(--ink);background:var(--ink);color:var(--paper);padding:9px 18px;box-shadow:4px 4px 0 var(--pencil);transition:transform .08s,box-shadow .08s;font-weight:700}
+.btn:active{transform:translate(3px,3px);box-shadow:1px 1px 0 var(--pencil)}
+.btn.ghost{background:var(--paper);color:var(--ink);font-weight:400}
+.btn.sm{padding:5px 12px;font-size:.85rem;box-shadow:3px 3px 0 var(--pencil)}
+.parts{display:grid;grid-template-columns:repeat(3,1fr);gap:28px 22px}
+.spec{position:relative;padding:20px 16px 14px;display:flex;flex-direction:column;gap:14px}
+.spec::before,.spec::after{content:"";position:absolute;width:16px;height:16px;border:0 solid var(--ink)}
+.spec::before{top:0;left:0;border-top-width:2px;border-left-width:2px}
+.spec::after{bottom:0;right:0;border-bottom-width:2px;border-right-width:2px}
+.spec .cap{font-family:var(--hand);color:var(--pencil);font-size:1rem;line-height:1.3;margin-top:auto}
+.spec .stage{display:flex;flex-wrap:wrap;gap:12px;align-items:center;min-height:70px}
+.leds{display:flex;gap:6px;flex-wrap:wrap}
+.leds i{width:16px;height:16px;border-radius:50%;border:2px solid var(--ink);background:var(--paper)}
+.leds i.on{background:var(--amber);box-shadow:0 0 8px var(--amber)}
+.sticky{background:var(--surface);border:1.5px solid var(--pencil);padding:18px 14px 12px;transform:rotate(-2deg);position:relative;font-family:var(--hand);font-size:1.05rem;line-height:1.3;max-width:230px;margin-top:8px}
+.sticky::before{content:"";position:absolute;top:-10px;left:50%;width:70px;height:20px;margin-left:-35px;background:var(--glow);opacity:.5;transform:rotate(3deg)}
+.toggle{display:inline-flex;align-items:center;gap:10px;background:none;border:none;padding:0;text-align:left}
+.toggle .track{width:58px;height:26px;border:2px solid var(--ink);position:relative;background:var(--paper);flex:none}
+.toggle .knob{position:absolute;top:2px;left:2px;width:18px;height:18px;background:var(--ink);transition:left .15s}
+.toggle[aria-checked="true"] .knob{left:34px}
+.toggle[aria-checked="true"] .track{background:var(--wash)}
+.stamp{display:inline-block;border:3px solid var(--ink);color:var(--ink);padding:4px 14px;font-weight:700;font-size:1.3rem;letter-spacing:.12em;transform:rotate(-8deg);opacity:.85;outline:1.5px solid var(--ink);outline-offset:3px}
+.stamp.slam{animation:slam .35s cubic-bezier(.2,1.6,.4,1)}
+@keyframes slam{0%{transform:rotate(-8deg) scale(2.2);opacity:0}100%{transform:rotate(-8deg) scale(1);opacity:.85}}
+.bubble{border:2px solid var(--ink);background:var(--surface);padding:10px 12px;position:relative;font-size:.92rem;max-width:240px;margin-bottom:10px}
+.bubble::after{content:"";position:absolute;left:18px;bottom:-10px;width:16px;height:16px;background:var(--surface);border-right:2px solid var(--ink);border-bottom:2px solid var(--ink);transform:rotate(45deg)}
+.dial{display:flex;align-items:center;gap:12px}
+.dial svg{width:64px}
+.tabs{display:flex;border-bottom:2px solid var(--ink)}
+.tabs span{padding:4px 12px;border:2px solid var(--ink);border-bottom:none;margin-right:-2px;font-size:.85rem;background:var(--paper);color:var(--pencil)}
+.tabs span.on{background:var(--surface);color:var(--ink);font-weight:700;position:relative;top:2px}
+
+/* screens */
+.screens{display:grid;grid-template-columns:1.3fr 1fr;gap:22px;align-items:start}
+.screen{border:3px solid var(--ink);background:var(--paper);position:relative;padding:22px;overflow:hidden}
+.screen .tl{font-size:.75rem;color:var(--pencil)}
+.title-screen h3{margin:6px 0 16px;font-size:clamp(1.5rem,5vw,2.2rem);line-height:1;color:var(--ink)}
+.title-screen .row{display:flex;gap:20px;align-items:center;flex-wrap:wrap}
+.menu{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:.95rem}
+.menu li{padding-left:1.4em;position:relative;color:var(--ink)}
+.menu li.sel::before{content:"▸";position:absolute;left:0;color:var(--amber)}
+.menu li small{color:var(--pencil);display:block;font-size:.78rem}
+.breaker{width:96px;flex:none}
+.peek{position:absolute;right:-6px;bottom:-14px;width:96px;opacity:.95}
+.unlock h3{margin:4px 0 2px;color:var(--ink);font-size:1.25rem}
+.unlock p{margin:0 0 12px;font-size:.9rem}
+.unlock .stamp{position:absolute;right:16px;top:22px;font-size:1rem}
+.unlock svg.pinout{max-width:240px;margin:6px 0 12px}
+
+/* legend */
+.legend{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--ink);border:2px solid var(--ink)}
+.lg{display:flex;align-items:center;gap:14px;padding:10px 14px;background:var(--surface)}
+.lg .sym{flex:none;width:84px}
+.lg svg{width:84px}
+.lg b{display:block;color:var(--ink);font-size:.95rem}
+.lg span{display:block;font-family:var(--hand);color:var(--pencil);font-size:1rem;line-height:1.3}
+@media (max-width:700px){.legend{grid-template-columns:1fr}.lg .sym,.lg svg{width:64px}}
+
+/* animations */
+.anims{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
+.anim{border:1.5px dashed var(--pencil);padding:14px;display:flex;flex-direction:column;gap:10px;background:var(--paper)}
+.anim h3{margin:0;font-size:.95rem;color:var(--ink)}
+.anim p{margin:0;font-size:.82rem;color:var(--pencil);flex:1}
+.anim .stage{height:110px;display:flex;align-items:center;justify-content:center}
+.anim .stage svg{height:100px;width:auto;max-width:100%}
+.anim button{align-self:flex-start}
+.drawpath{fill:none;stroke:var(--ink);stroke-width:3;stroke-dasharray:300;stroke-dashoffset:0}
+.drawpath.go{animation:redraw 1.1s ease-out}
+@keyframes redraw{from{stroke-dashoffset:300}to{stroke-dashoffset:0}}
+.hop{transform-box:fill-box;transform-origin:bottom}
+.hop.go{animation:hop .6s ease-out}
+@keyframes hop{30%{transform:translateY(-14px)}60%{transform:translateY(0) scaleY(.92)}100%{transform:none}}
+.happy{display:none}
+.mood .happy{display:inline}.mood .neutral{display:none}
+.shake.go{animation:shake .3s}
+@keyframes shake{25%{transform:translateX(-4px)}50%{transform:translateX(4px)}75%{transform:translateX(-2px)}}
+.sounds{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;border:2px solid var(--ink);background:var(--ink);margin:0}
+.sounds div{padding:12px 14px;background:var(--surface)}
+.sounds dt{font-size:.85rem;color:var(--pencil)}
+.sounds dd{margin:2px 0 0;font-family:var(--hand);font-size:1.05rem;color:var(--ink);line-height:1.3}
+
+/* door */
+.door{display:grid;grid-template-columns:1fr 1.2fr;gap:28px;align-items:center}
+.door svg{max-width:300px;width:100%;margin:0 auto}
+pre.asm{margin:0;background:var(--surface);border:2px solid var(--ink);padding:16px 18px;font-family:var(--type);font-size:.92rem;line-height:1.6;overflow-x:auto;color:var(--ink-deep);max-width:100%}
+pre.asm .c{color:var(--pencil)}
+pre.asm .k{color:var(--ink);font-weight:700}
+
+/* inks, looks */
+.inks{display:grid;grid-template-columns:repeat(6,1fr);gap:14px}
+.ink{font-size:.78rem}
+.ink i{display:block;height:56px;border:2px solid var(--ink);margin-bottom:6px}
+.letters{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:28px}
+.letters div{border-top:2px solid var(--ink);padding-top:10px}
+.letters .t{font-size:1.6rem;color:var(--ink);font-weight:700;line-height:1.2}
+.letters .h{font-family:var(--hand);font-size:1.8rem;color:var(--ink);line-height:1.2}
+.letters small{display:block;color:var(--pencil);margin-top:6px}
+.looks{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.look{margin:0}
+.look .swatch{border:2px solid var(--ink);padding:16px;color:var(--ink-deep);background-color:var(--paper);background-image:linear-gradient(var(--grid-major) 1px,transparent 1px),linear-gradient(90deg,var(--grid-major) 1px,transparent 1px);background-size:24px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px;position:relative;min-height:120px}
+.look .swatch svg{width:110px}
+.look figcaption{margin-top:8px}
+.look figcaption b{color:var(--ink);display:block}
+.look figcaption span{font-family:var(--hand);color:var(--pencil);font-size:1rem;line-height:1.3}
+.look-light .swatch{--paper:#F5F8FC;--surface:#FFFFFF;--ink:#1D4E9E;--ink-deep:#0F2C5E;--pencil:#5A6578;--grid-major:rgba(47,111,196,.18)}
+.look-cyan .swatch{--paper:#123A7C;--surface:#164487;--ink:#EAF2FF;--ink-deep:#FFFFFF;--pencil:#A9C3EA;--grid-major:rgba(255,255,255,.14)}
+.look-metal .swatch{--paper:#D5DCE4;--surface:#E8EDF2;--ink:#22364F;--ink-deep:#16243A;--pencil:#6B7A8C;--grid-major:rgba(34,54,79,0)}
+.look-metal .swatch{background-image:repeating-linear-gradient(90deg,rgba(255,255,255,.35) 0 2px,transparent 2px 5px)}
+
+.foot{margin-top:72px;border-top:2px solid var(--ink);padding-top:12px;font-size:.8rem;color:var(--pencil)}
+
+@media (max-width:900px){
+  .hero{grid-template-columns:1fr;padding:28px 20px 0}
+  .hero h1{font-size:clamp(2rem,9.4vw,5rem)}
+  .titleblock{margin:24px -20px 0;width:calc(100% + 40px);border-left:none}
+  .bots,.parts,.screens{grid-template-columns:1fr 1fr}
+  .screens{grid-template-columns:1fr}
+  .anims,.story{grid-template-columns:1fr 1fr}
+  .faces{grid-template-columns:repeat(4,1fr)}
+  .stack-wrap,.demo,.door{grid-template-columns:1fr}
+  .ws{grid-template-columns:1fr;grid-template-areas:"bar" "board" "tbl" "pal" "dlg"}
+  .pal{border-right:none;border-top:2px solid var(--ink);flex-direction:row;flex-wrap:wrap;gap:10px 16px}
+  .pal h4{width:100%}
+  .tbl{border-left:none;border-top:2px solid var(--ink)}
+  .inks{grid-template-columns:repeat(3,1fr)}
+  .looks{grid-template-columns:1fr 1fr}
+  .sounds{grid-template-columns:1fr 1fr}
+}
+@media (max-width:600px){
+  .sheet{padding:16px 14px 64px}
+  .sec{margin-top:64px}
+  .sec-head h2{font-size:1.15rem;padding:6px 12px}
+  .hero{padding:52px 16px 0}
+  .hero h1 span:nth-child(2){padding-left:.8ch}
+  .hero h1 span:nth-child(3){padding-left:1.4ch}
+  .titleblock{margin:24px -16px 0;width:calc(100% + 32px);grid-template-columns:1fr 1fr}
+  .hero-bot{max-width:220px}
+  .bots,.parts,.letters,.looks{grid-template-columns:1fr}
+  .bot{display:grid;grid-template-columns:110px 1fr;gap:12px;align-items:center}
+  .bot h3{margin-top:0}
+  .faces{grid-template-columns:repeat(2,1fr)}
+  .story,.anims{grid-template-columns:1fr 1fr;gap:12px}
+  .anim{padding:10px}
+  .anim .stage{height:84px}
+  .anim .stage svg{height:76px}
+  .names{grid-template-columns:1fr 1fr;gap:12px}
+  .tag{padding:8px 8px 8px 28px}
+  .tag::before{left:8px}
+  .tag strong{font-size:1rem}
+  .demo{padding:24px 14px 18px}
+  .layer{grid-template-columns:2rem 1fr;padding:10px 12px;position:relative}
+  .layer .st{position:absolute;top:10px;right:10px}
+  .layer h3{padding-right:6.5rem}
+  .ws-bar .acts{width:100%}
+  .ws-bar .acts .btn{flex:1}
+  .dlg{flex-wrap:wrap}
+  .dlg svg{width:44px}
+  .dlg p{min-height:6.4em;flex-basis:calc(100% - 60px)}
+  .dlg .btn{margin-left:auto}
+  pre.asm{font-size:.8rem;padding:12px}
+  .sounds{grid-template-columns:1fr}
+  .door svg{max-width:230px}
+  .parts{gap:20px}
+  .inks{grid-template-columns:repeat(3,1fr);gap:10px}
+}
+@media (max-width:380px){
+  .story,.anims,.names{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}
+</style>
+</head>
+<body>
+<main class="sheet">
+
+<header class="hero" id="top">
+  <button class="theme-btn" type="button" id="theme">Blueprint mode</button>
+  <div>
+    <h1><span>Layers</span><span>of</span><span>Abstraction</span></h1>
+    <p class="pitch">You're locked in an electrical engineering factory with a clunky little robot who remembers exactly one schematic: the NAND gate. Build everything else from it, up to a computer and an assembly language, then write the program that opens the door.</p>
+  </div>
+  <div class="hero-bot">
+    <p class="note hand">only knows NAND (for now)</p>
+    <svg viewBox="0 0 200 240" role="img" aria-label="Sketch of the robot helper">
+      <ellipse class="shadow" cx="100" cy="234" rx="42" ry="5"/>
+      <g class="bob">
+        <line class="stroke" x1="100" y1="30" x2="100" y2="14"/><circle class="led" cx="100" cy="10" r="5" stroke="var(--ink)" stroke-width="2"/>
+        <ellipse class="fill" cx="100" cy="70" rx="58" ry="42"/>
+        <rect class="void" x="56" y="50" width="88" height="38" rx="19"/>
+        <g class="blink"><ellipse class="eye" cx="84" cy="69" rx="9" ry="6"/><ellipse class="eye" cx="116" cy="69" rx="9" ry="6"/></g>
+        <circle class="fill" cx="46" cy="72" r="5"/><circle class="fill" cx="154" cy="72" r="5"/>
+        <rect class="fill" x="88" y="110" width="24" height="12"/>
+        <path class="fill" d="M60 132 Q60 120 100 120 Q140 120 140 132 L136 190 Q100 214 64 190 Z"/>
+        <path class="stroke" d="M62 152 H138" stroke-dasharray="2 6"/>
+        <rect class="fill" x="86" y="164" width="28" height="18" rx="2"/><path class="stroke thin" d="M92 178 L100 170"/>
+        <rect class="fill" x="34" y="130" width="18" height="50" rx="9" transform="rotate(12 43 130)"/>
+        <rect class="fill" x="148" y="124" width="18" height="50" rx="9" transform="rotate(-40 157 124)"/>
+        <path class="fill" d="M88 205 H112 L106 216 H94 Z"/>
+        <ellipse class="flame" cx="100" cy="222" rx="5" ry="7"/>
+      </g>
+    </svg>
+  </div>
+  <div class="titleblock" aria-label="Drawing title block">
+    <div class="big">Layers of Abstraction</div>
+    <div><b>Sheet</b>Vision board</div>
+    <div><b>Dwg no.</b>LOA-001</div>
+    <div><b>Rev</b>B</div>
+    <div><b>Drawn by</b>You + robot</div>
+    <div><b>Scale</b>1 gate : 1 computer</div>
+    <div><b>Date</b>2026-10-11</div>
+  </div>
+</header>
+
+<nav class="index" aria-label="Sheet index">
+  <a href="#s-bot"><span>2</span>Helper</a><a href="#s-face"><span>3</span>Expressions</a><a href="#s-story"><span>4</span>Opening</a><a href="#s-stack"><span>5</span>The stack</a><a href="#s-nand"><span>6</span>Level 1</a><a href="#s-ws"><span>7</span>Workbench</a><a href="#s-scr"><span>8</span>Screens</a><a href="#s-parts"><span>9</span>UI parts</a><a href="#s-leg"><span>10</span>Symbols</a><a href="#s-anim"><span>11</span>Motion + sound</a><a href="#s-door"><span>12</span>The way out</a><a href="#s-ink"><span>13</span>Looks</a>
+</nav>
+
+<!-- HELPER -->
+<section class="sec" aria-labelledby="s-bot">
+  <div class="sec-head"><span class="no">SH 2</span><h2 id="s-bot">The helper</h2></div>
+  <p class="lede">Three directions for the robot. All share the same rules: a dark visor or lens with glowing eyes (cheap to animate emotion), visible rivets and bolts, and one slightly broken detail that makes it feel salvaged from the factory floor.</p>
+  <div class="bots">
+    <figure class="bot">
+      <svg viewBox="0 0 200 240" aria-hidden="true">
+        <ellipse class="shadow" cx="100" cy="234" rx="42" ry="5"/>
+        <g class="bob">
+          <line class="stroke" x1="100" y1="30" x2="100" y2="14"/><circle class="led" cx="100" cy="10" r="5" stroke="var(--ink)" stroke-width="2"/>
+          <ellipse class="fill" cx="100" cy="70" rx="58" ry="42"/>
+          <rect class="void" x="56" y="50" width="88" height="38" rx="19"/>
+          <g class="blink"><ellipse class="eye" cx="84" cy="69" rx="9" ry="6"/><ellipse class="eye" cx="116" cy="69" rx="9" ry="6"/></g>
+          <circle class="fill" cx="46" cy="72" r="5"/><circle class="fill" cx="154" cy="72" r="5"/>
+          <rect class="fill" x="88" y="110" width="24" height="12"/>
+          <path class="fill" d="M60 132 Q60 120 100 120 Q140 120 140 132 L136 190 Q100 214 64 190 Z"/>
+          <path class="stroke" d="M62 152 H138" stroke-dasharray="2 6"/>
+          <rect class="fill" x="86" y="164" width="28" height="18" rx="2"/>
+          <rect class="fill" x="34" y="130" width="18" height="50" rx="9" transform="rotate(12 43 130)"/>
+          <rect class="fill" x="148" y="130" width="18" height="50" rx="9" transform="rotate(-12 157 130)"/>
+          <path class="fill" d="M88 205 H112 L106 216 H94 Z"/>
+          <ellipse class="flame" cx="100" cy="222" rx="5" ry="7"/>
+        </g>
+      </svg>
+      <figcaption>
+        <h3>A: the pod</h3>
+        <p class="hand">Closest to EVE, but riveted together. Hovers on a sputtering thruster that coughs when it's nervous.</p>
+      </figcaption>
+    </figure>
+    <figure class="bot">
+      <svg viewBox="0 0 200 240" aria-hidden="true">
+        <ellipse class="shadow" cx="100" cy="232" rx="56" ry="5"/>
+        <rect class="fill" x="48" y="196" width="104" height="30" rx="15"/>
+        <circle class="stroke" cx="66" cy="211" r="8"/><circle class="stroke" cx="100" cy="211" r="8"/><circle class="stroke" cx="134" cy="211" r="8"/>
+        <g class="bob">
+          <path class="stroke" d="M100 46 L94 40 L106 34 L94 28 L106 22 L100 18"/><circle class="led" cx="100" cy="14" r="5" stroke="var(--ink)" stroke-width="2"/>
+          <rect class="fill" x="60" y="46" width="80" height="62" rx="8"/>
+          <rect class="void" x="70" y="56" width="60" height="42" rx="10"/>
+          <g class="blink"><rect class="eye" x="82" y="70" width="11" height="11" rx="2"/><rect class="eye" x="107" y="70" width="11" height="11" rx="2"/></g>
+          <rect class="fill" x="92" y="108" width="16" height="12"/>
+          <rect class="fill" x="56" y="120" width="88" height="76" rx="3"/>
+          <circle class="stroke" cx="64" cy="128" r="2"/><circle class="stroke" cx="136" cy="128" r="2"/><circle class="stroke" cx="64" cy="188" r="2"/><circle class="stroke" cx="136" cy="188" r="2"/>
+          <path class="stroke thin" d="M78 140 H122 M78 148 H122 M78 156 H122"/>
+          <path class="stroke" d="M144 140 L168 150 L170 170 M164 176 L170 170 L178 174"/>
+          <path class="stroke" d="M56 142 L38 160 L42 176"/>
+        </g>
+      </svg>
+      <figcaption>
+        <h3>B: the crate</h3>
+        <p class="hand">Toaster energy. CRT face, spring antenna, treads that clatter on every move. The most "clankery."</p>
+      </figcaption>
+    </figure>
+    <figure class="bot">
+      <svg viewBox="0 0 200 240" aria-hidden="true">
+        <ellipse class="shadow" cx="100" cy="233" rx="34" ry="4"/>
+        <circle class="fill" cx="100" cy="212" r="17"/><circle class="stroke" cx="100" cy="212" r="4"/>
+        <g class="bob">
+          <rect class="fill" x="72" y="108" width="56" height="88" rx="26"/>
+          <path class="stroke thin" d="M74 132 H126 M74 176 H126"/>
+          <circle class="stroke" cx="82" cy="132" r="2"/><circle class="stroke" cx="118" cy="176" r="2"/>
+          <path class="fill" d="M60 100 A40 40 0 0 1 140 100 Z"/>
+          <rect class="fill" x="56" y="98" width="88" height="12" rx="3"/>
+          <circle class="void" cx="100" cy="76" r="17"/>
+          <circle class="eye blink" cx="100" cy="76" r="7"/>
+          <path class="stroke" d="M72 70 L62 58"/><circle class="led" cx="60" cy="56" r="4"/>
+          <path class="stroke" d="M128 146 L156 134"/><path class="stroke" d="M152 126 a8 8 0 1 0 10 14"/>
+        </g>
+      </svg>
+      <figcaption>
+        <h3>C: the lamp</h3>
+        <p class="hand">One big lens eye, wobbles on a single wheel. Simplest to animate, very readable at small sizes.</p>
+      </figcaption>
+    </figure>
+  </div>
+
+  <h3 class="sub">Name options</h3>
+  <p class="hand note" style="margin:0 0 14px">Tap to circle the ones you like. Your picks are remembered on this device.</p>
+  <div class="names" id="names"></div>
+</section>
+
+<!-- EXPRESSIONS -->
+<section class="sec" aria-labelledby="s-face">
+  <div class="sec-head"><span class="no">SH 3</span><h2 id="s-face">Expression sheet</h2></div>
+  <p class="lede">All emotion lives in the visor, so the robot reads at any size. Shown on concept A; the same eye shapes work on B's screen and C's lens.</p>
+  <div class="faces" id="faces"></div>
+</section>
+
+<!-- STORYBOARD -->
+<section class="sec" aria-labelledby="s-story">
+  <div class="sec-head"><span class="no">SH 4</span><h2 id="s-story">Opening storyboard</h2></div>
+  <p class="lede">The first thirty seconds. No text walls: the situation is shown, then the robot says one line.</p>
+  <div class="story">
+    <figure class="frame"><div class="box" data-n="1">
+      <svg viewBox="0 0 160 100" aria-hidden="true"><polygon class="wash" points="66,30 94,30 132,100 28,100"/><line class="stroke thin" x1="80" y1="0" x2="80" y2="18"/><path class="fill" d="M68 18 H92 L98 30 H62 Z" stroke-width="2"/><rect class="fill" x="8" y="80" width="144" height="10" rx="5" stroke-width="2"/><rect class="fill" x="34" y="62" width="22" height="18" stroke-width="2"/><rect class="fill" x="104" y="66" width="16" height="14" stroke-width="2"/><path class="stroke thin" d="M20 85h0M40 85h0M60 85h0M80 85h0M100 85h0M120 85h0M140 85h0" stroke-width="4"/></svg>
+    </div><figcaption>One work lamp flickers on over a stalled conveyor.</figcaption></figure>
+    <figure class="frame"><div class="box" data-n="2">
+      <svg viewBox="0 0 160 100" aria-hidden="true"><ellipse class="fill" cx="80" cy="56" rx="50" ry="34"/><rect class="void" x="42" y="40" width="76" height="32" rx="16"/><circle class="eye dot" cx="66" cy="56" r="4"/><circle class="eye dot" cx="80" cy="56" r="4"/><circle class="eye dot" cx="94" cy="56" r="4"/><line class="stroke" x1="80" y1="22" x2="80" y2="10"/><circle class="led" cx="80" cy="8" r="4"/></svg>
+    </div><figcaption>Something boots up. Three dots. A tiny startup chime.</figcaption></figure>
+    <figure class="frame"><div class="box" data-n="3">
+      <svg viewBox="0 0 160 100" aria-hidden="true"><rect class="fill" x="44" y="10" width="62" height="84" stroke-width="2"/><rect class="stroke thin" x="52" y="18" width="46" height="68"/><text class="lblh" x="62" y="56">EXIT</text><rect class="fill" x="114" y="40" width="22" height="30" stroke-width="2"/><circle class="led" cx="125" cy="60" r="4"/><rect class="void" x="117" y="44" width="16" height="7" stroke-width="1.5"/></svg>
+    </div><figcaption>The exit is sealed. The keypad wants a program, not a code.</figcaption></figure>
+    <figure class="frame"><div class="box" data-n="4">
+      <svg viewBox="0 0 160 100" aria-hidden="true"><ellipse class="fill" cx="38" cy="58" rx="24" ry="18" stroke-width="2"/><rect class="void" x="20" y="50" width="36" height="15" rx="7" stroke-width="2"/><ellipse class="eye" cx="32" cy="57" rx="3" ry="2.5"/><ellipse class="eye" cx="44" cy="57" rx="3" ry="2.5"/><path class="stroke thin" d="M58 52 L104 30 M58 62 L104 82" stroke-dasharray="3 4"/><path class="gate" d="M104 40 H118 A16 16 0 0 1 118 72 H104 Z" stroke-width="2"/><circle class="gate" cx="138" cy="56" r="4" stroke-width="2"/><path class="stroke thin" d="M94 48 H104 M94 64 H104 M142 56 H152"/></svg>
+    </div><figcaption>"I only remember one thing." It projects a NAND gate.</figcaption></figure>
+  </div>
+</section>
+
+<!-- STACK -->
+<section class="sec" aria-labelledby="s-stack">
+  <div class="sec-head"><span class="no">SH 5</span><h2 id="s-stack">The stack you build</h2></div>
+  <p class="lede">Each layer is a set of schematics built only from the layer below, and each one lives on a different floor of the factory. Reads bottom to top.</p>
+  <div class="stack-wrap">
+    <div class="stack" role="list">
+      <div class="layer on" role="listitem"><span class="n">L1</span><div><h3>NAND</h3><p>The one schematic the robot remembers</p><span class="floor">Floor: the gate foundry</span></div><span class="st">in memory</span></div>
+      <div class="layer" role="listitem"><span class="n">L2</span><div><h3>Basic gates</h3><p>NOT, AND, OR, XOR, MUX, DEMUX</p><span class="floor">Floor: the logic line</span></div><span class="st">locked</span></div>
+      <div class="layer" role="listitem"><span class="n">L3</span><div><h3>Arithmetic</h3><p>Half adder, full adder, 8-bit adder</p><span class="floor">Floor: adder assembly</span></div><span class="st">locked</span></div>
+      <div class="layer" role="listitem"><span class="n">L4</span><div><h3>ALU</h3><p>Add, subtract, compare, flags</p><span class="floor">Floor: the calculation shop</span></div><span class="st">locked</span></div>
+      <div class="layer" role="listitem"><span class="n">L5</span><div><h3>Memory</h3><p>Latch, flip-flop, register, RAM</p><span class="floor">Floor: the filing vault</span></div><span class="st">locked</span></div>
+      <div class="layer" role="listitem"><span class="n">L6</span><div><h3>Control</h3><p>Clock, counter, program counter, decoder</p><span class="floor">Floor: the clock tower</span></div><span class="st">locked</span></div>
+      <div class="layer" role="listitem"><span class="n">L7</span><div><h3>CPU</h3><p>Fetch, decode, execute</p><span class="floor">Floor: the control room</span></div><span class="st">locked</span></div>
+      <div class="layer" role="listitem"><span class="n">L8</span><div><h3>Assembly</h3><p>Design your own instruction set and mnemonics</p><span class="floor">Floor: the typing pool</span></div><span class="st">locked</span></div>
+      <div class="layer goal" role="listitem"><span class="n">L9</span><div><h3>The door program</h3><p>Write it, run it, walk out</p><span class="floor">Floor: the exit hall</span></div><span class="st">exit</span></div>
+    </div>
+    <div class="hand note">
+      <p>Idea: the stack is the level-select screen. Locked layers are dashed pencil, built layers get inked in.</p>
+      <p>Going up a floor = going up a layer of abstraction. The elevator only works once the layer below passes its tests.</p>
+      <p>Typing pool for assembly: rows of old typewriters, your robot sits at one.</p>
+    </div>
+  </div>
+</section>
+
+<!-- NAND DEMO -->
+<section class="sec" aria-labelledby="s-nand">
+  <div class="sec-head"><span class="no">SH 6</span><h2 id="s-nand">Level 1, live</h2></div>
+  <p class="lede">The first thing the player touches. Flip the knife switches to feel the NAND: the lamp is on unless both inputs are on.</p>
+  <div class="demo panel">
+    <span class="screw s1"></span><span class="screw s2"></span><span class="screw s3"></span><span class="screw s4"></span>
+    <svg viewBox="0 0 320 160" id="nand" aria-label="Interactive NAND gate with two switches and an output lamp">
+      <path class="wire" id="wA" d="M74 50 H150 V65 H170"/><path class="flow" id="fA" d="M74 50 H150 V65 H170"/>
+      <path class="wire" id="wB" d="M74 110 H150 V85 H170"/><path class="flow" id="fB" d="M74 110 H150 V85 H170"/>
+      <path class="wire" id="wQ" d="M219 75 H273"/><path class="flow" id="fQ" d="M219 75 H273"/>
+      <path class="gate" d="M170 55 H190 A20 20 0 0 1 190 95 H170 Z"/><circle class="gate" cx="214" cy="75" r="4.5"/>
+      <g class="sw" id="swA" role="switch" tabindex="0" aria-checked="false" aria-label="Input A">
+        <rect x="6" y="20" width="80" height="56" fill="transparent"/>
+        <circle class="pivot" cx="30" cy="50" r="5" fill="var(--ink)" stroke="var(--ink)"/>
+        <circle cx="74" cy="50" r="4" fill="var(--surface)" stroke="var(--ink)" stroke-width="2"/>
+        <line class="lever" x1="30" y1="50" x2="72" y2="50" stroke="var(--ink)" stroke-width="4" stroke-linecap="round" transform="rotate(-35 30 50)"/>
+        <text class="lbl" x="10" y="36">A</text>
+      </g>
+      <g class="sw" id="swB" role="switch" tabindex="0" aria-checked="false" aria-label="Input B">
+        <rect x="6" y="84" width="80" height="56" fill="transparent"/>
+        <circle class="pivot" cx="30" cy="110" r="5" fill="var(--ink)" stroke="var(--ink)"/>
+        <circle cx="74" cy="110" r="4" fill="var(--surface)" stroke="var(--ink)" stroke-width="2"/>
+        <line class="lever" x1="30" y1="110" x2="72" y2="110" stroke="var(--ink)" stroke-width="4" stroke-linecap="round" transform="rotate(-35 30 110)"/>
+        <text class="lbl" x="10" y="96">B</text>
+      </g>
+      <circle class="lamp" id="lamp" cx="286" cy="75" r="13"/>
+      <path class="stroke thin" d="M277 66 L295 84 M295 66 L277 84"/>
+      <text class="lbl" x="281" y="106">Q</text>
+      <text class="lblh" x="140" y="146">tap the switches</text>
+    </svg>
+    <div>
+      <table class="tt" id="tt" aria-label="NAND truth table">
+        <thead><tr><th>A</th><th>B</th><th>Q</th></tr></thead>
+        <tbody>
+          <tr data-k="00"><td>0</td><td>0</td><td>1</td></tr>
+          <tr data-k="01"><td>0</td><td>1</td><td>1</td></tr>
+          <tr data-k="10"><td>1</td><td>0</td><td>1</td></tr>
+          <tr data-k="11"><td>1</td><td>1</td><td>0</td></tr>
+        </tbody>
+      </table>
+      <p class="hand note" style="margin:14px 0 0">The row you're on lights up. In later levels the table is the goal, and you wire until every row matches.</p>
+    </div>
+  </div>
+</section>
+
+<!-- WORKBENCH -->
+<section class="sec" aria-labelledby="s-ws">
+  <div class="sec-head"><span class="no">SH 7</span><h2 id="s-ws">Workbench screen</h2></div>
+  <p class="lede">A mid-game level: build XOR using only NAND. Parts bin, drafting board, the target truth table, and the robot talking along the bottom.</p>
+  <div class="ws">
+    <div class="ws-bar">
+      <h3>Schematic 07: XOR</h3>
+      <div class="bits"><span>Parts used 4</span><span class="leds" aria-hidden="true"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span></div>
+      <div class="acts"><button class="btn ghost sm" type="button">Clear wires</button><button class="btn sm" type="button">Run test</button></div>
+    </div>
+    <div class="pal">
+      <h4>Parts bin</h4>
+      <div class="chip"><svg viewBox="0 0 44 28" aria-hidden="true"><rect class="fill" x="4" y="4" width="36" height="20" stroke-width="2"/><path class="stroke thin" d="M4 11 a3 3 0 0 0 0 6M10 4V0M18 4V0M26 4V0M34 4V0M10 24v4M18 24v4M26 24v4M34 24v4"/></svg>NAND ×∞</div>
+      <div class="chip"><svg viewBox="0 0 44 28" aria-hidden="true"><rect class="fill" x="4" y="4" width="36" height="20" stroke-width="2"/><path class="stroke thin" d="M4 11 a3 3 0 0 0 0 6M10 4V0M18 4V0M26 4V0M34 4V0M10 24v4M18 24v4M26 24v4M34 24v4"/></svg>NOT</div>
+      <div class="chip"><svg viewBox="0 0 44 28" aria-hidden="true"><rect class="fill" x="4" y="4" width="36" height="20" stroke-width="2"/><path class="stroke thin" d="M4 11 a3 3 0 0 0 0 6M10 4V0M18 4V0M26 4V0M34 4V0M10 24v4M18 24v4M26 24v4M34 24v4"/></svg>AND</div>
+      <div class="chip locked"><svg viewBox="0 0 44 28" aria-hidden="true"><rect class="fill" x="4" y="4" width="36" height="20" stroke-width="2" stroke-dasharray="3 3"/></svg>MUX</div>
+      <div class="chip locked"><svg viewBox="0 0 44 28" aria-hidden="true"><rect class="fill" x="4" y="4" width="36" height="20" stroke-width="2" stroke-dasharray="3 3"/></svg>ADDER</div>
+    </div>
+    <div class="board">
+      <svg viewBox="0 0 400 220" aria-label="XOR built from four NAND gates, with input A on and B off">
+        <defs><g id="ng"><path class="gate" d="M0 0 H20 A20 20 0 0 1 20 40 H0 Z"/><circle class="gate" cx="44" cy="20" r="4.5"/></g></defs>
+        <path class="wire hi" d="M30 60 H60 V40 H220"/><path class="wire hi" d="M60 60 V100 H110"/>
+        <path class="wire" d="M30 160 H80 V180 H220"/><path class="wire" d="M80 160 V120 H110"/>
+        <path class="wire hi" d="M158 110 H185 V60 H220"/><path class="wire hi" d="M185 110 V160 H220"/>
+        <path class="wire" d="M268 50 H290 V100 H310"/><path class="wire hi" d="M268 170 H290 V120 H310"/>
+        <path class="wire hi" d="M358 110 H390"/>
+        <path class="flow hi" d="M30 60 H60 V40 H220"/><path class="flow hi" d="M60 60 V100 H110"/>
+        <path class="flow hi" d="M158 110 H185 V60 H220"/><path class="flow hi" d="M185 110 V160 H220"/>
+        <path class="flow hi" d="M268 170 H290 V120 H310"/><path class="flow hi" d="M358 110 H390"/>
+        <circle cx="60" cy="60" r="4" fill="var(--ink)"/><circle cx="80" cy="160" r="4" fill="var(--ink)"/><circle cx="185" cy="110" r="4" fill="var(--ink)"/>
+        <use href="#ng" x="110" y="90"/><use href="#ng" x="220" y="30"/><use href="#ng" x="220" y="150"/><use href="#ng" x="310" y="90"/>
+        <text class="lbl" x="2" y="64" style="font-size:15px">A</text><text class="lbl" x="2" y="164" style="font-size:15px">B</text><text class="lbl" x="370" y="100" style="font-size:15px">Q</text>
+        <text class="lblh" x="96" y="212">four NANDs, one XOR</text>
+      </svg>
+    </div>
+    <div class="tbl">
+      <h4>Target</h4>
+      <table class="tt" aria-label="XOR target truth table">
+        <thead><tr><th>A</th><th>B</th><th>Q</th></tr></thead>
+        <tbody><tr><td>0</td><td>0</td><td>0 ✓</td></tr><tr><td>0</td><td>1</td><td>1 ✓</td></tr><tr class="cur"><td>1</td><td>0</td><td>1 ✓</td></tr><tr><td>1</td><td>1</td><td>?</td></tr></tbody>
+      </table>
+    </div>
+    <div class="dlg">
+      <svg viewBox="0 0 60 50" aria-hidden="true"><ellipse class="fill" cx="30" cy="26" rx="26" ry="20"/><rect class="void" x="10" y="16" width="40" height="18" rx="9"/><g class="blink"><ellipse class="eye" cx="22" cy="25" rx="4" ry="3"/><ellipse class="eye" cx="38" cy="25" rx="4" ry="3"/></g></svg>
+      <p id="typed" class="caret" aria-live="polite"></p>
+      <button class="btn ghost sm" type="button" id="next">Next line</button>
+    </div>
+  </div>
+</section>
+
+<!-- SCREENS -->
+<section class="sec" aria-labelledby="s-scr">
+  <div class="sec-head"><span class="no">SH 8</span><h2 id="s-scr">Title and unlock screens</h2></div>
+  <div class="screens">
+    <div class="screen title-screen">
+      <span class="tl">Dwg LOA-000, title screen</span>
+      <h3>Layers of<br>Abstraction</h3>
+      <div class="row">
+        <svg class="breaker" viewBox="0 0 96 130" aria-hidden="true"><rect class="fill" x="10" y="6" width="76" height="118" rx="4"/><circle class="stroke thin" cx="20" cy="16" r="3"/><circle class="stroke thin" cx="76" cy="16" r="3"/><circle class="stroke thin" cx="20" cy="114" r="3"/><circle class="stroke thin" cx="76" cy="114" r="3"/><rect class="void" x="36" y="28" width="24" height="74" rx="4"/><rect class="fill" x="30" y="30" width="36" height="22" rx="3"/><text class="lbl" x="34" y="118" style="font-size:10px">POWER</text><text class="lbl" x="38" y="46" style="font-size:10px">ON</text></svg>
+        <ul class="menu">
+          <li class="sel">Throw the breaker<small>Continue on layer 3: arithmetic</small></li>
+          <li>New shift</li>
+          <li>Schematic binder</li>
+          <li>Settings</li>
+        </ul>
+      </div>
+      <svg class="peek" viewBox="0 0 120 90" aria-hidden="true"><ellipse class="fill" cx="60" cy="60" rx="50" ry="36"/><rect class="void" x="22" y="42" width="76" height="32" rx="16"/><g class="blink"><ellipse class="eye" cx="46" cy="58" rx="7" ry="5"/><ellipse class="eye" cx="74" cy="58" rx="7" ry="5"/></g></svg>
+    </div>
+    <div class="screen unlock">
+      <span class="tl">New schematic</span>
+      <span class="stamp">FILED</span>
+      <h3>Half adder</h3>
+      <p>Built from XOR ×1 and AND ×1. Added to your parts bin.</p>
+      <svg class="pinout" viewBox="0 0 220 110" aria-label="Half adder chip pinout: inputs A and B, outputs S and C">
+        <rect class="fill" x="60" y="15" width="100" height="80"/><path class="stroke thin" d="M60 48 a7 7 0 0 0 0 14"/>
+        <path class="stroke thin" d="M20 35 H60 M20 75 H60 M160 35 H200 M160 75 H200"/>
+        <text class="lbl" x="6" y="39">A</text><text class="lbl" x="6" y="79">B</text><text class="lbl" x="206" y="39">S</text><text class="lbl" x="206" y="79">C</text>
+        <text class="lbl" x="88" y="60" style="font-size:15px;font-weight:700">HA</text>
+      </svg>
+      <p class="hand note">Each new chip goes into a ring binder. Flip back through it any time to see how you built it.</p>
+      <button class="btn sm" type="button">Back to workbench</button>
+    </div>
+  </div>
+</section>
+
+<!-- PARTS -->
+<section class="sec" aria-labelledby="s-parts">
+  <div class="sec-head"><span class="no">SH 9</span><h2 id="s-parts">UI parts bin</h2></div>
+  <p class="lede">Component directions. Everything is either inked on the drafting sheet or bolted onto it as a hardware panel.</p>
+  <div class="parts">
+    <div class="spec"><div class="stage"><button class="btn" type="button">Run test</button><button class="btn ghost" type="button">Undo</button></div><div class="cap">Buttons: solid ink for the main action, outline for the rest. They press down into their shadow.</div></div>
+    <div class="spec"><div class="stage"><button class="toggle" type="button" role="switch" aria-checked="true" id="tog"><span class="track"><span class="knob"></span></span><span>Show wire labels</span></button></div><div class="cap">Toggles as slide switches. Square, never pill-shaped.</div></div>
+    <div class="spec"><div class="stage"><span class="leds" aria-label="1 of 9 layers built"><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span style="font-size:.85rem">1 / 9 layers</span></div><div class="cap">Progress as indicator LEDs. Amber only ever means "powered."</div></div>
+    <div class="spec"><div class="stage"><div class="sticky">XOR is just "one or the other, not both." Try making OR first?</div></div><div class="cap">Hints as taped-on notes in the robot's handwriting.</div></div>
+    <div class="spec"><div class="stage"><span class="stamp" id="stamp">TESTED</span></div><div class="cap">Level complete: an inspection stamp slams onto the schematic.</div></div>
+    <div class="spec"><div class="stage"><div class="bubble">New schematic saved: XOR. My memory banks feel roomier.</div></div><div class="cap">Robot speech: typewriter text, square bubble with a folded tail.</div></div>
+    <div class="spec"><div class="stage dial">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><circle class="fill" cx="32" cy="32" r="28"/><path class="stroke thin" d="M12 46 A24 24 0 1 1 52 46"/><path class="stroke thin" d="M14 32h4M32 10v4M50 32h-4M19 19l3 3M45 19l-3 3"/><line class="stroke" x1="32" y1="32" x2="44" y2="20" style="stroke:var(--amber)"/><circle cx="32" cy="32" r="4" fill="var(--ink)"/></svg>
+      <span style="font-size:.85rem">Clock speed<br><b style="color:var(--ink)">4 Hz</b></span></div><div class="cap">Analog gauges for clock speed and test progress once you reach layer 6.</div></div>
+    <div class="spec"><div class="stage" style="display:block"><div class="tabs"><span>NAND</span><span>NOT</span><span class="on">XOR</span><span>HA</span></div></div><div class="cap">Schematic binder: open drawings as index tabs along the top.</div></div>
+    <div class="spec"><div class="stage">
+      <svg viewBox="0 0 120 60" style="width:150px" aria-hidden="true"><rect class="fill" x="4" y="4" width="112" height="52" rx="2"/><circle class="stroke thin" cx="12" cy="12" r="2.5"/><circle class="stroke thin" cx="108" cy="12" r="2.5"/><circle class="stroke thin" cx="12" cy="48" r="2.5"/><circle class="stroke thin" cx="108" cy="48" r="2.5"/><text class="lbl" x="22" y="26" style="font-size:9px">BUS VALUE</text><text class="lbl" x="22" y="44" style="font-size:16px;font-weight:700">0x0B0B</text></svg></div><div class="cap">Readouts as riveted name plates. Later: hex, binary and decimal on a rotary switch.</div></div>
+  </div>
+</section>
+
+<!-- LEGEND -->
+<section class="sec" aria-labelledby="s-leg">
+  <div class="sec-head"><span class="no">SH 10</span><h2 id="s-leg">Symbol legend</h2></div>
+  <p class="lede">Real schematic symbols as the game's visual vocabulary. Some are interactive parts, some are just set dressing in the margins.</p>
+  <div class="legend"><div class="lg"><div class="sym"><svg viewBox="0 0 80 30" aria-hidden="true"><path class="stroke thin" d="M0 15 H22 M26 15 L48 5 M54 15 H80"/><circle class="fill" cx="24" cy="15" r="2.5" stroke-width="2"/><circle class="fill" cx="52" cy="15" r="2.5" stroke-width="2"/></svg></div><div><b>Switch</b><span>Every input. Flip it, feel the click.</span></div></div><div class="lg"><div class="sym"><svg viewBox="0 0 80 30" aria-hidden="true"><path class="stroke thin" d="M0 15 H28 M52 15 H80 M33 8 L47 22 M47 8 L33 22"/><circle class="stroke thin" cx="40" cy="15" r="11"/></svg></div><div><b>Lamp</b><span>Every output. Glows amber when high.</span></div></div><div class="lg"><div class="sym"><svg viewBox="0 0 80 30" aria-hidden="true"><path class="gate" d="M24 4 H36 A11 11 0 0 1 36 26 H24 Z" stroke-width="2"/><circle class="gate" cx="51" cy="15" r="3" stroke-width="2"/><path class="stroke thin" d="M0 9 H24 M0 21 H24 M54 15 H80"/></svg></div><div><b>NAND gate</b><span>The seed of everything. Always in stock.</span></div></div><div class="lg"><div class="sym"><svg viewBox="0 0 80 30" aria-hidden="true"><path class="stroke thin" d="M0 15 H34 a6 6 0 0 1 12 0 H80 M40 0 V30"/></svg></div><div><b>Crossing</b><span>Wires that cross without connecting hop over each other.</span></div></div><div class="lg"><div class="sym"><svg viewBox="0 0 80 30" aria-hidden="true"><path class="stroke thin" d="M0 15 H80 M40 0 V30"/><circle cx="40" cy="15" r="4" fill="var(--ink)"/></svg></div><div><b>Junction</b><span>A dot means joined. Drop one by tapping a wire.</span></div></div><div class="lg"><div class="sym"><svg viewBox="0 0 80 30" aria-hidden="true"><path class="stroke thin" d="M0 24 H10 V6 H22 V24 H34 V6 H46 V24 H58 V6 H70 V24 H80"/></svg></div><div><b>Clock</b><span>Arrives at layer 6. The whole factory starts ticking.</span></div></div><div class="lg"><div class="sym"><svg viewBox="0 0 80 30" aria-hidden="true"><path class="stroke thin" d="M0 15 H18 L22 6 L30 24 L38 6 L46 24 L54 6 L58 15 H80"/></svg></div><div><b>Resistor</b><span>Margin decoration and wallpaper trim.</span></div></div><div class="lg"><div class="sym"><svg viewBox="0 0 80 30" aria-hidden="true"><path class="stroke thin" d="M0 15 H36 M36 4 V26 M44 9 V21 M44 15 H80"/></svg></div><div><b>Battery</b><span>The robot's charge meter.</span></div></div><div class="lg"><div class="sym"><svg viewBox="0 0 80 30" aria-hidden="true"><path class="stroke thin" d="M40 0 V12 M26 12 H54 M31 18 H49 M36 24 H44"/></svg></div><div><b>Ground</b><span>Loading icon: the bars draw in one by one.</span></div></div><div class="lg"><div class="sym"><svg viewBox="0 0 80 30" aria-hidden="true"><path class="stroke thin" d="M0 15 H30 M48 6 V24 M48 15 H80"/><path d="M30 6 L48 15 L30 24 Z" fill="var(--ink)"/></svg></div><div><b>Diode</b><span>One-way doors between factory floors.</span></div></div></div>
+</section>
+
+<!-- MOTION -->
+<section class="sec" aria-labelledby="s-anim">
+  <div class="sec-head"><span class="no">SH 11</span><h2 id="s-anim">Motion and sound</h2></div>
+  <p class="lede">Motion should feel mechanical and hand-made at once: things snap, clack, and get drawn in pencil.</p>
+  <div class="anims">
+    <div class="anim">
+      <h3>Pencil wiring</h3>
+      <div class="stage"><svg viewBox="0 0 160 90" aria-hidden="true"><path class="drawpath" id="dp" d="M10 70 H50 V20 H110 V60 H150"/><circle cx="10" cy="70" r="4" fill="var(--ink)"/><circle cx="150" cy="60" r="4" fill="var(--ink)"/></svg></div>
+      <p>Wires sketch themselves in as you drag, then ink over once connected.</p>
+      <button class="btn ghost sm" type="button" data-play="dp">Play</button>
+    </div>
+    <div class="anim">
+      <h3>Current flow</h3>
+      <div class="stage"><svg viewBox="0 0 160 90" aria-hidden="true"><path class="wire hi" d="M10 45 H60 L66 30 L76 60 L86 30 L96 60 L102 45 H150"/><path class="flow hi" d="M10 45 H60 L66 30 L76 60 L86 30 L96 60 L102 45 H150"/></svg></div>
+      <p>Live wires turn amber with dashes marching along them.</p>
+    </div>
+    <div class="anim">
+      <h3>Stamp</h3>
+      <div class="stage shake" id="stampstage"><span class="stamp" id="stamp2">PASSED</span></div>
+      <p>All rows pass: stamp, thunk, tiny screen shake.</p>
+      <button class="btn ghost sm" type="button" data-play="stamp2">Play</button>
+    </div>
+    <div class="anim">
+      <h3>Robot reacts</h3>
+      <div class="stage"><svg viewBox="0 0 80 70" aria-hidden="true" id="rr"><g class="hop" id="hopbot"><ellipse class="fill" cx="40" cy="38" rx="30" ry="24"/><rect class="void" x="17" y="27" width="46" height="20" rx="10"/><g class="neutral"><ellipse class="eye" cx="31" cy="37" rx="5" ry="3.5"/><ellipse class="eye" cx="49" cy="37" rx="5" ry="3.5"/></g><g class="happy"><path class="eyel" d="M26 40 L31 33 L36 40 M44 40 L49 33 L54 40"/></g></g></svg></div>
+      <p>Hop and happy eyes on success. A thruster cough on a short circuit.</p>
+      <button class="btn ghost sm" type="button" data-play="hopbot">Play</button>
+    </div>
+  </div>
+  <h3 class="sub">Sound cues</h3>
+  <dl class="sounds">
+    <div><dt>Drag a wire</dt><dd>pencil scratch on paper</dd></div>
+    <div><dt>Wire connects</dt><dd>small relay click</dd></div>
+    <div><dt>Run test</dt><dd>typewriter carriage return, then a row of ticks</dd></div>
+    <div><dt>All rows pass</dt><dd>rubber stamp thunk and a desk bell</dd></div>
+    <div><dt>Short circuit</dt><dd>buzz, a pop, the robot's thruster coughs</dd></div>
+    <div><dt>Robot talks</dt><dd>typewriter keys, pitched per letter</dd></div>
+  </dl>
+</section>
+
+<!-- DOOR -->
+<section class="sec" aria-labelledby="s-door">
+  <div class="sec-head"><span class="no">SH 12</span><h2 id="s-door">The way out</h2></div>
+  <div class="door">
+    <svg viewBox="0 0 240 290" role="img" aria-label="Sketch of the factory exit door with a keypad wired to your CPU">
+      <rect class="fill" x="40" y="20" width="130" height="230"/>
+      <rect class="stroke thin" x="52" y="32" width="106" height="206"/>
+      <path class="stroke thin" d="M52 80 H158 M52 190 H158" stroke-dasharray="6 5"/>
+      <circle class="stroke" cx="62" cy="42" r="3"/><circle class="stroke" cx="148" cy="42" r="3"/><circle class="stroke" cx="62" cy="228" r="3"/><circle class="stroke" cx="148" cy="228" r="3"/>
+      <rect class="fill" x="182" y="110" width="40" height="56" rx="3"/>
+      <rect class="void" x="188" y="116" width="28" height="12"/>
+      <circle class="led" cx="202" cy="150" r="5"/>
+      <path class="stroke" d="M202 166 V230 Q202 262 170 262 H14" stroke-width="2.5"/>
+      <text class="lblh" x="105" y="140" text-anchor="middle" style="font-size:18px">EXIT</text>
+      <text class="lblh" x="14" y="284">to your CPU</text>
+    </svg>
+    <div>
+      <p class="lede" style="margin-bottom:16px">The finale is a program in the language you invented. Short enough to type by hand, meaningful because you built every layer it runs on.</p>
+<pre class="asm"><span class="c">; escape.asm</span>
+      <span class="k">LOAD</span> R1, 0x0B0B  <span class="c">; door code</span>
+      <span class="k">OUT</span>  R1, DOOR    <span class="c">; send to lock</span>
+wait: <span class="k">IN</span>   R2, DOOR
+      <span class="k">JZ</span>   R2, wait    <span class="c">; until it clicks</span>
+      <span class="k">HALT</span></pre>
+      <p class="hand note" style="margin:14px 0 0">The door code could be hidden in notes scattered across earlier levels. The final run plays out at the clock speed you built, so a slow CPU means a tense wait.</p>
+    </div>
+  </div>
+</section>
+
+<!-- LOOKS -->
+<section class="sec" aria-labelledby="s-ink">
+  <div class="sec-head"><span class="no">SH 13</span><h2 id="s-ink">Inks and looks</h2></div>
+  <div class="inks">
+    <div class="ink"><i style="background:#F5F8FC"></i>Drafting paper<br>#F5F8FC</div>
+    <div class="ink"><i style="background:#1D4E9E"></i>Drafting ink<br>#1D4E9E</div>
+    <div class="ink"><i style="background:#0F2C5E"></i>Visor navy<br>#0F2C5E</div>
+    <div class="ink"><i style="background:#5A6578"></i>Graphite<br>#5A6578</div>
+    <div class="ink"><i style="background:#7FD0FF"></i>Eye glow<br>#7FD0FF</div>
+    <div class="ink"><i style="background:#F0A531"></i>Powered<br>#F0A531</div>
+  </div>
+  <div class="letters">
+    <div><span class="t">Schematic 07: XOR</span><small>Courier Prime for UI, labels and robot dialogue</small></div>
+    <div><span class="h">try OR first?</span><small>Architects Daughter for notes, hints and margin scribbles</small></div>
+  </div>
+  <h3 class="sub">Three looks to try</h3>
+  <p class="hand note" style="margin:0 0 14px">Same parts, different paper. Could be one look per act, or a player setting.</p>
+  <div class="looks">
+    <figure class="look look-light"><div class="swatch"><svg viewBox="0 0 110 50" aria-hidden="true"><path class="gate" d="M30 5 H48 A20 20 0 0 1 48 45 H30 Z"/><circle class="gate" cx="73" cy="25" r="4.5"/><path class="stroke thin" d="M4 15 H30 M4 35 H30 M78 25 H106"/></svg><button class="btn sm" type="button" tabindex="-1">Run</button></div><figcaption><b>Drafting sheet</b><span>Bright, friendly, the default. Early layers.</span></figcaption></figure>
+    <figure class="look look-cyan"><div class="swatch"><svg viewBox="0 0 110 50" aria-hidden="true"><path class="gate" d="M30 5 H48 A20 20 0 0 1 48 45 H30 Z"/><circle class="gate" cx="73" cy="25" r="4.5"/><path class="stroke thin" d="M4 15 H30 M4 35 H30 M78 25 H106"/></svg><button class="btn sm" type="button" tabindex="-1">Run</button></div><figcaption><b>Cyanotype</b><span>Night shift. Moodier, for the CPU and later floors.</span></figcaption></figure>
+    <figure class="look look-metal"><div class="swatch"><span class="screw s1"></span><span class="screw s2"></span><span class="screw s3"></span><span class="screw s4"></span><svg viewBox="0 0 110 50" aria-hidden="true"><path class="gate" d="M30 5 H48 A20 20 0 0 1 48 45 H30 Z"/><circle class="gate" cx="73" cy="25" r="4.5"/><path class="stroke thin" d="M4 15 H30 M4 35 H30 M78 25 H106"/></svg><button class="btn sm" type="button" tabindex="-1">Run</button></div><figcaption><b>Bolted panel</b><span>Brushed aluminum and screws. For the robot's own UI.</span></figcaption></figure>
+  </div>
+</section>
+
+<p class="foot">LOA-001 rev B. Tap "Blueprint mode" at the top to see the whole board in cyanotype.</p>
+</main>
+
+<script>
+(function(){
+  // theme flip
+  var root=document.documentElement,tb=document.getElementById("theme");
+  function isDark(){var t=root.getAttribute("data-theme");if(t)return t==="dark";return window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches}
+  function label(){tb.textContent=isDark()?"Drafting mode":"Blueprint mode"}
+  tb.addEventListener("click",function(){root.setAttribute("data-theme",isDark()?"light":"dark");label()});
+  label();
+
+  // names
+  var names=[
+    ["NAND-E","starts with one gate, sounds like EVE"],
+    ["Ohm","small, calm, resistant to panic"],
+    ["Clank","you hear it before you see it"],
+    ["Rivet","held together by them"],
+    ["Bit","the smallest unit; grows into a byte"],
+    ["Fuse","blows a little when stressed"],
+    ["Latch","remembers things, eventually"],
+    ["Sprocket","cheerful, slightly rusty"],
+    ["Diode","only goes one way: forward"],
+    ["Wattson","always has a bright idea"]
+  ];
+  var saved=[];
+  try{saved=JSON.parse(localStorage.getItem("loa-names")||"[]")||[]}catch(e){saved=[]}
+  var box=document.getElementById("names");
+  names.forEach(function(n){
+    var w=document.createElement("div");w.className="tag-wrap";
+    var b=document.createElement("button");b.type="button";b.className="tag";
+    b.setAttribute("aria-pressed",saved.indexOf(n[0])>-1?"true":"false");
+    b.innerHTML="<strong>"+n[0]+"</strong><small>"+n[1]+"</small>";
+    var c=document.createElementNS("http://www.w3.org/2000/svg","svg");
+    c.setAttribute("class","circle");c.setAttribute("viewBox","0 0 100 50");c.setAttribute("preserveAspectRatio","none");c.setAttribute("aria-hidden","true");
+    c.innerHTML='<ellipse cx="50" cy="25" rx="48" ry="23" pathLength="420" vector-effect="non-scaling-stroke" transform="rotate(-2 50 25)"/>';
+    b.addEventListener("click",function(){
+      var on=b.getAttribute("aria-pressed")!=="true";
+      b.setAttribute("aria-pressed",on?"true":"false");
+      var i=saved.indexOf(n[0]);
+      if(on&&i<0)saved.push(n[0]); if(!on&&i>-1)saved.splice(i,1);
+      try{localStorage.setItem("loa-names",JSON.stringify(saved))}catch(e){}
+    });
+    w.appendChild(b);w.appendChild(c);box.appendChild(w);
+  });
+
+  // expression sheet
+  var faces=[
+    ["Idle","default, slow blink",'<g class="blink"><ellipse class="eye" cx="44" cy="44" rx="8" ry="6"/><ellipse class="eye" cx="76" cy="44" rx="8" ry="6"/></g>'],
+    ["Happy","test passed",'<path class="eyel" d="M36 48 L44 39 L52 48 M68 48 L76 39 L84 48"/>'],
+    ["Worried","wire about to short",'<ellipse class="eye" cx="44" cy="46" rx="6" ry="5"/><ellipse class="eye" cx="76" cy="46" rx="6" ry="5"/><path class="eyel" d="M36 38 L50 34 M70 34 L84 38" style="stroke-width:2.5"/>'],
+    ["Thinking","computing a hint",'<ellipse class="eye" cx="46" cy="40" rx="7" ry="6"/><path class="eyel" d="M68 44 H84"/>'],
+    ["Error","short circuit",'<path class="eyel" d="M38 38 L50 50 M50 38 L38 50 M70 38 L82 50 M82 38 L70 50"/>'],
+    ["Sleepy","idle too long",'<path class="eyel" d="M36 44 Q44 50 52 44 M68 44 Q76 50 84 44"/><text class="lblh" x="88" y="22" style="fill:var(--ink);font-size:20px">z</text><text class="lblh" x="100" y="12" style="fill:var(--ink);font-size:14px">z</text>'],
+    ["Amazed","new layer unlocked",'<circle class="eye" cx="44" cy="44" r="10"/><circle class="eye" cx="76" cy="44" r="10"/><circle cx="47" cy="41" r="3" fill="var(--void)"/><circle cx="79" cy="41" r="3" fill="var(--void)"/>'],
+    ["Loading","running your program",'<circle class="eye dot" cx="48" cy="44" r="4"/><circle class="eye dot" cx="60" cy="44" r="4"/><circle class="eye dot" cx="72" cy="44" r="4"/>']
+  ];
+  var fb=document.getElementById("faces");
+  faces.forEach(function(f){
+    var el=document.createElement("figure");el.className="face";
+    el.innerHTML='<svg viewBox="0 0 120 84" aria-hidden="true"><line class="stroke" x1="60" y1="10" x2="60" y2="2"/><ellipse class="fill" cx="60" cy="46" rx="52" ry="34"/><rect class="void" x="18" y="28" width="84" height="32" rx="16"/>'+f[2]+'</svg><figcaption>'+f[0]+'<span>'+f[1]+'</span></figcaption>';
+    fb.appendChild(el);
+  });
+
+  // NAND demo
+  var st={A:false,B:false};
+  function render(){
+    var q=!(st.A&&st.B);
+    [["A","swA",50],["B","swB",110]].forEach(function(s){
+      var g=document.getElementById(s[1]),on=st[s[0]];
+      g.setAttribute("aria-checked",on?"true":"false");
+      var lv=g.querySelector(".lever");
+      if(on)lv.removeAttribute("transform");else lv.setAttribute("transform","rotate(-35 30 "+s[2]+")");
+      document.getElementById("w"+s[0]).classList.toggle("hi",on);
+      document.getElementById("f"+s[0]).classList.toggle("hi",on);
+    });
+    document.getElementById("wQ").classList.toggle("hi",q);
+    document.getElementById("fQ").classList.toggle("hi",q);
+    document.getElementById("lamp").classList.toggle("hi",q);
+    var k=(st.A?"1":"0")+(st.B?"1":"0");
+    document.querySelectorAll("#tt tbody tr").forEach(function(r){r.classList.toggle("cur",r.getAttribute("data-k")===k)});
+  }
+  ["A","B"].forEach(function(id){
+    var g=document.getElementById("sw"+id);
+    function flip(){st[id]=!st[id];render()}
+    g.addEventListener("click",flip);
+    g.addEventListener("keydown",function(e){if(e.key===" "||e.key==="Enter"){e.preventDefault();flip()}});
+  });
+  render();
+
+  // typewriter dialogue
+  var lines=[
+    "Only one schematic in my memory banks: NAND. Everything else, we draw ourselves.",
+    "XOR means one or the other, but not both. Four NANDs should do it.",
+    "Three rows passing. One to go. My thruster is getting excited.",
+    "Bzzt. Short circuit on wire 3. Try routing around the junction."
+  ];
+  var li=0,timer=null,el=document.getElementById("typed");
+  var reduce=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function type(t){
+    clearInterval(timer);
+    if(reduce){el.textContent=t;return}
+    var i=0;el.textContent="";
+    timer=setInterval(function(){el.textContent=t.slice(0,++i);if(i>=t.length)clearInterval(timer)},28);
+  }
+  type(lines[0]);
+  document.getElementById("next").addEventListener("click",function(){li=(li+1)%lines.length;type(lines[li])});
+
+  // toggle
+  var tog=document.getElementById("tog");
+  tog.addEventListener("click",function(){tog.setAttribute("aria-checked",tog.getAttribute("aria-checked")==="true"?"false":"true")});
+
+  // replays
+  function replay(n,cls){n.classList.remove(cls);void n.getBoundingClientRect();n.classList.add(cls)}
+  document.querySelectorAll("[data-play]").forEach(function(b){
+    b.addEventListener("click",function(){
+      var id=b.getAttribute("data-play"),t=document.getElementById(id);
+      if(id==="dp")replay(t,"go");
+      if(id==="stamp2"){replay(t,"slam");setTimeout(function(){replay(document.getElementById("stampstage"),"go")},300)}
+      if(id==="hopbot"){var rr=document.getElementById("rr");rr.classList.add("mood");replay(t,"go");setTimeout(function(){rr.classList.remove("mood")},1400)}
+    });
+  });
+  var s1=document.getElementById("stamp");
+  if("IntersectionObserver" in window){
+    new IntersectionObserver(function(es,o){es.forEach(function(e){if(e.isIntersecting){replay(s1,"slam");o.disconnect()}})},{threshold:.8}).observe(s1);
+  }
+})();
+</script>
+</body>
+</html>

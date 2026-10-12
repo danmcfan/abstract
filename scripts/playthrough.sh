@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Plays levels 1-3 in a real browser with agent-browser, using real mouse
+# Plays every level in a real browser with agent-browser, using real mouse
 # drags to place gates and draw wires, and saves a screenshot per level plus a
 # video of the whole run.
 #
@@ -47,38 +47,47 @@ wire() {
   drag $(pin "$1" out) $(pin "$2" in "${3:-0}")
 }
 
+# Closes the robot's popup if it's up, so it can't cover the board.
+hush() { agent-browser eval "document.querySelector('#dialog-close')?.click()" >/dev/null; }
+
 check() {
+  hush
   ab click "#test"
   sleep "$1"
   local status; status=$(js "document.querySelector('#status').textContent")
   echo "level $2: $status"
   agent-browser screenshot "$OUT/level$2.png" >/dev/null
-  [[ $status == *Solved* ]] || { echo "level $2 failed" >&2; exit 1; }
+  [[ $status == *Tested* ]] || { echo "level $2 failed" >&2; exit 1; }
+  hush
 }
 
 ab set viewport 1280 800
 agent-browser record restart "$OUT/playthrough.webm" "${BASE}?level=1" >/dev/null
 until [[ $(js "typeof __abstract") == *object* ]]; do sleep 0.5; done
 
-# Level 1: NOT is a NAND with both inputs tied together.
+# Level 1: NAND comes wired; just test it.
+check 3 1
+
+# Level 2: NOT is a NAND with both inputs tied together.
+ab click "#next"; sleep 0.5; hush
 A=$(terminal INPUT ALPHA); O=$(terminal OUTPUT)
 N=$(add NAND 22 20)
 wire "$A" "$N" 0; wire "$A" "$N" 1; wire "$N" "$O"
-check 2 1
+check 2 2
 
-# Level 2: AND is NAND followed by NOT.
-ab click "#next"; sleep 0.5
+# Level 3: AND is NAND followed by NOT.
+ab click "#next"; sleep 0.5; hush
 A=$(terminal INPUT ALPHA); B=$(terminal INPUT BETA); O=$(terminal OUTPUT)
 N=$(add NAND 16 21); T=$(add NOT 28 21)
 wire "$A" "$N" 0; wire "$B" "$N" 1; wire "$N" "$T"; wire "$T" "$O"
-check 3 2
+check 3 3
 
-# Level 3: OR is NOT A NAND NOT B.
-ab click "#next"; sleep 0.5
+# Level 4: OR is NOT A NAND NOT B.
+ab click "#next"; sleep 0.5; hush
 A=$(terminal INPUT ALPHA); B=$(terminal INPUT BETA); O=$(terminal OUTPUT)
 TA=$(add NOT 15 13); TB=$(add NOT 15 30); N=$(add NAND 28 21)
 wire "$A" "$TA"; wire "$B" "$TB"; wire "$TA" "$N" 0; wire "$TB" "$N" 1; wire "$N" "$O"
-check 3 3
+check 3 4
 
 agent-browser record stop >/dev/null
 echo "saved $OUT/"

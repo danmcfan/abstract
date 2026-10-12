@@ -1,8 +1,10 @@
 import { For, Show } from "solid-js";
+import { placeNode } from "../sim/circuit";
 import { GRID_HEIGHT, GRID_WIDTH } from "../sim/grid";
 import { LEVELS, toolbox, truthTable } from "../sim/level";
-import { placeNode } from "../sim/circuit";
-import { GATE_ACCENTS } from "./NodeView";
+import { say } from "./speech";
+import { GateIcon } from "./GateIcon";
+import * as script from "./script";
 import {
   currentRow,
   level,
@@ -18,110 +20,135 @@ import {
 
 const bit = (value: boolean) => (value ? "1" : "0");
 const INPUT_NAMES = { ALPHA: "A", BETA: "B", NONE: "" };
+const pad = (n: number) => String(n).padStart(2, "0");
 
-// Frosted glass, Apple style.
-const glass = "bg-white/70 backdrop-blur-xl backdrop-saturate-180 border border-black/8 shadow-[0_8px_32px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.04)]";
-const pill = "rounded-full px-3.5 py-1.5 font-medium transition-colors hover:bg-black/5 disabled:opacity-40 disabled:hover:bg-transparent";
-const primary = "rounded-full px-5 py-2 font-medium text-white bg-action hover:bg-[#0077ed] disabled:opacity-40";
-
-export function Hud() {
+// The overlay, drawn like sheets pinned to the drafting board: the level's
+// title block and truth table, the parts bin, and the sheet index.
+export function Hud(props: { onMenu: () => void }) {
   const rows = () => truthTable(level());
 
   const status = () => {
-    if (testing()) return { text: "Testing…", tone: "" };
+    if (testing()) return { text: "Testing…", tone: "text-pencil" };
     const r = result();
     if (!r) return null;
-    if (r.forbidden.length > 0) return { text: `${r.forbidden.join(", ")} isn't in this level's toolbox.`, tone: "text-fail" };
-    if (!r.passed) return { text: "Not quite. Check the rows marked ✗.", tone: "text-fail" };
+    if (r.forbidden.length > 0) return { text: `${r.forbidden.join(", ")} isn't in this level's parts bin.`, tone: "text-fail" };
+    if (!r.passed) return { text: "Not quite. Some rows don't match.", tone: "text-fail" };
     const hasNext = levelIndex() + 1 < LEVELS.length;
-    return { text: hasNext ? `Solved! ${level().gate} is now in your toolbox.` : "Solved! That's every level so far.", tone: "text-pass" };
+    return { text: hasNext ? `Tested! ${level().gate} is in your parts bin.` : "Tested! That's every level so far.", tone: "text-pass" };
   };
 
   return (
-    <div class="font-sans text-sm leading-normal text-ink antialiased">
-      <div class={`fixed top-5 left-5 w-69 rounded-[18px] p-5 ${glass}`}>
-        <p class="text-[11px] font-semibold tracking-[0.08em] text-muted uppercase">Level {levelIndex() + 1}</p>
-        <h1 class="text-xl font-semibold tracking-tight">Build {level().gate}</h1>
-        <p class="my-2 text-muted">{level().goal}</p>
+    <div class="text-sm leading-normal text-ink-deep">
+      <section
+        id="level-panel"
+        class="sheet fixed top-3 right-3 left-3 p-3 min-[900px]:top-5 min-[900px]:right-auto min-[900px]:left-5 min-[900px]:w-[290px] min-[900px]:p-4"
+      >
+        <div class="flex w-fit max-w-full border-2 border-ink">
+          <span class="flex items-center border-r-2 border-ink px-2 text-xs text-pencil">SH {pad(levelIndex() + 1)}</span>
+          <h1 class="px-2.5 py-0.5 text-lg font-bold text-ink">
+            {level().prebuilt ? "Meet" : "Build"} {level().gate}
+          </h1>
+        </div>
 
-        <table class="my-3.5 w-full border-collapse text-[13px] tabular-nums">
-          <thead>
-            <tr class="border-b border-black/8 text-[11px] font-semibold tracking-wide text-muted">
-              <For each={level().inputs}>{(label) => <th class="px-2 pb-1.5">{INPUT_NAMES[label]}</th>}</For>
-              <th class="px-2 pb-1.5">OUT</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            <For each={rows()}>
-              {(row, i) => {
-                const actual = () => rowResults()[i()];
-                return (
-                  <tr class={currentRow() === i() ? "bg-signal/12" : ""}>
-                    <For each={row.inputs}>{(value) => <td class="px-2 py-1 text-center">{bit(value)}</td>}</For>
-                    <td class="px-2 py-1 text-center">{bit(row.expected)}</td>
-                    <td class="px-2 py-1 text-center">
-                      <Show when={actual() !== undefined}>
-                        <span class={actual() === row.expected ? "text-pass" : "text-fail"}>
-                          {actual() === row.expected ? "✓" : `✗ got ${bit(actual()!)}`}
-                        </span>
-                      </Show>
-                    </td>
-                  </tr>
-                );
-              }}
-            </For>
-          </tbody>
-        </table>
+        <div class="mt-3 flex items-center gap-3">
+          <GateIcon type={level().gate} class="h-11 w-16 shrink-0 text-ink" />
+          <p class="text-[13px] leading-snug">{level().goal}</p>
+        </div>
 
-        <button id="test" class={primary} disabled={testing()} onClick={() => void runTest()}>
-          Test
-        </button>
+        <div class="mt-3 flex items-end gap-3 min-[900px]:block">
+          <table class="w-full max-w-[260px] border-collapse text-center text-[13px] tabular-nums">
+            <thead>
+              <tr class="text-ink">
+                <For each={level().inputs}>{(label) => <th class="border-[1.5px] border-ink px-2 py-0.5">{INPUT_NAMES[label]}</th>}</For>
+                <th class="border-[1.5px] border-ink px-2 py-0.5">OUT</th>
+                <th class="w-12 border-[1.5px] border-ink px-1 py-0.5 text-xs font-normal text-pencil">test</th>
+              </tr>
+            </thead>
+            <tbody>
+              <For each={rows()}>
+                {(row, i) => {
+                  const actual = () => rowResults()[i()];
+                  const ok = () => actual() === row.expected;
+                  return (
+                    <tr class={currentRow() === i() ? "bg-wash font-bold" : ""}>
+                      <For each={row.inputs}>{(value) => <td class="border-[1.5px] border-ink px-2 py-0.5">{bit(value)}</td>}</For>
+                      <td class="border-[1.5px] border-ink px-2 py-0.5">{bit(row.expected)}</td>
+                      <td class="border-[1.5px] border-ink px-1 py-0.5" title={actual() === undefined || ok() ? undefined : `got ${bit(actual()!)}`}>
+                        <Show when={actual() !== undefined} fallback={<span class="text-pencil/50">·</span>}>
+                          <span class={ok() ? "text-pass" : "text-fail"}>{ok() ? "✓" : `✗${bit(actual()!)}`}</span>
+                        </Show>
+                      </td>
+                    </tr>
+                  );
+                }}
+              </For>
+            </tbody>
+          </table>
+
+          <div class="shrink-0 min-[900px]:mt-3.5 min-[900px]:flex min-[900px]:items-center min-[900px]:gap-3">
+            <button id="test" class="btn" disabled={testing()} onClick={() => void runTest()}>
+              Run test
+            </button>
+          </div>
+        </div>
+
         <Show when={status()}>
           {(s) => (
-            <p id="status" class={`my-2 font-medium ${s().tone}`}>
+            <p id="status" class={`mt-2 font-bold ${s().tone}`}>
               {s().text}
             </p>
           )}
         </Show>
         <Show when={result()?.passed && levelIndex() + 1 < LEVELS.length}>
-          <button id="next" class={`${primary} mt-2 block`} onClick={() => startLevel(levelIndex() + 1)}>
-            Next level →
+          <button id="next" class="btn mt-2.5" onClick={() => startLevel(levelIndex() + 1)}>
+            Next level ▸
           </button>
         </Show>
-        <p class="mt-3.5 border-t border-black/8 pt-3 text-xs text-muted">
-          Drag between pins to wire. Click an input to flip it. Right-click a gate or input pin to remove it.
-        </p>
-      </div>
+      </section>
 
-      <div class={`fixed bottom-5 left-1/2 flex -translate-x-1/2 gap-0.5 rounded-full p-1.5 ${glass}`}>
-        <For each={toolbox(levelIndex())}>
+      <nav class="fixed top-3 right-3 flex gap-1.5 max-[899px]:top-auto max-[899px]:right-auto max-[899px]:bottom-3 max-[899px]:left-3 min-[900px]:top-5 min-[900px]:right-5">
+        <For each={Array.from({ length: unlockedCount() }, (_, i) => i)}>
+          {(i) => (
+            <button
+              class={`size-8 border-2 border-ink text-xs font-bold max-[899px]:hidden ${i === levelIndex() ? "bg-ink text-paper" : "bg-surface text-ink hover:bg-wash"}`}
+              aria-label={`Level ${i + 1}`}
+              aria-current={i === levelIndex() ? "step" : undefined}
+              onClick={() => startLevel(i)}
+            >
+              {pad(i + 1)}
+            </button>
+          )}
+        </For>
+        <button id="help" class="btn btn-ghost btn-sm ml-1.5 max-[899px]:ml-0" onClick={() => say(script.help(level()))}>
+          ? Help
+        </button>
+        <button id="menu" class="btn btn-ghost btn-sm" onClick={() => props.onMenu()}>
+          Menu
+        </button>
+      </nav>
+
+      <section
+        id="parts-bin"
+        class="sheet fixed bottom-3 left-1/2 flex -translate-x-1/2 items-stretch max-[899px]:right-3 max-[899px]:left-auto max-[899px]:translate-x-0"
+      >
+        <span class="flex items-center border-r-2 border-ink px-2.5 text-[11px] tracking-[0.1em] text-pencil uppercase max-[899px]:hidden">Parts bin</span>
+        <For
+          each={toolbox(levelIndex())}
+          fallback={<span class="flex items-center px-3 py-2 text-xs text-pencil">Empty, for now</span>}
+        >
           {(type) => (
             <button
-              class={`${pill} flex items-center gap-2`}
+              class="flex flex-col items-center gap-0.5 px-2.5 pt-1.5 pb-1 text-[11px] font-bold text-ink hover:bg-wash disabled:opacity-40 max-[899px]:px-2"
               data-gate={type}
               disabled={testing()}
               onClick={() => mutate((g) => placeNode(g, type, { x: GRID_WIDTH / 2, y: GRID_HEIGHT / 2 }))}
             >
-              <span class="size-2 rounded-full" style={{ background: GATE_ACCENTS[type], "box-shadow": `0 0 6px ${GATE_ACCENTS[type]}` }} />
+              <GateIcon type={type} class="h-6 w-9" />
               {type}
             </button>
           )}
         </For>
-      </div>
-
-      <div class={`fixed top-5 right-5 flex gap-0.5 rounded-full p-1 ${glass}`}>
-        <For each={Array.from({ length: unlockedCount() }, (_, i) => i)}>
-          {(i) => (
-            <button
-              class={`${pill} min-w-8.5 px-2.5 ${i === levelIndex() ? "bg-white shadow-[0_1px_4px_rgba(0,0,0,0.12)] hover:bg-white" : ""}`}
-              onClick={() => startLevel(i)}
-            >
-              {i + 1}
-            </button>
-          )}
-        </For>
-      </div>
+      </section>
     </div>
   );
 }

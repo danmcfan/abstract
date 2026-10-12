@@ -1,24 +1,67 @@
+import { Show, createSignal } from "solid-js";
 import { render } from "solid-js/web";
 import { pinPosition, type Pin } from "./sim/circuit";
 import { LEVELS } from "./sim/level";
 import type { NodeID } from "./sim/node";
 import "./styles.css";
 import { Board, toScreen } from "./ui/Board";
+import { Dialogue } from "./ui/Dialogue";
+import { hush, say } from "./ui/speech";
 import { Hud } from "./ui/Hud";
-import { current, levelIndex, startLevel, unlockedCount } from "./ui/state";
+import * as script from "./ui/script";
+import { continueGame, current, hasFlag, level, levelIndex, newGame, startLevel } from "./ui/state";
+import { Title } from "./ui/Title";
+import { useTutorial } from "./ui/tutorial";
 
-const requested = Number(new URLSearchParams(location.search).get("level")) - 1;
-startLevel(import.meta.env.DEV && requested >= 0 && requested < LEVELS.length ? requested : unlockedCount() - 1);
+// Dev builds can jump straight to a level with ?level=N, skipping the title.
+const params = new URLSearchParams(location.search);
+const requested = Number(params.get("level")) - 1;
+const jump = import.meta.env.DEV && requested >= 0 && requested < LEVELS.length;
+if (jump) startLevel(requested);
 
-render(
-  () => (
+function App() {
+  const [screen, setScreen] = createSignal<"title" | "play">(jump ? "play" : "title");
+  const play = (begin: () => void) => {
+    begin();
+    setScreen("play");
+  };
+  const menu = () => {
+    hush();
+    setScreen("title");
+  };
+
+  return (
+    <Show
+      when={screen() === "play"}
+      fallback={
+        <Title
+          onContinue={() =>
+            play(() => {
+              continueGame();
+              if (hasFlag(`intro:${level().gate}`)) say(script.welcomeBack(level()));
+            })
+          }
+          onNew={() => play(newGame)}
+        />
+      }
+    >
+      <Play onMenu={menu} />
+    </Show>
+  );
+}
+
+function Play(props: { onMenu: () => void }) {
+  useTutorial();
+  return (
     <>
       <Board />
-      <Hud />
+      <Hud onMenu={props.onMenu} />
+      <Dialogue />
     </>
-  ),
-  document.body,
-);
+  );
+}
+
+render(() => <App />, document.body);
 
 // A dev-only hook so automated play-tests can find things on screen.
 if (import.meta.env.DEV) {

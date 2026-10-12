@@ -1,37 +1,11 @@
 import type { Game } from "./circuit";
 import { applyInputs, checkLevel, LEVELS, loadLevel, type CheckResult, type Level } from "./level";
-
-// Where solved progress lives: the number of levels solved, in order.
-export interface ProgressStore {
-  load(): number;
-  save(solved: number): void;
-}
-
-export function memoryProgress(initial = 0): ProgressStore {
-  let value = initial;
-  return { load: () => value, save: (v) => void (value = v) };
-}
-
-export function localProgress(key = "abstract.solved"): ProgressStore {
-  return {
-    load: () => {
-      try {
-        return Number(localStorage.getItem(key)) || 0;
-      } catch {
-        return 0;
-      }
-    },
-    save: (v) => {
-      try {
-        localStorage.setItem(key, String(v));
-      } catch {}
-    },
-  };
-}
+import { loadBoard, saveBoard, type SaveStore } from "./save";
 
 // One player's play: the current level and board, a test run stepping
-// through the truth table one row at a time, and solved progress. Time
-// lives outside; the caller decides when to step.
+// through the truth table one row at a time, solved progress, and story
+// flags. Time lives outside; the caller decides when to step. The board is
+// edited in place by the caller, which calls save() afterwards.
 export class Session {
   levelIndex = 0;
   game: Game = loadLevel(LEVELS[0]!);
@@ -44,10 +18,56 @@ export class Session {
   // Per truth table row: undefined until tested, else what the circuit output.
   rowResults: (boolean | undefined)[] = [];
   result: CheckResult | null = null;
+  flags = new Set<string>();
   private check: CheckResult | null = null;
 
-  constructor(private store: ProgressStore) {
-    this.solved = store.load();
+  constructor(private store: SaveStore) {
+    this.solved = store.load()?.solved ?? 0;
+  }
+
+  // Whether there's a game to continue.
+  get hasSave(): boolean {
+    return this.store.load() !== null;
+  }
+
+  // The level a resumed game opens on: where it was saved, if that's
+  // unlocked.
+  get savedLevel(): number {
+    const data = this.store.load();
+    if (!data) return 0;
+    const unlocked = Math.min(data.solved + 1, LEVELS.length);
+    return Math.max(0, Math.min(data.levelIndex, unlocked - 1));
+  }
+
+  // Picks up the saved game where it left off, board and all.
+  resume(): void {
+    const data = this.store.load();
+    if (!data) return this.reset();
+    const index = this.savedLevel;
+    this.solved = Math.min(data.solved, LEVELS.length);
+    this.flags = new Set(data.flags);
+    this.start(index);
+    if (data.board && data.levelIndex === index) {
+      this.game = loadBoard(data.board);
+      this.save();
+    }
+  }
+
+  // Throws away the saved game and starts over from the first level.
+  reset(): void {
+    this.store.clear();
+    this.solved = 0;
+    this.flags = new Set();
+    this.start(0);
+  }
+
+  save(): void {
+    this.store.save({
+      solved: this.solved,
+      levelIndex: this.levelIndex,
+      board: saveBoard(this.game),
+      flags: [...this.flags],
+    });
   }
 
   get level(): Level {
@@ -68,6 +88,7 @@ export class Session {
     this.currentRow = null;
     this.rowResults = [];
     this.result = null;
+    this.save();
   }
 
   // Returns false if a run is already going.
@@ -101,7 +122,7 @@ export class Session {
     this.result = check;
     if (check.passed && this.levelIndex + 1 > this.solved) {
       this.solved = this.levelIndex + 1;
-      this.store.save(this.solved);
+      this.save();
     }
     return false;
   }

@@ -1,35 +1,50 @@
-import { newGame, placeNode, setInput, type Game } from "./circuit";
+import { newGame, placeNode, setInput, wire, type Game } from "./circuit";
 import { GRID_HEIGHT, GRID_WIDTH } from "./grid";
 import type { Label, NodeType } from "./node";
 
 // A level asks the player to build one gate out of the gates they have
 // already built. Solving it adds that gate to the toolbox for later levels.
+// A prebuilt level comes already wired: the player only tests it, to see
+// what the gate does.
 export interface Level {
   gate: NodeType;
   goal: string;
   inputs: Label[];
   target: (inputs: boolean[]) => boolean;
+  prebuilt?: boolean;
 }
 
 export const LEVELS: Level[] = [
+  {
+    gate: "NAND",
+    goal: "Output is on unless A and B are both on.",
+    inputs: ["ALPHA", "BETA"],
+    target: ([a, b]) => !(a && b),
+    prebuilt: true,
+  },
   { gate: "NOT", goal: "Output is on when A is off.", inputs: ["ALPHA"], target: ([a]) => !a },
   { gate: "AND", goal: "Output is on when A and B are both on.", inputs: ["ALPHA", "BETA"], target: ([a, b]) => !!(a && b) },
   { gate: "OR", goal: "Output is on when A or B is on.", inputs: ["ALPHA", "BETA"], target: ([a, b]) => !!(a || b) },
 ];
 
-// NAND is the one gate you start with. Every solved level adds its gate.
+// Every solved level adds its gate; the first level hands you NAND.
 export function toolbox(levelIndex: number): NodeType[] {
-  return ["NAND", ...LEVELS.slice(0, levelIndex).map((level) => level.gate)];
+  return LEVELS.slice(0, levelIndex).map((level) => level.gate);
 }
 
 // A fresh board with the level's input terminals on the left and one output
-// terminal on the right.
+// terminal on the right, and the gate wired between them if it's prebuilt.
 export function loadLevel(level: Level): Game {
   const game = newGame();
-  level.inputs.forEach((label, i) => {
-    placeNode(game, "INPUT", { x: 4, y: (GRID_HEIGHT * (i + 1)) / (level.inputs.length + 1) }, label);
-  });
-  placeNode(game, "OUTPUT", { x: GRID_WIDTH - 4, y: GRID_HEIGHT / 2 });
+  const inputs = level.inputs.map(
+    (label, i) => placeNode(game, "INPUT", { x: 4, y: (GRID_HEIGHT * (i + 1)) / (level.inputs.length + 1) }, label)!,
+  );
+  const output = placeNode(game, "OUTPUT", { x: GRID_WIDTH - 4, y: GRID_HEIGHT / 2 })!;
+  if (level.prebuilt) {
+    const gate = placeNode(game, level.gate, { x: GRID_WIDTH / 2, y: GRID_HEIGHT / 2 })!;
+    inputs.forEach((input, i) => wire(game, { node: input.id, side: "out", index: 0 }, { node: gate.id, side: "in", index: i }));
+    wire(game, { node: gate.id, side: "out", index: 0 }, { node: output.id, side: "in", index: 0 });
+  }
   return game;
 }
 
@@ -75,6 +90,7 @@ export function checkLevel(board: Game, levelIndex: number): CheckResult {
   const game = structuredClone(board);
   const level = LEVELS[levelIndex]!;
   const allowed = new Set<NodeType>(["INPUT", "OUTPUT", ...toolbox(levelIndex)]);
+  if (level.prebuilt) allowed.add(level.gate);
   const forbidden = [...new Set([...game.nodes.values()].map((node) => node.type))].filter((type) => !allowed.has(type));
   const rows = truthTable(level).map((row) => {
     applyInputs(game, level, row.inputs);
