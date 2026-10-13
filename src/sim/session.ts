@@ -5,8 +5,7 @@ import { loadBoard, saveBoard, type Boards, type SaveStore } from "./save";
 // One player's play: the current level and board, the board left on every
 // other level, a test run stepping through the truth table one row at a
 // time, solved progress, and story flags. Time lives outside; the caller
-// decides when to step. The board is edited in place by the caller, which
-// calls save() afterwards.
+// decides when to step. The caller changes the board through edit().
 export class Session {
   levelIndex = 0;
   game: Game = loadLevel(LEVELS[0]!);
@@ -20,6 +19,9 @@ export class Session {
   // output, one value per output.
   rowResults: (boolean[] | undefined)[] = [];
   result: CheckResult | null = null;
+  // Whether the PASSED stamp is on the sheet: the last run passed and the
+  // board hasn't changed since.
+  stamped = false;
   flags = new Set<string>();
   private boards: Boards = {};
   private check: CheckResult | null = null;
@@ -60,6 +62,16 @@ export class Session {
     this.flags = new Set();
     this.boards = {};
     this.start(0);
+  }
+
+  // Applies a change to the board and saves it. A change that alters the
+  // board takes the stamp off, since the board it vouched for is gone; one
+  // that leaves it as it was, like a rejected wire, keeps the stamp.
+  edit(change: (game: Game) => void): void {
+    const before = JSON.stringify(saveBoard(this.game));
+    change(this.game);
+    if (JSON.stringify(saveBoard(this.game)) !== before) this.stamped = false;
+    this.save();
   }
 
   save(): void {
@@ -103,6 +115,7 @@ export class Session {
     this.currentRow = null;
     this.rowResults = [];
     this.result = null;
+    this.stamped = false;
     this.save();
   }
 
@@ -115,6 +128,7 @@ export class Session {
     this.currentRow = null;
     this.rowResults = [];
     this.result = null;
+    this.stamped = false;
     return true;
   }
 
@@ -135,6 +149,7 @@ export class Session {
     this.check = null;
     this.currentRow = null;
     this.result = check;
+    this.stamped = check.passed;
     if (check.passed && this.levelIndex + 1 > this.solved) {
       this.solved = this.levelIndex + 1;
       this.save();

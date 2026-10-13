@@ -60,6 +60,14 @@ export const LEVELS: Level[] = [
     outputs: ["OUT"],
     target: ([a, b, sel]) => [!!(sel ? b : a)],
   },
+  {
+    gate: "DEMUX",
+    goal: "D goes to Y0 when SEL is off, and to Y1 when SEL is on.",
+    layer: 2,
+    inputs: ["D", "SEL"],
+    outputs: ["Y0", "Y1"],
+    target: ([d, sel]) => [!!(d && !sel), !!(d && sel)],
+  },
 ];
 
 for (const level of LEVELS) definePart(level.gate, level);

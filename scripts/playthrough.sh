@@ -128,7 +128,15 @@ wire "$S" "$T"; wire "$A" "$GA" 0; wire "$T" "$GA" 1; wire "$B" "$GB" 0; wire "$
 wire "$GA" "$R" 0; wire "$GB" "$R" 1; wire "$R" "$O"
 check 5 6
 
-# MUX is the last level so far, and L3 has none yet, so there's no way up.
+# Level 7: DEMUX is Y0 = D AND NOT SEL, Y1 = D AND SEL.
+ab click "#next"; sleep 0.5; hush
+D=$(terminal INPUT D); S=$(terminal INPUT SEL); Y0=$(terminal OUTPUT Y0); Y1=$(terminal OUTPUT Y1)
+T=$(add NOT 14 21); G0=$(add AND 26 12); G1=$(add AND 26 28)
+wire "$S" "$T"; wire "$D" "$G0" 0; wire "$T" "$G0" 1; wire "$D" "$G1" 0; wire "$S" "$G1" 1
+wire "$G0" "$Y0"; wire "$G1" "$Y1"
+check 4 7
+
+# DEMUX is the last level so far, and L3 has none yet, so there's no way up.
 expect "!document.querySelector('#up') && !document.querySelector('#next')" "no way up from the last level"
 
 # The HUD button opens the stack on the current layer, and each level keeps

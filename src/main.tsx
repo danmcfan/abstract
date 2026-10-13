@@ -5,6 +5,8 @@ import { LEVELS } from "./sim/level";
 import type { NodeID } from "./sim/node";
 import "./styles.css";
 import { Board, toScreen } from "./ui/Board";
+import { DesktopNotice } from "./ui/DesktopNotice";
+import { noticeDismissal, watchSmallTouch } from "./ui/device";
 import { Dialogue } from "./ui/Dialogue";
 import { hush, say } from "./ui/speech";
 import { Hud } from "./ui/Hud";
@@ -28,6 +30,8 @@ interface StackView {
 }
 
 function App() {
+  const smallTouch = watchSmallTouch((query) => window.matchMedia(query));
+  const notice = noticeDismissal(() => localStorage);
   const [screen, setScreen] = createSignal<"title" | "play">(jump ? "play" : "title");
   const [stack, setStack] = createSignal<StackView | null>(null);
   const play = (begin: () => void) => {
@@ -57,7 +61,7 @@ function App() {
   };
 
   return (
-    <>
+    <Show when={!smallTouch() || notice.dismissed()} fallback={<DesktopNotice onContinue={notice.dismiss} />}>
       <Show when={screen() === "title" && !stack()}>
         <Title
           onContinue={() =>
@@ -82,7 +86,7 @@ function App() {
       <Show when={screen() === "play" || stack()}>
         <Dialogue />
       </Show>
-    </>
+    </Show>
   );
 }
 

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { newGame, pinPosition, placeNode, setInput, wire, type Game, type Pin } from "./circuit";
 import { checkLevel, floorAbove, LAYERS, layerLevels, layerState, LEVELS, loadLevel, matches, partsBin, truthTable, type Level } from "./level";
-import { definePart, type Label, type NodeID, type NodeType } from "./node";
+import { definePart, outputCount, partSpec, type Label, type NodeID, type NodeType } from "./node";
 
 const out = (node: NodeID, index = 0): Pin => ({ node, side: "out", index });
 const inp = (node: NodeID, index = 0): Pin => ({ node, side: "in", index });
@@ -150,6 +150,63 @@ describe("the MUX level", () => {
     const result = checkLevel(game, index);
     expect(result.rows.every((row) => matches(row.actual, row.expected))).toBe(true);
     expect(result.forbidden).toEqual(["MUX"]);
+  });
+});
+
+describe("the DEMUX level", () => {
+  const index = levelIndex("DEMUX");
+
+  test("comes straight after MUX, as the last level so far", () => {
+    expect(LEVELS[index - 1]!.gate).toBe("MUX");
+    expect(index).toBe(LEVELS.length - 1);
+  });
+
+  test("has inputs D and SEL and outputs Y0 and Y1", () => {
+    const game = loadLevel(LEVELS[index]!);
+    const labels = (type: NodeType) => [...game.nodes.values()].filter((node) => node.type === type).map((node) => node.label);
+    expect(labels("INPUT")).toEqual(["D", "SEL"]);
+    expect(labels("OUTPUT")).toEqual(["Y0", "Y1"]);
+  });
+
+  test("its truth table sends D to Y0 when SEL is off and to Y1 when SEL is on", () => {
+    expect(truthTable(LEVELS[index]!)).toEqual([
+      { inputs: [false, false], expected: [false, false] },
+      { inputs: [false, true], expected: [false, false] },
+      { inputs: [true, false], expected: [true, false] },
+      { inputs: [true, true], expected: [false, true] },
+    ]);
+  });
+
+  test("D AND NOT SEL, and D AND SEL, passes", () => {
+    const game = loadLevel(LEVELS[index]!);
+    const d = terminal(game, "INPUT", "D");
+    const sel = terminal(game, "INPUT", "SEL");
+    const not = gate(game, "NOT");
+    const and0 = gate(game, "AND");
+    const and1 = gate(game, "AND");
+    wire(game, out(sel), inp(not));
+    wire(game, out(d), inp(and0, 0));
+    wire(game, out(not), inp(and0, 1));
+    wire(game, out(d), inp(and1, 0));
+    wire(game, out(sel), inp(and1, 1));
+    wire(game, out(and0), inp(terminal(game, "OUTPUT", "Y0")));
+    wire(game, out(and1), inp(terminal(game, "OUTPUT", "Y1")));
+    expect(checkLevel(game, index).passed).toBe(true);
+  });
+
+  test("once solved, DEMUX is a part with two output pins that does what its level asks", () => {
+    expect(partsBin(index + 1)).toContain("DEMUX");
+    expect(outputCount("DEMUX")).toBe(2);
+    expect(partSpec("DEMUX")!.outputs).toEqual(["Y0", "Y1"]);
+    const game = loadLevel(LEVELS[index]!);
+    const demux = gate(game, "DEMUX");
+    wire(game, out(terminal(game, "INPUT", "D")), inp(demux, 0));
+    wire(game, out(terminal(game, "INPUT", "SEL")), inp(demux, 1));
+    wire(game, out(demux, 0), inp(terminal(game, "OUTPUT", "Y0")));
+    wire(game, out(demux, 1), inp(terminal(game, "OUTPUT", "Y1")));
+    const result = checkLevel(game, index);
+    expect(result.rows.every((row) => matches(row.actual, row.expected))).toBe(true);
+    expect(result.forbidden).toEqual(["DEMUX"]);
   });
 });
 

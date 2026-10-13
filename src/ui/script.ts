@@ -75,8 +75,23 @@ const LEVELS: Partial<Record<NodeType, LevelScript>> = {
       { face: "thinking", text: "Two questions: is A on while SEL is off? Is B on while SEL is on?" },
     ],
     hint: [{ face: "thinking", text: "Build A AND NOT SEL, and B AND SEL. Then OR the two together." }, CONTROLS],
+    solved: [{ face: "amazed", text: "MUX, done! A switch you flip with a wire instead of a finger." }],
+  },
+  DEMUX: {
+    intro: [
+      { face: "thinking", text: "DEMUX is MUX run backwards." },
+      { face: "idle", text: "MUX picks which input gets out. DEMUX picks which output the input goes to." },
+      { face: "idle", text: "When SEL is off, D goes to Y0. When SEL is on, D goes to Y1. The other one stays off." },
+      { face: "amazed", text: "Two lamps this time! Each row of the table checks both of them." },
+    ],
+    hint: [
+      { face: "thinking", text: "Take one lamp at a time. Y1 is just D AND SEL." },
+      { face: "thinking", text: "Y0 asks the same of D, but with SEL flipped first. You have a NOT for that." },
+      CONTROLS,
+    ],
     solved: [
-      { face: "amazed", text: "MUX, done! A switch you flip with a wire instead of a finger." },
+      { face: "happy", text: "DEMUX, done! One signal, sent wherever SEL says." },
+      { face: "amazed", text: "That's every schematic I have room for on this floor." },
       { face: "happy", text: "There are more floors to this factory. We'll get there, partner." },
     ],
   },
@@ -117,3 +132,6 @@ export const forbidden = (types: NodeType[]): Line[] => [
 export const welcomeBack = (level: Level): Line[] => [
   { face: "happy", text: level.prebuilt ? `Welcome back! We were looking at ${level.gate}.` : `Welcome back! We were building ${level.gate}.` },
 ];
+
+// On the notice that asks phone players to come back on a desktop.
+export const smallScreen: Line = { face: "worried", text: "This board's too small for fingers. Come find me on a desktop." };
