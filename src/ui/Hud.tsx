@@ -1,15 +1,15 @@
 import { For, Show } from "solid-js";
-import { placeNode, type Game } from "../sim/circuit";
 import { LEVELS, matches, partsBin, terminalWidth, wiring } from "../sim/level";
-import type { NodeType, Value } from "../sim/node";
+import type { Value } from "../sim/node";
 import { say } from "./speech";
 import { GateIcon } from "./GateIcon";
+import { SoundButton } from "./SoundButton";
 import * as script from "./script";
 import {
   currentRow,
   level,
   levelIndex,
-  mutate,
+  placePart,
   result,
   rowResults,
   runTest,
@@ -23,9 +23,6 @@ import {
 const pad = (n: number) => String(n).padStart(2, "0");
 // A bus value's signals, high bit first, for hovering over its number.
 const binary = (value: Value, width: number) => value.toString(2).padStart(width, "0");
-
-// New parts land in the middle of the board.
-const place = (type: NodeType, width = 1) => mutate((g: Game) => placeNode(g, type, { x: g.grid.width / 2, y: g.grid.height / 2 }, "", width));
 
 // The overlay, drawn like sheets pinned to the drafting board: the level's
 // title block and truth table, the parts bin, and the sheet index.
@@ -147,6 +144,7 @@ export function Hud(props: { onMenu: () => void }) {
         <button id="help" class="btn btn-ghost btn-sm ml-1.5 max-[899px]:ml-0" onClick={() => say(script.help(level()))}>
           ? Help
         </button>
+        <SoundButton />
         <button id="menu" class="btn btn-ghost btn-sm" onClick={() => props.onMenu()}>
           Menu
         </button>
@@ -166,7 +164,7 @@ export function Hud(props: { onMenu: () => void }) {
               class="flex flex-col items-center gap-0.5 px-2.5 pt-1.5 pb-1 text-[11px] font-bold text-ink hover:bg-wash disabled:opacity-40 max-[899px]:px-2"
               data-gate={type}
               disabled={testing()}
-              onClick={() => place(type)}
+              onClick={() => placePart(type)}
             >
               <GateIcon type={type} class="h-6 w-9" />
               {type}
@@ -186,7 +184,7 @@ export function Hud(props: { onMenu: () => void }) {
                 data-gate={w.type}
                 data-width={w.width}
                 disabled={testing()}
-                onClick={() => place(w.type, w.width)}
+                onClick={() => placePart(w.type, w.width)}
               >
                 <GateIcon type={w.type} width={Math.min(w.width, 4)} class="h-6 w-9" />
                 {`${w.type} ${w.width}`}

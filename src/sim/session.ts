@@ -1,12 +1,15 @@
 import type { Game } from "./circuit";
-import { applyInputs, checkLevel, LEVELS, loadLevel, truthTable, type CheckResult, type Level, type Row } from "./level";
-import type { Value } from "./node";
+import { placeNode } from "./circuit";
+import { applyInputs, checkLevel, LEVELS, loadLevel, matches, truthTable, type CheckResult, type Level, type Row } from "./level";
+import type { NodeType, Value } from "./node";
 import { loadBoard, saveBoard, type SaveStore } from "./save";
+import { silent, type Sound } from "./sound";
 
 // One player's play: the current level and board, a test run stepping
 // through the truth table one row at a time, solved progress, and story
 // flags. Time lives outside; the caller decides when to step. The caller
-// changes the board through edit().
+// changes the board through edit(). A test run plays its sound cues as it
+// goes.
 export class Session {
   levelIndex = 0;
   game: Game = loadLevel(LEVELS[0]!);
@@ -26,7 +29,10 @@ export class Session {
   flags = new Set<string>();
   private check: CheckResult | null = null;
 
-  constructor(private store: SaveStore) {
+  constructor(
+    private store: SaveStore,
+    private sound: Sound = silent,
+  ) {
     this.solved = store.load()?.solved ?? 0;
   }
 
@@ -113,9 +119,19 @@ export class Session {
     this.save();
   }
 
-  // Returns false if a run is already going.
+  // Drops a part, or a split or join as wide as its bus, from the parts bin
+  // in the middle of the board.
+  place(type: NodeType, width = 1): void {
+    const { grid } = this.game;
+    if (!placeNode(this.game, type, { x: grid.width / 2, y: grid.height / 2 }, "", width)) return;
+    this.sound.play("place");
+  }
+
+  // Returns false if a run is already going. Every row is checked here, out
+  // of sight and without a sound; step() shows them, one tick each.
   beginTest(): boolean {
     if (this.testing) return false;
+    this.sound.play("carriage");
     this.run++;
     this.testing = true;
     this.check = checkLevel(this.game, this.levelIndex);
@@ -138,6 +154,7 @@ export class Session {
       applyInputs(this.game, this.level, row.inputs);
       this.currentRow = next;
       this.rowResults = Object.assign([...this.rowResults], { [next]: row.actual });
+      this.sound.play(matches(row.actual, row.expected) ? "tick" : "fail-tick");
       return true;
     }
     this.testing = false;
@@ -146,6 +163,10 @@ export class Session {
     this.result = check;
     this.rowResults = [...this.rowResults, ...check.hidden.failed.map((row) => row.actual)];
     this.stamped = check.passed;
+    if (check.passed) {
+      this.sound.play("stamp");
+      this.sound.play("bell");
+    } else this.sound.play("fail-stamp");
     if (check.passed && this.levelIndex + 1 > this.solved) {
       this.solved = this.levelIndex + 1;
       this.save();

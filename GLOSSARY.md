@@ -218,8 +218,11 @@ The dev-only page (`bitbox.html`) for orbiting, lighting and posing Bitbox.
 ## Sound
 
 **Sound cue**:
-The sound the game plays for one event, such as the relay click when a wire connects.
-_Avoid_: sfx, effect, jingle
+A short sound the game makes, generated in the browser rather than played from a file, for something the player does or sees: a switch click, a relay click when a wire connects, a tick per truth table row, a stamp when a test run ends, a typewriter key for each letter Bitbox types. Code asks for one by name (`src/sim/sound.ts`).
+_Avoid_: sound effect, SFX, sample, jingle
+
+**Sound setting**:
+Whether sound cues play, switched with the Sound on/off button. Kept in the browser apart from the save, so New Game doesn't change it.
 
 ## Saves
 

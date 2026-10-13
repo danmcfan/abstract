@@ -8,6 +8,7 @@ import { Board, toScreen } from "./ui/Board";
 import { DesktopNotice } from "./ui/DesktopNotice";
 import { noticeDismissal, watchSmallTouch } from "./ui/device";
 import { Dialogue } from "./ui/Dialogue";
+import { listenForFirstGesture } from "./ui/sound";
 import { hush, say } from "./ui/speech";
 import { Hud } from "./ui/Hud";
 import * as script from "./ui/script";
@@ -67,6 +68,7 @@ function Play(props: { onMenu: () => void }) {
   );
 }
 
+listenForFirstGesture();
 render(() => <App />, document.body);
 
 // A dev-only hook so automated play-tests can find things on screen.

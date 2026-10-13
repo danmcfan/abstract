@@ -1,7 +1,9 @@
 import { createSignal } from "solid-js";
 import type { Game } from "../sim/circuit";
+import type { NodeType } from "../sim/node";
 import { localSave } from "../sim/save";
 import { Session } from "../sim/session";
+import { sound } from "./sound";
 
 // The sim mutates plain objects in place and settles itself. Every change
 // goes through mutate(), which bumps a version signal; readers call
@@ -10,7 +12,7 @@ import { Session } from "../sim/session";
 
 const TEST_STEP_MS = 600;
 
-const session = new Session(localSave());
+const session = new Session(localSave(), sound);
 const [version, setVersion] = createSignal(0);
 const touch = () => setVersion((v) => v + 1);
 const read = <T,>(get: () => T) => () => (version(), get());
@@ -23,6 +25,10 @@ export function current(): Game {
 export function mutate(change: (game: Game) => void): void {
   session.edit(change);
   touch();
+}
+
+export function placePart(type: NodeType, width = 1): void {
+  mutate(() => session.place(type, width));
 }
 
 export const levelIndex = read(() => session.levelIndex);

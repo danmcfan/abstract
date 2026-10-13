@@ -5,6 +5,7 @@ import type { Size } from "../sim/grid";
 import { createRouter } from "../sim/route";
 import { WIDE_MIN_WIDTH } from "./device";
 import { NodeView } from "./NodeView";
+import { sound } from "./sound";
 import { current, mutate, testing } from "./state";
 import { wirePath } from "./wirePath";
 
@@ -52,7 +53,7 @@ export function Board() {
     hud.disconnect();
   });
 
-  const gestures = createGestures({ game: current, edit: mutate, locked: testing });
+  const gestures = createGestures({ game: current, edit: mutate, locked: testing, sound });
   // The gesture module is plain state; mirror it into signals after each event.
   const [view, setView] = createSignal(snapshot(gestures), { equals: false });
   const hovered = () => view().hoveredNode;

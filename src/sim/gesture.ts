@@ -1,10 +1,12 @@
 import { moveNode, pinAt, removeNode, setInput, switchAt, unwire, wire, type Game, type Pin } from "./circuit";
 import { contains } from "./grid";
 import type { NodeID } from "./node";
+import { silent, type Sound } from "./sound";
 
 // Board gestures: pointer input, already in board coordinates, turned into
 // circuit commands. Every edit goes through edit() so the caller can observe
-// it; nothing is editable while locked.
+// it; nothing is editable while locked. Flipping a switch, drawing a wire
+// and connecting it play their sound cues.
 
 export interface Point {
   x: number;
@@ -29,6 +31,7 @@ export interface GestureHost {
   game(): Game;
   edit(change: (game: Game) => void): void;
   locked(): boolean;
+  sound?: Sound;
 }
 
 export function nodeAt(game: Game, x: number, y: number): NodeID | null {
@@ -41,6 +44,7 @@ export function createGestures(host: GestureHost): Gestures {
   let hoveredNode: NodeID | null = null;
   let preview: { from: Pin; to: Point } | null = null;
   let drag: { id: NodeID; offsetX: number; offsetY: number; moved: boolean } | null = null;
+  const sound = host.sound ?? silent;
 
   const hover = (p: Point) => {
     hoveredPin = pinAt(host.game(), p.x, p.y);
@@ -66,7 +70,11 @@ export function createGestures(host: GestureHost): Gestures {
 
     move(p) {
       hover(p);
-      if (preview) preview = { ...preview, to: p };
+      // The pencil scratches only while the pointer moves.
+      if (preview && (preview.to.x !== p.x || preview.to.y !== p.y)) {
+        preview = { ...preview, to: p };
+        if (!host.locked()) sound.play("pencil");
+      }
       if (drag && !host.locked()) {
         const d = drag;
         host.edit((g) => {
@@ -83,13 +91,22 @@ export function createGestures(host: GestureHost): Gestures {
       preview = null;
       drag = null;
       if (host.locked()) return;
-      if (from && to) host.edit((g) => wire(g, from, to));
+      if (from && to) {
+        host.edit((g) => {
+          if (wire(g, from, to)) sound.play("connect");
+        });
+      }
       // A click flips a switch: a single-signal input's one switch, or the
       // bit under the pointer on a bus input.
-      const node = d && !d.moved ? host.game().nodes.get(d.id) : undefined;
-      if (node?.type === "INPUT") {
-        const bit = node.width === 1 ? 0 : switchAt(node, p.x, p.y);
-        if (bit !== null) host.edit((g) => setInput(g, node.id, (node.signals[0] ?? 0) ^ (1 << bit)));
+      if (d && !d.moved) {
+        host.edit((g) => {
+          const node = g.nodes.get(d.id);
+          if (node?.type !== "INPUT") return;
+          const bit = node.width === 1 ? 0 : switchAt(node, p.x, p.y);
+          if (bit === null) return;
+          setInput(g, node.id, (node.signals[0] ?? 0) ^ (1 << bit));
+          sound.play("switch");
+        });
       }
     },
 
