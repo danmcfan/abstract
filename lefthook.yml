@@ -10,3 +10,7 @@ pre-commit:
       run: bunx oxlint {staged_files}
     types:
       run: bunx tsc --noEmit
+    knip:
+      run: bunx knip
+    escapes:
+      run: bun scripts/check-escapes.ts

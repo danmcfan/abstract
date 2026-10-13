@@ -4,13 +4,13 @@ Every change ships through a pull request: CI runs `bun run verify` on it, and m
 
 | You changed                       | Run                                                                            | Done when                                                                               |
 | --------------------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------- |
-| Anything                          | `bun run check`                                                                | Tests, typecheck, build and bundle check pass.                                          |
+| Anything                          | `bun run check`                                                                | Typecheck, Oxlint, Prettier, knip, escapes, tests, build and bundle check pass.         |
 | Anything the player sees or does  | `bun run playthrough`                                                          | It prints "Tested!" for every level and exits 0. Then look at `playthrough/level*.png`. |
 | Bitbox (`src/robot/`)             | `bun run shots`                                                                | `shots/sheet.png` shows every expression the way you intended.                          |
 | Before opening the PR             | `bun run verify`                                                               | `check` plus `playthrough`, the same as CI.                                             |
 | Anything the player sees or hears | Capture it and attach it to the PR ([Evidence on the PR](#evidence-on-the-pr)) | The PR body shows a screenshot of each change, and a video of any motion.               |
 
-`playthrough` and `shots` start their own dev server on a free port, with hot reload off and their own browser session, and stop both afterwards. They never collide with a `bun run dev` already running or with another agent.
+`playthrough` and `shots` start their own dev server on a free port, with hot reload off and their own browser session, and stop both afterwards. They never collide with a `bun run dev` already running or with another agent. The browser is muted by `agent-browser.json` at the repo root, so the game's sound never plays on the machine running the checks.
 
 ## The playthrough
 
