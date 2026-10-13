@@ -4,7 +4,7 @@ Every change ships through a pull request: CI runs `bun run verify` on it, and m
 
 | You changed                       | Run                                                                            | Done when                                                                               |
 | --------------------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------- |
-| Anything                          | `bun run check`                                                                | Tests, typecheck, build and bundle check pass.                                          |
+| Anything                          | `bun run check`                                                                | Typecheck, Oxlint, Prettier, knip, escapes, tests, build and bundle check pass.         |
 | Anything the player sees or does  | `bun run playthrough`                                                          | It prints "Tested!" for every level and exits 0. Then look at `playthrough/level*.png`. |
 | Bitbox (`src/robot/`)             | `bun run shots`                                                                | `shots/sheet.png` shows every expression the way you intended.                          |
 | Before opening the PR             | `bun run verify`                                                               | `check` plus `playthrough`, the same as CI.                                             |
