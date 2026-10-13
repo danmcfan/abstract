@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "plugins": ["typescript", "unicorn", "oxc", "import", "promise", "jsx-a11y"],
-  "jsPlugins": ["eslint-plugin-solid"],
+  "jsPlugins": ["eslint-plugin-solid", "@shadcn/lint"],
   "categories": {
     "correctness": "error",
     "suspicious": "error",
@@ -73,7 +73,13 @@
     "eslint/max-lines-per-function": "off",
     "eslint/max-lines": "off",
     "import/max-dependencies": "off",
-    "typescript/prefer-readonly-parameter-types": "off"
+    "typescript/prefer-readonly-parameter-types": "off",
+    "shadcn/no-restyle": "error",
+    "shadcn/no-raw-colors": "error",
+    "shadcn/no-arbitrary-values": "error",
+    "shadcn/no-inline-styles": "error",
+    "shadcn/no-unknown-classes": "error",
+    "shadcn/require-static-classes": "error"
   },
   "overrides": [
     {
@@ -91,5 +97,10 @@
       }
     }
   ],
-  "ignorePatterns": ["dist", "playthrough", "shots", "evidence", "public"]
+  "ignorePatterns": ["dist", "playthrough", "shots", "evidence", "public"],
+  "settings": {
+    "shadcn": {
+      "themeImports": ["src/styles.css"]
+    }
+  }
 }

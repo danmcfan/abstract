@@ -63,7 +63,7 @@ export function Hud(props: { onMenu: () => void; onStack: (arrive?: number) => v
       <section
         id="level-panel"
         classList={{ shake: stamped() }}
-        class="fixed top-3 right-3 left-3 p-3 sheet min-[900px]:top-5 min-[900px]:right-auto min-[900px]:left-5 min-[900px]:w-[290px] min-[900px]:p-4"
+        class="fixed top-3 right-3 left-3 p-3 sheet wide:top-5 wide:right-auto wide:left-5 wide:w-72.5 wide:p-4"
       >
         <div class="flex w-fit max-w-full border-2 border-ink">
           <span class="flex items-center border-r-2 border-ink px-2 text-xs text-pencil">
@@ -76,16 +76,16 @@ export function Hud(props: { onMenu: () => void; onStack: (arrive?: number) => v
 
         <div class="mt-3 flex items-center gap-3">
           <GateIcon type={level().gate} class="h-11 w-16 shrink-0 text-ink" />
-          <p class="text-[13px] leading-snug">{level().goal}</p>
+          <p class="text-note leading-snug">{level().goal}</p>
         </div>
 
-        <div class="mt-3 flex items-end gap-3 min-[900px]:block">
-          <div class="relative w-full max-w-[260px]">
-            <table class="w-full border-collapse text-center text-[13px] tabular-nums">
+        <div class="mt-3 flex items-end gap-3 wide:block">
+          <div class="relative w-full max-w-65">
+            <table class="w-full border-collapse text-center text-note tabular-nums">
               <thead>
                 <tr class="text-ink">
-                  <For each={labels()}>{(label) => <th class="border-[1.5px] border-ink px-2 py-0.5">{label}</th>}</For>
-                  <th class="w-12 border-[1.5px] border-ink px-1 py-0.5 text-xs font-normal text-pencil">test</th>
+                  <For each={labels()}>{(label) => <th class="border-hair border-ink px-2 py-0.5">{label}</th>}</For>
+                  <th class="w-12 border-hair border-ink px-1 py-0.5 text-xs font-normal text-pencil">test</th>
                 </tr>
               </thead>
               <tbody>
@@ -104,7 +104,7 @@ export function Hud(props: { onMenu: () => void; onStack: (arrive?: number) => v
                             const width = (): number => widths()[column()] ?? 1;
                             return (
                               <td
-                                class="border-[1.5px] border-ink px-2 py-0.5"
+                                class="border-hair border-ink px-2 py-0.5"
                                 title={width() > 1 ? binary(value, width()) : undefined}
                               >
                                 {value}
@@ -112,7 +112,7 @@ export function Hud(props: { onMenu: () => void; onStack: (arrive?: number) => v
                             );
                           }}
                         </For>
-                        <td class="border-[1.5px] border-ink px-1 py-0.5" title={got()}>
+                        <td class="border-hair border-ink px-1 py-0.5" title={got()}>
                           <Show when={actual()} fallback={<span class="text-pencil/50">·</span>}>
                             {(values) => (
                               <span class={ok() ? "text-pass" : "text-fail"}>
@@ -134,7 +134,7 @@ export function Hud(props: { onMenu: () => void; onStack: (arrive?: number) => v
             </Show>
           </div>
 
-          <div class="flex shrink-0 flex-col items-start gap-2 min-[900px]:mt-3.5 min-[900px]:flex-row min-[900px]:items-center min-[900px]:gap-3">
+          <div class="flex shrink-0 flex-col items-start gap-2 wide:mt-3.5 wide:flex-row wide:items-center wide:gap-3">
             <button
               id="test"
               class="btn"
@@ -160,7 +160,7 @@ export function Hud(props: { onMenu: () => void; onStack: (arrive?: number) => v
 
         <Show when={clearing()}>
           <div class="mt-3 border-2 border-dashed border-fail p-2.5" role="alertdialog" aria-label="Clear this board?">
-            <p class="mb-2 text-[13px]">Clear this board?</p>
+            <p class="mb-2 text-note">Clear this board?</p>
             <div class="flex gap-3">
               <button
                 id="clear-confirm"
@@ -223,7 +223,7 @@ export function Hud(props: { onMenu: () => void; onStack: (arrive?: number) => v
         <RoughInk />
       </section>
 
-      <nav class="fixed top-3 right-3 flex gap-1.5 max-[899px]:top-auto max-[899px]:right-auto max-[899px]:bottom-3 max-[899px]:left-3 min-[900px]:top-5 min-[900px]:right-5">
+      <nav class="fixed top-3 right-3 flex gap-1.5 max-wide:top-auto max-wide:right-auto max-wide:bottom-3 max-wide:left-3 wide:top-5 wide:right-5">
         <button
           id="open-stack"
           class="btn btn-sm btn-ghost"
@@ -256,9 +256,9 @@ export function Hud(props: { onMenu: () => void; onStack: (arrive?: number) => v
 
       <section
         id="parts-bin"
-        class="fixed bottom-3 left-1/2 flex -translate-x-1/2 items-stretch sheet max-[899px]:right-3 max-[899px]:left-auto max-[899px]:translate-x-0"
+        class="fixed bottom-3 left-1/2 flex -translate-x-1/2 items-stretch sheet max-wide:right-3 max-wide:left-auto max-wide:translate-x-0"
       >
-        <span class="flex items-center border-r-2 border-ink px-2.5 text-[11px] tracking-[0.1em] text-pencil uppercase max-[899px]:hidden">
+        <span class="flex items-center border-r-2 border-ink px-2.5 text-label tracking-label text-pencil uppercase max-wide:hidden">
           Parts bin
         </span>
         <For
@@ -267,7 +267,7 @@ export function Hud(props: { onMenu: () => void; onStack: (arrive?: number) => v
         >
           {(type) => (
             <button
-              class="flex flex-col items-center gap-0.5 px-2.5 pt-1.5 pb-1 text-[11px] font-bold text-ink hover:bg-wash disabled:opacity-40 max-[899px]:px-2"
+              class="flex flex-col items-center gap-0.5 px-2.5 pt-1.5 pb-1 text-label font-bold text-ink hover:bg-wash disabled:opacity-40 max-wide:px-2"
               data-gate={type}
               disabled={testing()}
               onClick={() => {
@@ -282,13 +282,13 @@ export function Hud(props: { onMenu: () => void; onStack: (arrive?: number) => v
         {/* Split and join are wiring the level supplies, not parts, so they
             sit apart at the end, and only on levels with buses. */}
         <Show when={wiring(level()).length > 0}>
-          <span class="flex items-center border-x-2 border-ink px-2.5 text-[11px] tracking-[0.1em] text-pencil uppercase max-[899px]:hidden">
+          <span class="flex items-center border-x-2 border-ink px-2.5 text-label tracking-label text-pencil uppercase max-wide:hidden">
             Wiring
           </span>
           <For each={wiring(level())}>
             {(w) => (
               <button
-                class="flex flex-col items-center gap-0.5 px-2.5 pt-1.5 pb-1 text-[11px] font-bold text-ink hover:bg-wash disabled:opacity-40 max-[899px]:px-2"
+                class="flex flex-col items-center gap-0.5 px-2.5 pt-1.5 pb-1 text-label font-bold text-ink hover:bg-wash disabled:opacity-40 max-wide:px-2"
                 data-gate={w.type}
                 data-width={w.width}
                 disabled={testing()}

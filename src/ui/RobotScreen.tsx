@@ -54,7 +54,7 @@ function Sketch(): JSX.Element {
   return (
     <svg
       viewBox="20 0 160 240"
-      class="absolute inset-0 m-auto h-[88%]"
+      class="absolute inset-0 m-auto h-22/25"
       aria-hidden="true"
       fill="none"
       stroke="currentColor"

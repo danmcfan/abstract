@@ -195,7 +195,7 @@ export function Board(): JSX.Element {
       <rect x={0} y={0} width={grid().width} height={grid().height} fill="url(#major)" />
       <rect class="work-area" x={0} y={0} width={grid().width} height={grid().height} />
 
-      <g class="wires">
+      <g>
         <For each={wires()}>
           {(wire) => (
             <g

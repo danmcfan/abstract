@@ -2,7 +2,8 @@ import { createSignal, type Accessor } from "solid-js";
 
 // The layout switches between narrow and wide at this window width: the
 // board fits beside the level panel at or above it, below it under it. The
-// HUD's and Dialogue's Tailwind classes repeat it as min-[900px] and max-[899px].
+// HUD's and Dialogue's Tailwind classes repeat it as the wide: and max-wide:
+// variants, from --breakpoint-wide in src/styles.css.
 export const WIDE_MIN_WIDTH = 900;
 
 // A narrow window on a touch-only device. On one of these the board is
