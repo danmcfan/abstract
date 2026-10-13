@@ -1,6 +1,6 @@
 ## Shipping
 
-Work on a branch and open a PR; merging to `main` deploys abstract.dannyobrien.dev. Before the PR, verify the change (`docs/agents/verify.md`) and review it with `/code-review main`, which enforces `CODING_STANDARDS.md`.
+Work on a branch and open a PR; merging to `main` deploys abstract.dannyobrien.dev. Before the PR, verify the change and attach its screenshots and video to the PR (`docs/agents/verify.md`), and review it with `/code-review main`, which enforces `CODING_STANDARDS.md`.
 
 ## Agent skills
 
