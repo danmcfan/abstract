@@ -27,7 +27,7 @@ if (jump) startLevel(requested);
 // the title, which it returns to. Arriving from the floor below, it names
 // the layer the elevator rides up to.
 interface StackView {
-  arrive?: number;
+  arrive?: number | undefined;
 }
 
 function App() {

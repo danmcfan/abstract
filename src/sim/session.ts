@@ -30,10 +30,12 @@ export class Session {
   private boards: Boards = {};
   private check: CheckResult | null = null;
 
-  constructor(
-    private store: SaveStore,
-    private sound: Sound = silent,
-  ) {
+  private readonly store: SaveStore;
+  private readonly sound: Sound;
+
+  constructor(store: SaveStore, sound: Sound = silent) {
+    this.store = store;
+    this.sound = sound;
     const data = store.load();
     this.solved = data?.solved ?? 0;
     this.boards = data?.boards ?? {};

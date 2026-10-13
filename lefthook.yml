@@ -1,0 +1,12 @@
+pre-commit:
+  parallel: true
+  commands:
+    format:
+      glob: "*.{ts,tsx,js,json,css,md,html,yml}"
+      run: bunx prettier --write {staged_files}
+      stage_fixed: true
+    lint:
+      glob: "*.{ts,tsx}"
+      run: bunx oxlint {staged_files}
+    types:
+      run: bunx tsc --noEmit

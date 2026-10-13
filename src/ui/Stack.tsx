@@ -21,7 +21,7 @@ const BADGE: Record<LayerState, string> = {
 // a layer shows its sheets, and picking one starts that level. The elevator
 // in the shaft beside it sits at the current layer; arriving from the floor
 // below, it rides up one floor.
-export function Stack(props: { arrive?: number; onPick: (index: number) => void; onClose: () => void }) {
+export function Stack(props: { arrive?: number | undefined; onPick: (index: number) => void; onClose: () => void }) {
   const here = () => layerOf(levelIndex()).number;
   const [open, setOpen] = createSignal(props.arrive ?? here());
   const [floor, setFloor] = createSignal(props.arrive ? props.arrive - 1 : here());

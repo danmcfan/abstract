@@ -504,12 +504,15 @@ function bulge(width: number, height: number, depth: number): THREE.BufferGeomet
 }
 
 class Helix extends THREE.Curve<THREE.Vector3> {
-  constructor(
-    private radius: number,
-    private height: number,
-    private turns: number,
-  ) {
+  private readonly radius: number;
+  private readonly height: number;
+  private readonly turns: number;
+
+  constructor(radius: number, height: number, turns: number) {
     super();
+    this.radius = radius;
+    this.height = height;
+    this.turns = turns;
   }
 
   override getPoint(t: number, target = new THREE.Vector3()): THREE.Vector3 {

@@ -8,7 +8,7 @@ export default defineConfig({
   plugins: [solid(), tailwindcss()],
   // scripts/with-server.sh turns hot reload off, so a file saved mid-run
   // can't reload the page a playthrough is driving.
-  server: { hmr: process.env.ABSTRACT_NO_HMR ? false : undefined },
+  server: { hmr: process.env["ABSTRACT_NO_HMR"] !== "1" },
   build: {
     rolldownOptions: {
       output: {

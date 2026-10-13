@@ -14,8 +14,8 @@ export interface Glyph {
   height: number;
   body: string;
   // A second back line, for XOR and XNOR.
-  back?: string;
-  bubble?: { cx: number; cy: number; r: number };
+  back?: string | undefined;
+  bubble?: { cx: number; cy: number; r: number } | undefined;
   // One lead per input pin, in pin order.
   inLeads: string[];
   // One lead per output pin, in pin order.
