@@ -46,9 +46,9 @@ Read `sheet.png` rather than the single shots: one image covers every shot.
 
 ## Evidence on the PR
 
-A PR that changes what a player sees or hears shows it in its body: a screenshot of each change, and a video of any motion (an animation, a drag, a sequence of screens). CI's Evidence check (`scripts/check-evidence.sh`) fails a PR that changes non-test files under `src/` or `public/`, or the HTML pages, without an uploaded file, unless the body says "No visible change" and why.
+A PR that changes what a player sees or hears shows it in its body: a screenshot of each change, and a video of any motion (an animation, a drag, a sequence of screens). CI's Evidence check (`scripts/check-evidence.sh`, which lists the player-facing paths) fails a PR that changes them without an uploaded file, unless a line of the body starts "No visible change" and says why.
 
-1. **Capture** into `evidence/` (gitignored): your own shots and recordings, plus any of `playthrough/level*.png`, `playthrough/playthrough.webm` or `shots/sheet.png` that show the change. Look at every file before attaching it. For before and after, run the same commands on `main` in a worktree.
+1. **Capture** into `evidence/` (gitignored): your own shots and recordings, plus any of `playthrough/level*.png`, `playthrough/playthrough.webm` or `shots/sheet.png` that show the change. A new or changed level attaches its `playthrough/level<N>.png` and `playthrough/playthrough.webm`. Look at every file before attaching it. For before and after, run the same commands on `main` in a worktree.
 2. **Embed** each file beside the claim it proves, as `![The PASSED stamp over the MUX table](evidence/stamp.png)`, with the path relative to the repo root. Videos use the same syntax and render as a player.
 3. **Attach** each embedded file, from the repo root, spelled exactly as in the body:
 
