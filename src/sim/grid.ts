@@ -1,8 +1,13 @@
 // The board is measured in grid cells. Node positions are the cell of their
 // top-left corner; rendering maps cells to world units.
 
-export const GRID_WIDTH = 45;
-export const GRID_HEIGHT = 45;
+export interface Size {
+  width: number;
+  height: number;
+}
+
+// Most levels fit on this board; a level with wide parts can ask for more.
+export const DEFAULT_GRID: Size = { width: 45, height: 45 };
 
 export interface Rect {
   x: number;
@@ -11,11 +16,11 @@ export interface Rect {
   height: number;
 }
 
-export function snap(rect: Rect): Rect {
+export function snap(rect: Rect, grid: Size): Rect {
   return {
     ...rect,
-    x: clamp(Math.round(rect.x), 0, GRID_WIDTH - rect.width),
-    y: clamp(Math.round(rect.y), 0, GRID_HEIGHT - rect.height),
+    x: clamp(Math.round(rect.x), 0, grid.width - rect.width),
+    y: clamp(Math.round(rect.y), 0, grid.height - rect.height),
   };
 }
 

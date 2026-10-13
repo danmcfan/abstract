@@ -40,9 +40,9 @@ describe("session", () => {
     expect(session.beginTest()).toBe(false);
     expect(session.step()).toBe(true);
     expect(session.currentRow).toBe(0);
-    expect(session.rowResults).toEqual([[false]]);
+    expect(session.rowResults).toEqual([[0]]);
     expect(session.step()).toBe(true);
-    expect(session.rowResults).toEqual([[false], [false]]);
+    expect(session.rowResults).toEqual([[0], [0]]);
     expect(session.step()).toBe(false);
     expect(session.testing).toBe(false);
     expect(session.currentRow).toBeNull();
@@ -54,7 +54,7 @@ describe("session", () => {
     buildNot(session.game);
     expect(session.unlockedCount).toBe(2);
     runAll(session);
-    expect(session.rowResults).toEqual([[true], [false]]);
+    expect(session.rowResults).toEqual([[1], [0]]);
     expect(session.result?.passed).toBe(true);
     expect(session.solved).toBe(2);
     expect(session.unlockedCount).toBe(3);
@@ -98,7 +98,7 @@ describe("session", () => {
     const { session } = fresh();
     buildNot(session.game, "NOT");
     runAll(session);
-    expect(session.rowResults).toEqual([[true], [false]]);
+    expect(session.rowResults).toEqual([[1], [0]]);
     expect(session.result?.forbidden).toEqual(["NOT"]);
     expect(session.result?.passed).toBe(false);
     expect(session.solved).toBe(1);
@@ -145,7 +145,7 @@ describe("session", () => {
     runAll(session);
     const nand = find(session.game, "NAND");
     const a = find(session.game, "INPUT");
-    session.edit((game) => setInput(game, nand, true));
+    session.edit((game) => setInput(game, nand, 1));
     session.edit((game) => wire(game, out(nand), out(a)));
     const onA = session.game.nodes.get(a)!.rect;
     session.edit((game) => moveNode(game, nand, onA.x, onA.y));
@@ -321,6 +321,22 @@ describe("one board per level", () => {
     expect(later.game.edges.size).toBe(3);
     runAll(later);
     expect(later.result?.passed).toBe(true);
+  });
+
+  test("a level's board comes back with its bus widths and signal values", () => {
+    const { session } = fresh(2);
+    session.place("SPLIT", 4);
+    setInput(session.game, find(session.game, "INPUT"), 1);
+    session.save();
+    const board = () => [...session.game.nodes.values()].map(({ type, width, signals }) => ({ type, width, signals }));
+    const before = board();
+    const grid = { ...session.game.grid };
+    expect(before.find((n) => n.type === "SPLIT")?.width).toBe(4);
+
+    session.start(AND_LEVEL);
+    session.start(NOT_LEVEL);
+    expect(board()).toEqual(before);
+    expect(session.game.grid).toEqual(grid);
   });
 
   test("a level never visited opens on a fresh board", () => {

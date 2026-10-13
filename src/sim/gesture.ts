@@ -1,4 +1,4 @@
-import { moveNode, pinAt, removeNode, setInput, unwire, wire, type Game, type Pin } from "./circuit";
+import { moveNode, pinAt, removeNode, setInput, switchAt, unwire, wire, type Game, type Pin } from "./circuit";
 import { contains } from "./grid";
 import type { NodeID } from "./node";
 import { silent, type Sound } from "./sound";
@@ -96,11 +96,15 @@ export function createGestures(host: GestureHost): Gestures {
           if (wire(g, from, to)) sound.play("connect");
         });
       }
+      // A click flips a switch: a single-signal input's one switch, or the
+      // bit under the pointer on a bus input.
       if (d && !d.moved) {
         host.edit((g) => {
           const node = g.nodes.get(d.id);
           if (node?.type !== "INPUT") return;
-          setInput(g, d.id, !node.isHigh);
+          const bit = node.width === 1 ? 0 : switchAt(node, p.x, p.y);
+          if (bit === null) return;
+          setInput(g, node.id, (node.signals[0] ?? 0) ^ (1 << bit));
           sound.play("switch");
         });
       }

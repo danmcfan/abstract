@@ -111,10 +111,10 @@ test("XOR comes after OR and is on when exactly one input is on", () => {
   const index = LEVELS.findIndex((level) => level.gate === "XOR");
   expect(LEVELS[index - 1]!.gate).toBe("OR");
   expect(truthTable(LEVELS[index]!)).toEqual([
-    { inputs: [false, false], expected: [false] },
-    { inputs: [false, true], expected: [true] },
-    { inputs: [true, false], expected: [true] },
-    { inputs: [true, true], expected: [false] },
+    { inputs: [0, 0], expected: [0] },
+    { inputs: [0, 1], expected: [1] },
+    { inputs: [1, 0], expected: [1] },
+    { inputs: [1, 1], expected: [0] },
   ]);
 });
 
@@ -136,7 +136,7 @@ describe("the MUX level", () => {
   test("its truth table has 8 rows: A when SEL is off, B when SEL is on", () => {
     const rows = truthTable(LEVELS[index]!);
     expect(rows.map((row) => row.inputs.map(Number).join(""))).toEqual(["000", "001", "010", "011", "100", "101", "110", "111"]);
-    expect(rows.map((row) => row.expected[0])).toEqual([false, false, false, true, true, false, true, true]);
+    expect(rows.map((row) => row.expected[0])).toEqual([0, 0, 0, 1, 1, 0, 1, 1]);
   });
 
   test("the MUX part does what its level asks", () => {
@@ -170,10 +170,10 @@ describe("the DEMUX level", () => {
 
   test("its truth table sends D to Y0 when SEL is off and to Y1 when SEL is on", () => {
     expect(truthTable(LEVELS[index]!)).toEqual([
-      { inputs: [false, false], expected: [false, false] },
-      { inputs: [false, true], expected: [false, false] },
-      { inputs: [true, false], expected: [true, false] },
-      { inputs: [true, true], expected: [false, true] },
+      { inputs: [0, 0], expected: [0, 0] },
+      { inputs: [0, 1], expected: [0, 0] },
+      { inputs: [1, 0], expected: [1, 0] },
+      { inputs: [1, 1], expected: [0, 1] },
     ]);
   });
 
@@ -216,7 +216,7 @@ describe("checkLevel", () => {
     wire(game, out(a), inp(o));
     const result = checkLevel(game, 1);
     expect(result.passed).toBe(false);
-    expect(result.rows.map((row) => row.actual)).toEqual([[false], [true]]);
+    expect(result.rows.map((row) => row.actual)).toEqual([[0], [1]]);
   });
 
   test("fails when a gate outside the parts bin is used", () => {
@@ -251,7 +251,7 @@ const HALF_ADDER: Level = {
   layer: 3,
   inputs: ["A", "B"],
   outputs: ["SUM", "COUT"],
-  target: ([a, b]) => [a !== b, !!(a && b)],
+  target: ([a = 0, b = 0]) => [a ^ b, a & b],
 };
 const WITH_HALF = [...LEVELS, HALF_ADDER];
 const HALF = WITH_HALF.length - 1;
@@ -285,10 +285,10 @@ describe("a level with two outputs", () => {
 
   test("its truth table has one expected value per output", () => {
     expect(truthTable(HALF_ADDER).map((row) => row.expected)).toEqual([
-      [false, false],
-      [true, false],
-      [true, false],
-      [false, true],
+      [0, 0],
+      [1, 0],
+      [1, 0],
+      [0, 1],
     ]);
   });
 
@@ -304,10 +304,10 @@ describe("a level with two outputs", () => {
     const result = checkLevel(game, HALF, WITH_HALF);
     expect(result.passed).toBe(false);
     expect(result.rows.map((row) => row.actual)).toEqual([
-      [false, false],
-      [true, true],
-      [true, true],
-      [false, true],
+      [0, 0],
+      [1, 1],
+      [1, 1],
+      [0, 1],
     ]);
   });
 
@@ -318,25 +318,25 @@ describe("a level with two outputs", () => {
     const b = placeNode(game, "INPUT", { x: 4, y: 20 }, "B")!.id;
     const lamp = placeNode(game, "OUTPUT", { x: 40, y: 10 }, "OUT")!.id;
     const half = placeNode(game, HALF_ADDER.gate, { x: 20, y: 20 })!;
-    expect(half.signals).toEqual([false, false]);
+    expect(half.signals).toEqual([0, 0]);
     expect(pinPosition(half, "out", 0).y).toBeLessThan(pinPosition(half, "out", 1).y);
     const not = gate(game, "NOT");
     wire(game, out(a), inp(half.id, 0));
     wire(game, out(b), inp(half.id, 1));
     wire(game, out(half.id, 1), inp(not));
     wire(game, out(half.id, 0), inp(lamp));
-    const seen = [false, true].flatMap((va) =>
-      [false, true].map((vb) => {
+    const seen = [0, 1].flatMap((va) =>
+      [0, 1].map((vb) => {
         setInput(game, a, va);
         setInput(game, b, vb);
-        return [...half.signals, game.nodes.get(not)!.isHigh, game.nodes.get(lamp)!.isHigh];
+        return [...half.signals, Number(game.nodes.get(not)!.isHigh), Number(game.nodes.get(lamp)!.isHigh)];
       }),
     );
     expect(seen).toEqual([
-      [false, false, true, false],
-      [true, false, true, true],
-      [true, false, true, true],
-      [false, true, false, false],
+      [0, 0, 1, 0],
+      [1, 0, 1, 1],
+      [1, 0, 1, 1],
+      [0, 1, 0, 0],
     ]);
   });
 });

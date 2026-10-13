@@ -212,6 +212,23 @@ body {
   stroke: rgba(255, 255, 255, 0.9);
   animation: flow 0.9s linear infinite;
 }
+/* A bus is drawn thicker than a single wire. */
+#board .wire.bus .core {
+  stroke-width: 0.36;
+}
+#board .wire.bus .flow {
+  stroke-width: 0.12;
+}
+#board .bus-mark {
+  fill: none;
+  stroke: var(--color-ink);
+  stroke-width: 0.1;
+  stroke-linecap: round;
+}
+#board .bus-width {
+  font-size: 0.5px;
+  text-anchor: start;
+}
 #board .wire.unrouted .core {
   stroke-dasharray: 0.3 0.3;
 }
@@ -292,6 +309,26 @@ body {
 #board .node .panel {
   stroke-width: 0.1;
 }
+#board .node .lead.bus {
+  stroke-width: 0.3;
+}
+#board .bit {
+  fill: var(--color-surface);
+  stroke: var(--color-ink);
+  stroke-width: 0.08;
+  transition: fill 0.15s;
+}
+#board .bit.high {
+  fill: var(--color-glow);
+  stroke: var(--color-live);
+}
+#board .bit.lamp.high {
+  filter: url(#glow);
+}
+#board .bus-value {
+  font-size: 0.8px;
+  font-weight: 700;
+}
 #board .node .lead.out.high,
 #board .node.high .bubble {
   stroke: var(--color-live);
@@ -360,6 +397,9 @@ body {
   stroke: var(--color-ink);
   stroke-width: 0.08;
   cursor: crosshair;
+}
+#board .pin.bus {
+  stroke-width: 0.14;
 }
 #board .pin.hovered {
   fill: var(--color-glow);

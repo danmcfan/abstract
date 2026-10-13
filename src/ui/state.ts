@@ -27,8 +27,8 @@ export function mutate(change: (game: Game) => void): void {
   touch();
 }
 
-export function placePart(type: NodeType): void {
-  mutate(() => session.place(type));
+export function placePart(type: NodeType, width = 1): void {
+  mutate(() => session.place(type, width));
 }
 
 export const levelIndex = read(() => session.levelIndex);
@@ -37,6 +37,7 @@ export const solved = read(() => session.solved);
 export const testing = read(() => session.testing);
 export const currentRow = read(() => session.currentRow);
 export const rowResults = read(() => session.rowResults);
+export const tableRows = read(() => session.tableRows);
 export const result = read(() => session.result);
 export const stamped = read(() => session.stamped);
 

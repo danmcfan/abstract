@@ -1,8 +1,7 @@
 import type { Game } from "./circuit";
 import { placeNode } from "./circuit";
-import { GRID_HEIGHT, GRID_WIDTH } from "./grid";
-import { applyInputs, checkLevel, LEVELS, loadLevel, matches, playableCount, type CheckResult, type Level } from "./level";
-import type { NodeType } from "./node";
+import { applyInputs, checkLevel, LEVELS, loadLevel, matches, playableCount, truthTable, type CheckResult, type Level, type Row } from "./level";
+import type { NodeType, Value } from "./node";
 import { loadBoard, saveBoard, type Boards, type SaveStore } from "./save";
 import { silent, type Sound } from "./sound";
 
@@ -20,9 +19,9 @@ export class Session {
   run = 0;
   testing = false;
   currentRow: number | null = null;
-  // Per truth table row: undefined until tested, else what the circuit
+  // Per row of the table: undefined until tested, else what the circuit
   // output, one value per output.
-  rowResults: (boolean[] | undefined)[] = [];
+  rowResults: (Value[] | undefined)[] = [];
   result: CheckResult | null = null;
   // Whether the PASSED stamp is on the sheet: the last run passed and the
   // board hasn't changed since.
@@ -96,6 +95,12 @@ export class Session {
     return LEVELS[this.levelIndex]!;
   }
 
+  // The rows the level panel shows: the truth table, then any rows the last
+  // test run found failing out of sight.
+  get tableRows(): Row[] {
+    return [...truthTable(this.level), ...(this.result?.hidden.failed ?? [])];
+  }
+
   get unlockedCount(): number {
     return playableCount(this.solved);
   }
@@ -127,9 +132,11 @@ export class Session {
     this.save();
   }
 
-  // Drops a part from the parts bin in the middle of the board.
-  place(type: NodeType): void {
-    if (!placeNode(this.game, type, { x: GRID_WIDTH / 2, y: GRID_HEIGHT / 2 })) return;
+  // Drops a part, or a split or join as wide as its bus, from the parts bin
+  // in the middle of the board.
+  place(type: NodeType, width = 1): void {
+    const { grid } = this.game;
+    if (!placeNode(this.game, type, { x: grid.width / 2, y: grid.height / 2 }, "", width)) return;
     this.sound.play("place");
   }
 
@@ -149,7 +156,8 @@ export class Session {
   }
 
   // Shows the next row on the board. Once every row has been shown, ends
-  // the run and records the result. Returns whether a row was shown.
+  // the run, records the result, and adds the rows that failed out of sight
+  // to the table. Returns whether a row was shown.
   step(): boolean {
     const check = this.check;
     if (!this.testing || !check) return false;
@@ -166,6 +174,7 @@ export class Session {
     this.check = null;
     this.currentRow = null;
     this.result = check;
+    this.rowResults = [...this.rowResults, ...check.hidden.failed.map((row) => row.actual)];
     this.stamped = check.passed;
     if (check.passed) {
       this.sound.play("stamp");
