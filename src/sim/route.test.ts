@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { moveNode, newGame, pinPosition, placeNode, setInput, wire, type Game, type Pin } from "./circuit";
+import { PARTS } from "./level";
 import { contains } from "./grid";
 import type { NodeID } from "./node";
 import { createRouter, layoutKey, routeWires, type Point, type Routing } from "./route";
@@ -39,7 +40,7 @@ function unitSteps(a: Point, b: Point): [Point, Point][] {
 
 // Two inputs on the left, two gates whose wires have to cross.
 function crossingCircuit(): Game {
-  const game = newGame();
+  const game = newGame(PARTS);
   const a = placeNode(game, "INPUT", { x: 4, y: 10 })!.id;
   const b = placeNode(game, "INPUT", { x: 4, y: 30 })!.id;
   const top = placeNode(game, "NOT", { x: 25, y: 10 })!.id;
@@ -53,20 +54,20 @@ function crossingCircuit(): Game {
 
 describe("routeWires", () => {
   test("wires start and end at their pins, leaving and entering heading right", () => {
-    const game = newGame();
+    const game = newGame(PARTS);
     const a = placeNode(game, "INPUT", { x: 4, y: 10 })!;
     const g = placeNode(game, "NAND", { x: 20, y: 25 })!;
     const edge = wire(game, out(a.id), inp(g.id, 1))!;
     const route = routeWires(game).routes.get(edge.id)!;
     expect(route.routed).toBe(true);
-    expect(route.points[0]).toEqual(pinPosition(a, "out", 0));
-    expect(route.points.at(-1)).toEqual(pinPosition(g, "in", 1));
+    expect(route.points[0]).toEqual(pinPosition(game, a, "out", 0));
+    expect(route.points.at(-1)).toEqual(pinPosition(game, g, "in", 1));
     expect(route.points[1]!.y).toBe(route.points[0]!.y);
     expect(route.points.at(-2)!.y).toBe(route.points.at(-1)!.y);
   });
 
   test("wires go around gates, not through them", () => {
-    const game = newGame();
+    const game = newGame(PARTS);
     const a = placeNode(game, "INPUT", { x: 4, y: 20 })!;
     const wall = placeNode(game, "NAND", { x: 20, y: 20 })!;
     const o = placeNode(game, "OUTPUT", { x: 40, y: 20 })!;
@@ -94,7 +95,7 @@ describe("routeWires", () => {
   });
 
   test("one output fanning out shares a trunk with a junction", () => {
-    const game = newGame();
+    const game = newGame(PARTS);
     const a = placeNode(game, "INPUT", { x: 4, y: 20 })!.id;
     const g = placeNode(game, "NAND", { x: 25, y: 20 })!.id;
     wire(game, out(a), inp(g, 0));
@@ -105,7 +106,7 @@ describe("routeWires", () => {
 });
 
 function fanOutCircuit(): { game: Game; a: NodeID; g: NodeID } {
-  const game = newGame();
+  const game = newGame(PARTS);
   const a = placeNode(game, "INPUT", { x: 4, y: 20 })!.id;
   const g = placeNode(game, "NAND", { x: 25, y: 20 })!.id;
   wire(game, out(a), inp(g, 0));

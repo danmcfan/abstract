@@ -1,6 +1,7 @@
-import { newGame, placeNode, setInputs, simulate, wire, type Game } from "./circuit";
+import { newGame, nodeKind, placeNode, setInputs, simulate, wire, type Game } from "./circuit";
 import { DEFAULT_GRID, type Size } from "./grid";
-import { definePart, mask, type Label, type Node, type NodeID, type NodeType, type Spec, type Value } from "./node";
+import { partsFrom, type Parts, type Spec } from "./kind";
+import { mask, type Label, type Node, type NodeID, type NodeType, type Value } from "./node";
 
 // A level asks the player to build one gate out of the gates they have
 // already built. Solving it adds that gate to the parts bin for later levels.
@@ -109,7 +110,9 @@ export const LEVELS: Level[] = [
   },
 ];
 
-for (const level of LEVELS) definePart(level.gate, level);
+// The parts the game's boards can hold: each level's gate, computing what
+// its level asks for.
+export const PARTS: Parts = partsFrom(LEVELS);
 
 // Every solved level adds its gate; the first level hands you NAND.
 export function partsBin(levelIndex: number, levels = LEVELS): NodeType[] {
@@ -180,10 +183,10 @@ export function wiring(level: Level): { type: NodeType; width: number }[] {
 
 // A fresh board with the level's input terminals down the left edge, its
 // output terminals down the right, and the gate wired between them if it's
-// prebuilt.
-export function loadLevel(level: Level): Game {
+// prebuilt. The board can hold the given parts.
+export function loadLevel(level: Level, parts = PARTS): Game {
   const grid = level.grid ?? DEFAULT_GRID;
-  const game = newGame(grid);
+  const game = newGame(parts, grid);
   const column = (x: number, i: number, count: number): { x: number; y: number } => ({
     x,
     y: (grid.height * (i + 1)) / (count + 1),
@@ -265,14 +268,14 @@ export function truthTable(level: Level): Row[] {
   return Array.from({ length: rowCount(level) }, (_, n) => rowAt(level, n));
 }
 
-// Sets the INPUT terminals to the given values, in the level's label order,
+// Sets the input terminals to the given values, in the level's label order,
 // settling the circuit.
 export function applyInputs(game: Game, level: Level, values: Value[]): void {
   const settings = new Map<NodeID, Value>();
   for (const node of game.nodes.values()) {
     const i = level.inputs.indexOf(node.label);
     const value = values[i];
-    if (node.type === "INPUT" && value !== undefined) settings.set(node.id, value);
+    if (nodeKind(game, node).terminal === "input" && value !== undefined) settings.set(node.id, value);
   }
   setInputs(game, settings);
 }
@@ -306,22 +309,17 @@ export interface CheckResult {
 // every other row out of sight.
 export function checkLevel(board: Game, levelIndex: number, levels = LEVELS): CheckResult {
   const level = levelAt(levelIndex, levels);
-  const allowed = new Set<NodeType>([
-    "INPUT",
-    "OUTPUT",
-    ...partsBin(levelIndex, levels),
-    ...wiring(level).map((w) => w.type),
-  ]);
+  const allowed = new Set<NodeType>([...partsBin(levelIndex, levels), ...wiring(level).map((w) => w.type)]);
   if (level.prebuilt === true) allowed.add(level.gate);
-  const forbidden = [...new Set([...board.nodes.values()].map((node) => node.type))].filter(
-    (type) => !allowed.has(type),
-  );
+  const gates = [...board.nodes.values()].filter((node) => nodeKind(board, node).terminal === undefined);
+  const forbidden = [...new Set(gates.map((node) => node.type))].filter((type) => !allowed.has(type));
 
   const terminal =
-    (type: NodeType) =>
+    (side: "input" | "output") =>
     (label: Label): NodeID =>
-      [...board.nodes.values()].find((node) => node.type === type && node.label === label)?.id ?? -1;
-  const run = simulate(board, level.inputs.map(terminal("INPUT")), level.outputs.map(terminal("OUTPUT")));
+      [...board.nodes.values()].find((node) => nodeKind(board, node).terminal === side && node.label === label)?.id ??
+      -1;
+  const run = simulate(board, level.inputs.map(terminal("input")), level.outputs.map(terminal("output")));
   const rows = truthTable(level).map((row): CheckedRow => Object.assign(row, { actual: run(row.inputs) }));
   const hidden = level.cases === undefined ? { checked: 0, failed: [] } : checkHidden(level, level.cases, run);
 

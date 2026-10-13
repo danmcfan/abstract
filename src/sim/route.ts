@@ -1,6 +1,5 @@
-import { pinPosition, wiredNode, type EdgeID, type Game, type Pin } from "./circuit";
+import { nodeKind, pinPosition, wiredNode, type EdgeID, type Game, type Pin } from "./circuit";
 import type { Size } from "./grid";
-import { inputCount, outputCount } from "./node";
 
 // Wires run along grid lines between lattice points. A wire leaves its output
 // pin heading right and enters its input pin heading right.
@@ -96,17 +95,18 @@ export function routeWires(game: Game): Routing {
   // other wire can squeeze past and look connected.
   const reserved = new Map<number, string>();
   for (const node of game.nodes.values()) {
-    for (let i = 0; i < outputCount(node.type, node.width); i++) {
-      const p = pinPosition(node, "out", i);
+    const kind = nodeKind(game, node);
+    for (let i = 0; i < kind.outputCount(node.width); i++) {
+      const p = pinPosition(game, node, "out", i);
       reserved.set(key(p.x + 1, p.y), `${node.id}:${i}`);
     }
-    for (let i = 0; i < inputCount(node.type, node.width); i++) {
-      const p = pinPosition(node, "in", i);
+    for (let i = 0; i < kind.inputCount(node.width); i++) {
+      const p = pinPosition(game, node, "in", i);
       reserved.set(key(p.x - 1, p.y), "none");
     }
   }
   for (const edge of game.edges.values()) {
-    const p = pinPosition(wiredNode(game, edge.to), "in", edge.toIndex);
+    const p = pinPosition(game, wiredNode(game, edge.to), "in", edge.toIndex);
     reserved.set(key(p.x - 1, p.y), `${edge.from}:${edge.fromIndex}`);
   }
 
@@ -119,8 +119,8 @@ export function routeWires(game: Game): Routing {
 
   // Short wires first: they have the fewest options.
   const edges = [...game.edges.values()].map((edge) => {
-    const a = pinPosition(wiredNode(game, edge.from), "out", edge.fromIndex);
-    const b = pinPosition(wiredNode(game, edge.to), "in", edge.toIndex);
+    const a = pinPosition(game, wiredNode(game, edge.from), "out", edge.fromIndex);
+    const b = pinPosition(game, wiredNode(game, edge.to), "in", edge.toIndex);
     return { edge, a, b, length: Math.abs(a.x - b.x) + Math.abs(a.y - b.y) };
   });
   edges.sort((p, q) => p.length - q.length || p.edge.id - q.edge.id);

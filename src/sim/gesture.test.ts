@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { edgeInto, newGame, pinPosition, placeNode, wire, type Game, type Pin } from "./circuit";
+import { PARTS } from "./level";
 import { createGestures, type Gestures } from "./gesture";
 import type { NodeID, NodeType } from "./node";
 
@@ -12,7 +13,7 @@ interface Setup {
 }
 
 function setup(): Setup {
-  const game = newGame();
+  const game = newGame(PARTS);
   let locked = false;
   let edits = 0;
   const g = createGestures({
@@ -33,7 +34,7 @@ function setup(): Setup {
 const out = (node: NodeID): Pin => ({ node, side: "out", index: 0 });
 const inp = (node: NodeID, index = 0): Pin => ({ node, side: "in", index });
 const at = (game: Game, pin: Pin): { x: number; y: number } =>
-  pinPosition(game.nodes.get(pin.node)!, pin.side, pin.index);
+  pinPosition(game, game.nodes.get(pin.node)!, pin.side, pin.index);
 const centre = (game: Game, id: NodeID): { x: number; y: number } => {
   const r = game.nodes.get(id)!.rect;
   return { x: r.x + r.width / 2, y: r.y + r.height / 2 };

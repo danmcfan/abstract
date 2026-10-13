@@ -1,7 +1,8 @@
 import type { Edge, Game } from "./circuit";
 import { DEFAULT_GRID, type Size } from "./grid";
-import { LEVELS } from "./level";
-import { isNodeType, outputCount, type Label, type Node, type NodeType, type Value } from "./node";
+import { LEVELS, PARTS } from "./level";
+import { hasKind, kindOf, type Parts } from "./kind";
+import type { Label, Node, NodeType, Value } from "./node";
 
 // A saved game: how far the player has got, the level they're on, the board
 // they left on each level, and story flags (such as which robot lines
@@ -92,12 +93,13 @@ const LEGACY_LABELS: Record<string, Label> = { ALPHA: "A", BETA: "B", NONE: "" }
 type OldNode = Omit<Node, "width"> & { width?: number };
 type OldEdge = Omit<Edge, "value"> & { value?: Value; isHigh?: boolean };
 
-function upgradeNode(node: OldNode): Node {
+function upgradeNode(node: OldNode, parts: Parts): Node {
+  const kind = kindOf(parts, node.type);
   let label = LEGACY_LABELS[node.label] ?? node.label;
-  if (node.type === "OUTPUT" && label === "") label = "OUT";
+  if (kind.terminal === "output" && label === "") label = "OUT";
   const signals = Array.isArray(node.signals)
     ? node.signals.map(Number)
-    : Array.from({ length: outputCount(node.type) }, () => Number(node.isHigh));
+    : Array.from({ length: kind.outputCount(1) }, () => Number(node.isHigh));
   return { ...node, label, signals, width: node.width ?? 1, rect: { ...node.rect } };
 }
 
@@ -106,25 +108,40 @@ function upgradeEdge(edge: OldEdge): Edge {
   return { ...rest, value: edge.value ?? Number(isHigh ?? false) };
 }
 
-export function loadBoard(board: SavedBoard): Game {
+// The board's nodes can be any of the given parts.
+export function loadBoard(board: SavedBoard, parts: Parts): Game {
   return {
-    nodes: new Map(board.nodes.map((node) => [node.id, upgradeNode(node)])),
+    nodes: new Map(board.nodes.map((node) => [node.id, upgradeNode(node, parts)])),
     edges: new Map(board.edges.map((edge) => [edge.id, upgradeEdge(edge)])),
     nextNodeID: board.nextNodeID,
     nextEdgeID: board.nextEdgeID,
     grid: { ...(board.grid ?? DEFAULT_GRID) },
+    parts,
   };
 }
 
-// Only the arrays are checked; the rest of a board is trusted as saved.
+// Only the arrays and the node kinds are checked; the rest of a board is
+// trusted as saved. A node of a kind the game no longer has would make the
+// board unloadable.
 function isBoard(board: unknown): board is SavedBoard {
   return (
     typeof board === "object" &&
     board !== null &&
     "nodes" in board &&
     Array.isArray(board.nodes) &&
+    board.nodes.every((node: unknown) => isKnownNode(node)) &&
     "edges" in board &&
     Array.isArray(board.edges)
+  );
+}
+
+function isKnownNode(node: unknown): boolean {
+  return (
+    typeof node === "object" &&
+    node !== null &&
+    "type" in node &&
+    typeof node.type === "string" &&
+    hasKind(PARTS, node.type)
   );
 }
 
@@ -137,7 +154,8 @@ function parseSave(value: unknown): SaveData | null {
   if (typeof v.solved !== "number" || typeof v.levelIndex !== "number") return null;
   const boards: Boards = {};
   if (typeof v.boards === "object" && v.boards !== null) {
-    for (const [gate, board] of Object.entries(v.boards)) if (isNodeType(gate) && isBoard(board)) boards[gate] = board;
+    for (const [gate, board] of Object.entries(v.boards))
+      if (LEVELS.some((level) => level.gate === gate) && isBoard(board)) boards[gate] = board;
   }
   const legacy = LEVELS[v.levelIndex];
   if (isBoard(v.board) && legacy !== undefined) boards[legacy.gate] = v.board;

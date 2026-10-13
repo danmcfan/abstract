@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { newGame, pinPosition, placeNode, wire, type Game, type Pin } from "./circuit";
+import { PARTS } from "./level";
 import { createGestures, type Gestures } from "./gesture";
 import type { NodeID, NodeType } from "./node";
 import { localSave, memorySave } from "./save";
@@ -9,7 +10,7 @@ import { localSetting, memorySetting, recordingSound, switchedSound, typeLetter 
 const out = (node: NodeID): Pin => ({ node, side: "out", index: 0 });
 const inp = (node: NodeID, index = 0): Pin => ({ node, side: "in", index });
 const at = (game: Game, pin: Pin): { x: number; y: number } =>
-  pinPosition(game.nodes.get(pin.node)!, pin.side, pin.index);
+  pinPosition(game, game.nodes.get(pin.node)!, pin.side, pin.index);
 const centre = (game: Game, id: NodeID): { x: number; y: number } => {
   const r = game.nodes.get(id)!.rect;
   return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
@@ -24,7 +25,7 @@ function board(): {
   add: (type: NodeType, x: number, y: number) => NodeID;
   sound: Recording;
 } {
-  const game = newGame();
+  const game = newGame(PARTS);
   const sound = recordingSound();
   const g = createGestures({
     game: () => game,

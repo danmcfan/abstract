@@ -141,7 +141,7 @@ describe("session", () => {
     });
     expect(session.stamped).toBe(false);
     expect(session.result?.passed).toBe(true);
-    expect(store.load()?.boards.NOT?.nodes.length).toBe(4);
+    expect(store.load()?.boards["NOT"]?.nodes.length).toBe(4);
   });
 
   test("the stamp stays through an edit that leaves the board as it was", () => {
@@ -207,7 +207,7 @@ describe("saved games", () => {
     buildNot(session.game);
     session.save();
     const { boards, ...rest } = store.load()!;
-    const old = { ...rest, board: boards.NOT };
+    const old = { ...rest, board: boards["NOT"] };
 
     const later = new Session(memorySave(old));
     later.resume();
@@ -216,6 +216,23 @@ describe("saved games", () => {
     later.start(0);
     later.start(NOT_LEVEL);
     expect(later.game.edges.size).toBe(3);
+  });
+
+  test("a board holding a part the game no longer has is dropped for a fresh one", () => {
+    const { session, store } = fresh();
+    buildNot(session.game);
+    session.save();
+    const data = store.load()!;
+    const board = data.boards["NOT"]!;
+    const gone = {
+      ...data,
+      boards: { NOT: { ...board, nodes: [...board.nodes, { ...board.nodes[0]!, type: "GONE" }] } },
+    };
+
+    const later = new Session(memorySave(gone));
+    later.resume();
+    expect(later.levelIndex).toBe(NOT_LEVEL);
+    expect(later.game.edges.size).toBe(0);
   });
 
   test("a save from before levels named their terminals resumes with its board intact", () => {
@@ -369,7 +386,7 @@ describe("one board per level", () => {
     session.clear();
     expect(session.levelIndex).toBe(AND_LEVEL);
     expect(session.game.nodes.size).toBe(3);
-    expect(store.load()?.boards.AND?.nodes.length).toBe(3);
+    expect(store.load()?.boards["AND"]?.nodes.length).toBe(3);
     session.start(NOT_LEVEL);
     expect(session.game.edges.size).toBe(3);
   });

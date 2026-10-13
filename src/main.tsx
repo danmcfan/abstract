@@ -130,7 +130,7 @@ if (import.meta.env.DEV) {
       },
       nodes: () => [...current().nodes.values()].map(({ id, type, label, isHigh }) => ({ id, type, label, isHigh })),
       pinScreen: (id: NodeID, side: Pin["side"], index = 0) => {
-        const p = pinPosition(node(id), side, index);
+        const p = pinPosition(current(), node(id), side, index);
         return toScreen(p.x, p.y);
       },
       boardScreen: (x: number, y: number) => toScreen(x, y),

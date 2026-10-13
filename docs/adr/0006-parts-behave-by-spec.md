@@ -12,7 +12,7 @@ Once a level is solved, its part goes into the parts bin and later boards use it
 
 ## Decision
 
-A part on the board computes its level's spec: the truth table for a combinational part, or the level's state rule for a memory part. The player's schematic never runs outside its own level. This is how NOT, AND and OR already work (`evaluate()` in `src/sim/node.ts`).
+A part on the board computes its level's spec: the truth table for a combinational part, or the level's state rule for a memory part. The player's schematic never runs outside its own level. This is how NOT, AND and OR already work (`partKind()` in `src/sim/kind.ts`).
 
 ## Consequences
 

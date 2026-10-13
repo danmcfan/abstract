@@ -1,19 +1,6 @@
 import { DEFAULT_GRID, overlaps, snap, type Rect, type Size } from "./grid";
-import {
-  evaluate,
-  inputCount,
-  mask,
-  MAX_WIDTH,
-  nodeSize,
-  outputCount,
-  pinOffset,
-  pinWidth,
-  type Label,
-  type Node,
-  type NodeID,
-  type NodeType,
-  type Value,
-} from "./node";
+import { kindOf, pinOffset, type NodeKind, type Parts } from "./kind";
+import { mask, MAX_WIDTH, type Label, type Node, type NodeID, type NodeType, type Value } from "./node";
 
 // The board: nodes, the wires between them, and the signals on both. Every
 // command leaves the circuit settled, so readers never see stale signals.
@@ -41,6 +28,8 @@ export interface Game {
   nextEdgeID: EdgeID;
   // The board's size in cells.
   grid: Size;
+  // The parts its nodes can be, from the levels.
+  parts: Parts;
 }
 
 // A connection point on a node. Input pins sit on the left edge, output pins
@@ -51,8 +40,12 @@ export interface Pin {
   index: number;
 }
 
-export function newGame(grid: Size = DEFAULT_GRID): Game {
-  return { nodes: new Map(), edges: new Map(), nextNodeID: 0, nextEdgeID: 0, grid: { ...grid } };
+export function newGame(parts: Parts, grid: Size = DEFAULT_GRID): Game {
+  return { nodes: new Map(), edges: new Map(), nextNodeID: 0, nextEdgeID: 0, grid: { ...grid }, parts };
+}
+
+export function nodeKind(game: Game, node: Node): NodeKind {
+  return kindOf(game.parts, node.type);
 }
 
 // The node a wire names. Every wire's nodes exist, so a missing one is a bug.
@@ -75,7 +68,7 @@ export function placeNode(
   width = 1,
 ): Node | null {
   if (!Number.isInteger(width) || width < 1 || width > MAX_WIDTH) return null;
-  const rect = freeRect(game, nodeSize(type, width), center);
+  const rect = freeRect(game, kindOf(game.parts, type).size(width), center);
   if (!rect) return null;
   const node: Node = { id: game.nextNodeID++, type, label, rect, width, isHigh: false, signals: [] };
   game.nodes.set(node.id, node);
@@ -113,7 +106,7 @@ export function wire(game: Game, a: Pin, b: Pin): Edge | null {
   const source = game.nodes.get(from.node);
   const target = game.nodes.get(to.node);
   if (!source || !target) return null;
-  if (widthOf(source, from) !== widthOf(target, to)) return null;
+  if (widthOf(game, source, from) !== widthOf(game, target, to)) return null;
   if (reaches(game, to.node, from.node)) return null;
 
   const old = edgeInto(game, to.node, to.index);
@@ -139,17 +132,17 @@ export function unwire(game: Game, pin: Pin): void {
   settle(game);
 }
 
-// Sets an INPUT terminal's switches, keeping only as many bits as it has.
-// Other node types ignore it.
+// Sets an input terminal's switches, keeping only as many bits as it has.
+// Other nodes ignore it.
 export function setInput(game: Game, id: NodeID, value: Value): void {
   setInputs(game, new Map([[id, value]]));
 }
 
-// Sets several INPUT terminals at once, settling once.
+// Sets several input terminals at once, settling once.
 export function setInputs(game: Game, values: Map<NodeID, Value>): void {
   for (const [id, value] of values) {
     const node = game.nodes.get(id);
-    if (node?.type === "INPUT") node.signals = [mask(value, node.width)];
+    if (node && nodeKind(game, node).terminal === "input") node.signals = [mask(value, node.width)];
   }
   settle(game);
 }
@@ -163,27 +156,28 @@ export function edgeInto(game: Game, node: NodeID, index: number): Edge | undefi
   return undefined;
 }
 
-export function pinPosition(node: Node, side: Pin["side"], index: number): { x: number; y: number } {
+export function pinPosition(game: Game, node: Node, side: Pin["side"], index: number): { x: number; y: number } {
   const { x, y, width } = node.rect;
-  return { x: side === "out" ? x + width : x, y: y + pinOffset(node.type, side, index, node.width) };
+  return { x: side === "out" ? x + width : x, y: y + pinOffset(nodeKind(game, node), side, index, node.width) };
 }
 
-export function pins(node: Node): Pin[] {
+export function pins(game: Game, node: Node): Pin[] {
+  const kind = nodeKind(game, node);
   const result: Pin[] = [];
-  for (let i = 0; i < inputCount(node.type, node.width); i++) result.push({ node: node.id, side: "in", index: i });
-  for (let i = 0; i < outputCount(node.type, node.width); i++) result.push({ node: node.id, side: "out", index: i });
+  for (let i = 0; i < kind.inputCount(node.width); i++) result.push({ node: node.id, side: "in", index: i });
+  for (let i = 0; i < kind.outputCount(node.width); i++) result.push({ node: node.id, side: "out", index: i });
   return result;
 }
 
 // How many signals one of a node's pins carries.
-export function widthOf(node: Node, pin: Pick<Pin, "side" | "index">): number {
-  return pinWidth(node.type, pin.side, pin.index, node.width);
+export function widthOf(game: Game, node: Node, pin: Pick<Pin, "side" | "index">): number {
+  return nodeKind(game, node).pinWidth(pin.side, pin.index, node.width);
 }
 
-// The bit whose switch is at (x, y) on a bus INPUT terminal, or null if
+// The bit whose switch is at (x, y) on a bus input terminal, or null if
 // there's no switch there.
-export function switchAt(node: Node, x: number, y: number): number | null {
-  if (node.type !== "INPUT" || node.width === 1) return null;
+export function switchAt(game: Game, node: Node, x: number, y: number): number | null {
+  if (!nodeKind(game, node).clickable || node.width === 1) return null;
   const cell = Math.floor(x - node.rect.x - 1);
   const dy = y - (node.rect.y + node.rect.height / 2);
   if (cell < 0 || cell >= node.width || Math.abs(dy) > 0.75) return null;
@@ -195,8 +189,8 @@ export function pinAt(game: Game, x: number, y: number, radius = 1): Pin | null 
   let best: Pin | null = null;
   let bestDistance = radius;
   for (const node of game.nodes.values()) {
-    for (const pin of pins(node)) {
-      const p = pinPosition(node, pin.side, pin.index);
+    for (const pin of pins(game, node)) {
+      const p = pinPosition(game, node, pin.side, pin.index);
       const distance = Math.hypot(p.x - x, p.y - y);
       if (distance < bestDistance) {
         best = pin;
@@ -253,6 +247,7 @@ function reaches(game: Game, start: NodeID, target: NodeID): boolean {
 // circuit has no loops, so one pass in this order settles it.
 interface Step {
   node: Node;
+  kind: NodeKind;
   inputs: ({ edge: Edge; from: number } | null)[];
 }
 
@@ -268,12 +263,13 @@ function plan(game: Game): Step[] {
   const visit = (node: Node): number => {
     const seen = position.get(node.id);
     if (seen !== undefined) return seen;
-    const inputs = Array.from({ length: inputCount(node.type, node.width) }, (_, i) => {
+    const kind = nodeKind(game, node);
+    const inputs = Array.from({ length: kind.inputCount(node.width) }, (_, i) => {
       const edge = into.get(node.id)?.[i];
       return edge ? { edge, from: visit(wiredNode(game, edge.from)) } : null;
     });
     position.set(node.id, steps.length);
-    steps.push({ node, inputs });
+    steps.push({ node, kind, inputs });
     return steps.length - 1;
   };
   for (const node of game.nodes.values()) visit(node);
@@ -281,40 +277,40 @@ function plan(game: Game): Step[] {
 }
 
 // One pass over a plan: each step's output values and the values into its
-// input pins, by position. INPUT terminals take their values from source.
+// input pins, by position. Input terminals take their values from source.
 // Unwired input pins read 0.
 function pass(steps: Step[], source: (node: Node) => Value): { signals: Value[][]; inputs: Value[][] } {
   // Plain loops: this runs for every node on every row of a test run.
   const signals: Value[][] = [];
   const inputs: Value[][] = [];
-  for (const { node, inputs: wires } of steps) {
+  for (const { node, kind, inputs: wires } of steps) {
     const values: Value[] = [];
     for (const w of wires) values.push(w ? (signals[w.from]?.[w.edge.fromIndex] ?? 0) : 0);
     inputs.push(values);
-    signals.push(node.type === "INPUT" ? [mask(source(node), node.width)] : evaluate(node.type, values, node.width));
+    signals.push(kind.terminal === "input" ? [mask(source(node), node.width)] : kind.evaluate(values, node.width));
   }
   return { signals, inputs };
 }
 
-// Recomputes every node and wire from the INPUT terminals.
+// Recomputes every node and wire from the input terminals.
 function settle(game: Game): void {
   const steps = plan(game);
   const { signals, inputs } = pass(steps, (node) => node.signals[0] ?? 0);
   // pass gives one entry per step and one value per wired pin.
-  steps.forEach(({ node, inputs: wires }, i) => {
+  steps.forEach(({ node, kind, inputs: wires }, i) => {
     node.signals = signals[i] ?? [];
     const into = inputs[i] ?? [];
     wires.forEach((w, pin) => {
       if (w) w.edge.value = into[pin] ?? 0;
     });
-    node.isHigh = (node.type === "OUTPUT" ? into : node.signals).some((value) => value !== 0);
+    node.isHigh = (kind.terminal === "output" ? into : node.signals).some((value) => value !== 0);
   });
 }
 
 // Runs many sets of input values through the board without changing it,
 // much faster than setting the switches and settling each time. The returned
-// function takes one value per INPUT terminal in inputs and gives one value
-// per OUTPUT terminal in outputs: the value on its wire, or 0 if unwired.
+// function takes one value per input terminal in inputs and gives one value
+// per output terminal in outputs: the value on its wire, or 0 if unwired.
 export function simulate(game: Game, inputs: NodeID[], outputs: NodeID[]): (values: Value[]) => Value[] {
   const steps = plan(game);
   const slot = new Map(inputs.map((id, i) => [id, i]));

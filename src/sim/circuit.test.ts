@@ -13,14 +13,11 @@ import {
   type Pin,
 } from "./circuit";
 import { DEFAULT_GRID, overlaps } from "./grid";
-import { LEVELS } from "./level";
-import { definePart, type NodeID, type NodeType } from "./node";
+import { PARTS } from "./level";
+import type { NodeID, NodeType } from "./node";
 
 const out = (node: NodeID): Pin => ({ node, side: "out", index: 0 });
 const inp = (node: NodeID, index = 0): Pin => ({ node, side: "in", index });
-
-// The parts levels give, such as MUX.
-for (const level of LEVELS) definePart(level.gate, level);
 
 function add(game: Game, type: NodeType, x: number, y: number): NodeID {
   return placeNode(game, type, { x, y })!.id;
@@ -30,12 +27,12 @@ const high = (game: Game, id: NodeID): boolean => game.nodes.get(id)!.isHigh;
 
 describe("placeNode", () => {
   test("snaps the node onto the grid", () => {
-    const node = placeNode(newGame(), "NAND", { x: 10.4, y: 10.4 })!;
+    const node = placeNode(newGame(PARTS), "NAND", { x: 10.4, y: 10.4 })!;
     expect(node.rect).toEqual({ x: 7, y: 8, width: 6, height: 4 });
   });
 
   test("finds the nearest free spot when the centre is taken", () => {
-    const game = newGame();
+    const game = newGame(PARTS);
     const a = placeNode(game, "AND", { x: 20, y: 20 })!;
     const b = placeNode(game, "AND", { x: 20, y: 20 })!;
     expect(overlaps(a.rect, b.rect)).toBe(false);
@@ -43,20 +40,20 @@ describe("placeNode", () => {
   });
 
   test("refuses when the board is full", () => {
-    const game = newGame();
+    const game = newGame(PARTS);
     for (let i = 0; i < (DEFAULT_GRID.width * DEFAULT_GRID.height) / 16; i++) placeNode(game, "INPUT", { x: 0, y: 0 });
     expect(placeNode(game, "INPUT", { x: 20, y: 20 })).toBeNull();
   });
 
   test("a new gate settles: NAND with no wires is high", () => {
-    const game = newGame();
+    const game = newGame(PARTS);
     expect(high(game, add(game, "NAND", 10, 10))).toBe(true);
   });
 });
 
 describe("moveNode", () => {
   test("refuses to overlap another node", () => {
-    const game = newGame();
+    const game = newGame(PARTS);
     const a = placeNode(game, "AND", { x: 10, y: 10 })!;
     const b = add(game, "AND", 20, 10);
     expect(moveNode(game, b, a.rect.x + 1, a.rect.y)).toBe(false);
@@ -66,7 +63,7 @@ describe("moveNode", () => {
 
 describe("wire", () => {
   test("an input pin takes one wire, replacing the old one", () => {
-    const game = newGame();
+    const game = newGame(PARTS);
     const a = add(game, "INPUT", 4, 10);
     const b = add(game, "INPUT", 4, 30);
     const o = add(game, "OUTPUT", 40, 20);
@@ -77,7 +74,7 @@ describe("wire", () => {
   });
 
   test("refuses loops and self wires", () => {
-    const game = newGame();
+    const game = newGame(PARTS);
     const x = add(game, "NAND", 10, 10);
     const y = add(game, "NAND", 20, 10);
     expect(wire(game, out(x), inp(y))).not.toBeNull();
@@ -87,7 +84,7 @@ describe("wire", () => {
   });
 
   test("refuses out-to-out and in-to-in", () => {
-    const game = newGame();
+    const game = newGame(PARTS);
     const x = add(game, "NAND", 10, 10);
     const y = add(game, "NAND", 20, 10);
     expect(wire(game, out(x), out(y))).toBeNull();
@@ -97,7 +94,7 @@ describe("wire", () => {
 
 describe("removeNode", () => {
   test("unlinks its wires at both ends", () => {
-    const game = newGame();
+    const game = newGame(PARTS);
     const a = add(game, "INPUT", 4, 10);
     const g = add(game, "NOT", 20, 10);
     const o = add(game, "OUTPUT", 40, 10);
@@ -114,7 +111,7 @@ describe("removeNode", () => {
 
 describe("setInput", () => {
   test("settles everything downstream", () => {
-    const game = newGame();
+    const game = newGame(PARTS);
     const a = add(game, "INPUT", 4, 10);
     const g = add(game, "NOT", 20, 10);
     const o = add(game, "OUTPUT", 40, 10);
@@ -128,7 +125,7 @@ describe("setInput", () => {
   });
 
   test("ignores non-INPUT nodes", () => {
-    const game = newGame();
+    const game = newGame(PARTS);
     const o = add(game, "OUTPUT", 40, 10);
     setInput(game, o, 1);
     expect(high(game, o)).toBe(false);
@@ -137,7 +134,7 @@ describe("setInput", () => {
 
 describe("unwire", () => {
   test("drops the wire into a pin and settles", () => {
-    const game = newGame();
+    const game = newGame(PARTS);
     const a = add(game, "INPUT", 4, 10);
     const o = add(game, "OUTPUT", 40, 10);
     wire(game, out(a), inp(o));
@@ -151,14 +148,15 @@ describe("unwire", () => {
 
 describe("a three-input part", () => {
   test("spaces its input pins evenly down its left edge, on grid cells", () => {
-    const node = placeNode(newGame(), "MUX", { x: 20, y: 20 })!;
-    const ys = [0, 1, 2].map((i) => pinPosition(node, "in", i).y - node.rect.y);
+    const game = newGame(PARTS);
+    const node = placeNode(game, "MUX", { x: 20, y: 20 })!;
+    const ys = [0, 1, 2].map((i) => pinPosition(game, node, "in", i).y - node.rect.y);
     expect(ys).toEqual([1, 3, 5]);
-    expect(pinPosition(node, "in", 2).x).toBe(node.rect.x);
+    expect(pinPosition(game, node, "in", 2).x).toBe(node.rect.x);
   });
 
   test("settles from all three of its inputs", () => {
-    const game = newGame();
+    const game = newGame(PARTS);
     const a = add(game, "INPUT", 4, 6);
     const b = add(game, "INPUT", 4, 16);
     const sel = add(game, "INPUT", 4, 26);

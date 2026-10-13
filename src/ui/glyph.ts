@@ -1,4 +1,5 @@
-import { bitOf, inputCount, nodeSize, outputCount, partSpec, pinOffset, type NodeType } from "../sim/node";
+import { pinOffset, type Look, type NodeKind } from "../sim/kind";
+import { bitOf } from "../sim/node";
 
 // Gates are drawn as their schematic symbols: AND is a D, OR a curved
 // shield, XOR an OR with an extra back line, NOT a triangle, and the
@@ -31,36 +32,38 @@ const TOP = 0.45;
 const BOTTOM = 3.55;
 const BUBBLE = 0.3;
 
-// busWidth is how many signals a split or join carries.
-export function glyph(type: NodeType, busWidth = 1): Glyph {
-  const { width, height } = nodeSize(type, busWidth);
-  if (type === "SPLIT" || type === "JOIN") return bundle(type, busWidth, width, height);
-  if (!hasSymbol(type)) return box(type, width, height);
+// busWidth is how many signals a split or join carries. Terminals are drawn
+// by the board itself, so they have no glyph.
+export function glyph(kind: NodeKind, busWidth = 1): Glyph {
+  const { width, height } = kind.size(busWidth);
+  const { look } = kind;
+  if (look.shape === "bundle") return bundle(kind, look.bus, busWidth, width, height);
+  if (look.shape === "box") return box(kind, look, width, height);
+  if (look.shape === "symbol") return symbol(kind, look, width, height);
+  throw new Error(`A ${look.shape} has no glyph`);
+}
+
+function symbol(kind: NodeKind, look: Extract<Look, { shape: "symbol" }>, width: number, height: number): Glyph {
   const mid = height / 2;
-  const inverted = type === "NAND" || type === "NOR" || type === "XNOR" || type === "NOT";
-  const shifted = type === "XOR" || type === "XNOR" ? 0.35 : 0;
+  const shifted = look.exclusive ? 0.35 : 0;
 
   let body: string;
   let front: number;
   let label: Glyph["label"];
-  switch (type) {
-    case "NOT":
+  switch (look.symbol) {
+    case "not":
       front = 3.9;
       body = `M 1.2 0.75 L ${front} ${mid} L 1.2 3.25 Z`;
       label = { x: 2.05, y: mid, size: 0.46 };
       break;
-    case "OR":
-    case "NOR":
-    case "XOR":
-    case "XNOR": {
+    case "or": {
       const back = 0.85 + shifted;
       front = 3.95 + shifted;
       body = `M ${back} ${TOP} Q ${back + 2.05} ${TOP} ${front} ${mid} Q ${back + 2.05} ${BOTTOM} ${back} ${BOTTOM} Q ${back + 0.6} ${mid} ${back} ${TOP} Z`;
       label = { x: back + 1.35, y: mid, size: 0.56 };
       break;
     }
-    case "AND":
-    case "NAND": {
+    case "and": {
       const r = (BOTTOM - TOP) / 2;
       front = 3.85;
       const flat = front - r;
@@ -69,28 +72,20 @@ export function glyph(type: NodeType, busWidth = 1): Glyph {
     }
   }
 
-  const ys = inputCount(type) === 1 ? [mid] : [1, height - 1];
+  const ys = kind.inputCount(1) === 1 ? [mid] : [1, height - 1];
   const inLeads = ys.map((y) => `M 0 ${y} H 1.45`);
-  const bubble = inverted ? { cx: front + BUBBLE, cy: mid, r: BUBBLE } : undefined;
+  const bubble = look.inverted ? { cx: front + BUBBLE, cy: mid, r: BUBBLE } : undefined;
   const outLeads = [`M ${bubble ? front + BUBBLE * 2 : front} ${mid} H ${width}`];
   const back = shifted ? `M 0.6 ${TOP} Q 1.2 ${mid} 0.6 ${BOTTOM}` : undefined;
   return { width, height, body, back, bubble, inLeads, outLeads, label, pinLabels: [] };
 }
 
-const SYMBOLS = ["NOT", "OR", "NOR", "XOR", "XNOR", "AND", "NAND"] as const satisfies readonly NodeType[];
-type SymbolType = (typeof SYMBOLS)[number];
-
-function hasSymbol(type: NodeType): type is SymbolType {
-  return SYMBOLS.some((symbol) => symbol === type);
-}
-
-function box(type: NodeType, width: number, height: number): Glyph {
-  const spec = partSpec(type);
+function box(kind: NodeKind, look: Extract<Look, { shape: "box" }>, width: number, height: number): Glyph {
   const left = 1;
   const right = width - 1;
-  const flare = type === "DEMUX" ? 0.3 : 0;
-  const ins = Array.from({ length: inputCount(type) }, (_, i) => pinOffset(type, "in", i));
-  const outs = Array.from({ length: outputCount(type) }, (_, i) => pinOffset(type, "out", i));
+  const { flare } = look;
+  const ins = Array.from({ length: kind.inputCount(1) }, (_, i) => pinOffset(kind, "in", i));
+  const outs = Array.from({ length: kind.outputCount(1) }, (_, i) => pinOffset(kind, "out", i));
   return {
     width,
     height,
@@ -99,29 +94,29 @@ function box(type: NodeType, width: number, height: number): Glyph {
     outLeads: outs.map((y) => `M ${right} ${y} H ${width}`),
     label: { x: width / 2, y: height / 2, size: 0.5 },
     pinLabels: [
-      ...ins.map((y, i) => ({ x: left + 0.2, y, text: spec?.inputs[i] ?? "", anchor: "start" as const })),
-      ...outs.map((y, i) => ({ x: right - 0.2, y, text: spec?.outputs[i] ?? "", anchor: "end" as const })),
+      ...ins.map((y, i) => ({ x: left + 0.2, y, text: look.inputs[i] ?? "", anchor: "start" as const })),
+      ...outs.map((y, i) => ({ x: right - 0.2, y, text: look.outputs[i] ?? "", anchor: "end" as const })),
     ],
   };
 }
 
 const BAR = { left: 1.2, right: 1.8, inset: 0.4 };
 
-function bundle(type: "SPLIT" | "JOIN", busWidth: number, width: number, height: number): Glyph {
-  const bus = height / 2;
-  const bits = Array.from({ length: busWidth }, (_, i) =>
-    pinOffset(type, type === "SPLIT" ? "out" : "in", i, busWidth),
-  );
-  const busLead = type === "SPLIT" ? `M 0 ${bus} H ${BAR.left}` : `M ${BAR.right} ${bus} H ${width}`;
-  const bitLeads = bits.map((y) => (type === "SPLIT" ? `M ${BAR.right} ${y} H ${width}` : `M 0 ${y} H ${BAR.left}`));
+// A split takes its bus in on the left; a join gives it out on the right.
+function bundle(kind: NodeKind, bus: "in" | "out", busWidth: number, width: number, height: number): Glyph {
+  const split = bus === "in";
+  const middle = height / 2;
+  const bits = Array.from({ length: busWidth }, (_, i) => pinOffset(kind, split ? "out" : "in", i, busWidth));
+  const busLead = split ? `M 0 ${middle} H ${BAR.left}` : `M ${BAR.right} ${middle} H ${width}`;
+  const bitLeads = bits.map((y) => (split ? `M ${BAR.right} ${y} H ${width}` : `M 0 ${y} H ${BAR.left}`));
   return {
     width,
     height,
     body: `M ${BAR.left} ${BAR.inset} H ${BAR.right} V ${height - BAR.inset} H ${BAR.left} Z`,
-    inLeads: type === "SPLIT" ? [busLead] : bitLeads,
-    outLeads: type === "SPLIT" ? bitLeads : [busLead],
+    inLeads: split ? [busLead] : bitLeads,
+    outLeads: split ? bitLeads : [busLead],
     pinLabels: bits.map((y, i) => ({
-      x: type === "SPLIT" ? BAR.right + 0.2 : 0.2,
+      x: split ? BAR.right + 0.2 : 0.2,
       y: y - 0.4,
       text: String(bitOf(busWidth, i)),
       anchor: "start" as const,
