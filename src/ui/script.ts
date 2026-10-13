@@ -154,11 +154,10 @@ const LEVELS: Partial<Record<NodeType, LevelScript>> = {
   "8-BIT ADDER": {
     intro: [
       { face: "amazed", text: "Look at A and B! Each one is a row of eight switches." },
-      { face: "idle", text: "That's a bus: eight signals on one thick wire. Together they make a number up to 255." },
-      {
-        face: "idle",
-        text: "Check the Wiring section of the parts bin. A split breaks a bus into eight single wires.",
-      },
+      { face: "idle", text: "That's a bus: eight signals on one thick wire." },
+      { face: "idle", text: "Together, the eight signals make a number up to 255." },
+      { face: "idle", text: "Split and join are in the Wiring section of the parts bin." },
+      { face: "idle", text: "A split breaks a bus into eight single wires." },
       { face: "idle", text: "A join does the opposite. It gathers eight wires back into one bus." },
       { face: "thinking", text: "Each split's top pin is the high bit. The bottom pin is the ones place." },
       { face: "thinking", text: "The table only shows five rows. Run test checks all the others too." },
@@ -172,7 +171,7 @@ const LEVELS: Partial<Record<NodeType, LevelScript>> = {
     ],
     solved: [
       { face: "happy", text: "8-bit adder, done! 255 + 1 rolls over to 0, with COUT on." },
-      { face: "amazed", text: "That's the last schematic on adder assembly." },
+      { face: "amazed", text: "That's the last level on adder assembly." },
       { face: "happy", text: "Our gates can count now. Next, we teach them some new tricks." },
     ],
   },

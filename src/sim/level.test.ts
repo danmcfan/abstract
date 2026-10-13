@@ -12,6 +12,7 @@ import {
   partsBin,
   PARTS,
   truthTable,
+  wiring,
   type Level,
 } from "./level";
 import { kindOf } from "./kind";
@@ -354,9 +355,9 @@ describe("the adder levels", () => {
 const ADD8 = levelIndex("8-BIT ADDER");
 
 // A ripple-carry adder: split A and B into bits, chain eight full adders
-// from the low bit (the split's bottom pin) up, and join the sums. Without
-// its carry in, the low full adder never sees CIN.
-function buildRippleAdder(game: Game, carryIn = true): void {
+// from the low bit (the split's bottom pin) up, and join the sums. A
+// missing carry leaves that bit's full adder without its CIN wire.
+function buildRippleAdder(game: Game, missingCarry?: number): void {
   const place = (type: NodeType, x: number, y: number, width = 1): NodeID =>
     placeNode(game, type, { x, y }, "", width)!.id;
   const splitA = place("SPLIT", 19, 2, 8);
@@ -364,18 +365,18 @@ function buildRippleAdder(game: Game, carryIn = true): void {
   const join = place("JOIN", 42, 20, 8);
   wire(game, out(terminal(game, "INPUT", "A")), inp(splitA));
   wire(game, out(terminal(game, "INPUT", "B")), inp(splitB));
-  let carry: Pin | null = carryIn ? out(terminal(game, "INPUT", "CIN")) : null;
+  let carry = out(terminal(game, "INPUT", "CIN"));
   for (let bit = 0; bit < 8; bit++) {
     const pin = 7 - bit;
     const full = place("FULL ADDER", 30, 52 - bit * 7);
     wire(game, out(splitA, pin), inp(full, 0));
     wire(game, out(splitB, pin), inp(full, 1));
-    if (carry !== null) wire(game, carry, inp(full, 2));
+    if (bit !== missingCarry) wire(game, carry, inp(full, 2));
     wire(game, out(full, 0), inp(join, pin));
     carry = out(full, 1);
   }
   wire(game, out(join), inp(terminal(game, "OUTPUT", "SUM")));
-  wire(game, carry!, inp(terminal(game, "OUTPUT", "COUT")));
+  wire(game, carry, inp(terminal(game, "OUTPUT", "COUT")));
 }
 
 describe("the 8-bit adder level", () => {
@@ -398,6 +399,13 @@ describe("the 8-bit adder level", () => {
     ]);
   });
 
+  test("supplies an 8-bit split and join in the Wiring section", () => {
+    expect(wiring(level)).toEqual([
+      { type: "SPLIT", width: 8 },
+      { type: "JOIN", width: 8 },
+    ]);
+  });
+
   test("shows exactly its five named cases, as numbers", () => {
     expect(truthTable(level)).toEqual([
       { inputs: [0, 0, 0], expected: [0, 0] },
@@ -417,15 +425,17 @@ describe("the 8-bit adder level", () => {
     expect(result.passed).toBe(true);
   });
 
-  test("with its carry-in wire missing, it fails, and the failing rows are in the result", () => {
+  test("with the carry into bit 4 missing, it fails, and the failing rows are in the result", () => {
     const game = loadLevel(level);
-    buildRippleAdder(game, false);
+    buildRippleAdder(game, 4);
     const result = checkLevel(game, ADD8);
     expect(result.passed).toBe(false);
     const wrong = result.rows.filter((row) => !matches(row.actual, row.expected));
-    expect(wrong).toEqual([{ inputs: [255, 255, 1], expected: [255, 1], actual: [254, 1] }]);
+    expect(wrong).toEqual([
+      { inputs: [255, 1, 0], expected: [0, 1], actual: [240, 0] },
+      { inputs: [255, 255, 1], expected: [255, 1], actual: [239, 1] },
+    ]);
     expect(result.hidden.failed.length).toBeGreaterThan(0);
-    expect(result.hidden.failed.every((row) => row.inputs[2] === 1)).toBe(true);
   });
 
   test("once solved, it's a part with bus pins that adds", () => {
