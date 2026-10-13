@@ -1,0 +1,6 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": ["src/dev/bitbox.tsx", "src/styles.css", "scripts/*.ts"],
+  "project": ["src/**/*.{ts,tsx,css}", "scripts/**/*.ts"],
+  "ignoreDependencies": ["tailwindcss"]
+}

@@ -1,21 +1,23 @@
-import { For, Show, createMemo } from "solid-js";
+import { For, Show, createMemo, untrack, type JSX } from "solid-js";
 import { edgeInto, pinPosition, pins, widthOf, type Pin } from "../sim/circuit";
 import { bitCell, type Node } from "../sim/node";
 import { glyph } from "./glyph";
 import { current } from "./state";
 
-const samePin = (a: Pin | null, b: Pin) => !!a && a.node === b.node && a.side === b.side && a.index === b.index;
+const samePin = (a: Pin | null, b: Pin): boolean =>
+  a !== null && a.node === b.node && a.side === b.side && a.index === b.index;
 
 // Gates are inked schematic symbols. Inputs are knife switches and the
 // output is a lamp, each on a small white panel; a bus terminal is a row of
 // bit switches or lamps with its value written beside them. Drawn in
 // node-local cells.
-export function NodeView(props: { node: Node; hovered: boolean; hoveredPin: Pin | null }) {
+export function NodeView(props: { node: Node; hovered: boolean; hoveredPin: Pin | null }): JSX.Element {
   // moveNode replaces rect, so these only change when the node does.
   const rect = createMemo(() => (current(), props.node.rect));
   const isHigh = createMemo(() => (current(), props.node.isHigh));
-  const { width, height } = props.node.rect;
-  const type = props.node.type;
+  // A node keeps its type and size, so they're read once.
+  const { width, height } = untrack(() => props.node.rect);
+  const type = untrack(() => props.node.type);
 
   return (
     <g
@@ -62,14 +64,17 @@ export function NodeView(props: { node: Node; hovered: boolean; hoveredPin: Pin 
   );
 }
 
-function Gate(props: { node: Node }) {
-  const g = glyph(props.node.type, props.node.width);
-  const signal = (i: number) => (current(), !!props.node.signals[i]);
-  const bus = (side: Pin["side"], index: number) => widthOf(props.node, { side, index }) > 1;
+function Gate(props: { node: Node }): JSX.Element {
+  // A gate's type and width never change, so its symbol is drawn once.
+  const g = untrack(() => glyph(props.node.type, props.node.width));
+  const signal = (i: number): boolean => (current(), (props.node.signals[i] ?? 0) !== 0);
+  const bus = (side: Pin["side"], index: number): boolean => widthOf(props.node, { side, index }) > 1;
   return (
     <>
       <For each={g.inLeads}>{(d, i) => <path class="lead in" classList={{ bus: bus("in", i()) }} d={d} />}</For>
-      <For each={g.outLeads}>{(d, i) => <path class="lead out" classList={{ high: signal(i()), bus: bus("out", i()) }} d={d} />}</For>
+      <For each={g.outLeads}>
+        {(d, i) => <path class="lead out" classList={{ high: signal(i()), bus: bus("out", i()) }} d={d} />}
+      </For>
       <Show when={g.back}>{(d) => <path class="body-line" d={d()} />}</Show>
       <path class="body" d={g.body} />
       <Show when={g.bubble}>{(b) => <circle class="bubble" cx={b().cx} cy={b().cy} r={b().r} />}</Show>
@@ -93,37 +98,40 @@ function Gate(props: { node: Node }) {
 
 // A knife switch: the lever lifts open when off and closes onto its contact
 // when on.
-function KnifeSwitch(props: { name: string; on: boolean; width: number; height: number }) {
-  const y = props.height / 2;
+function KnifeSwitch(props: { name: string; on: boolean; width: number; height: number }): JSX.Element {
+  const y = (): number => props.height / 2;
   return (
     <>
       <rect class="panel" x={0.35} y={0.35} width={props.width - 0.7} height={props.height - 0.7} rx={0.25} />
       <text classList={{ "terminal-label": true, small: props.name.length > 1 }} x={2} y={props.height - 0.78}>
         {props.name}
       </text>
-      <path class="lead out" classList={{ high: props.on }} d={`M 3 ${y} H ${props.width}`} />
-      <circle class="contact" cx={3} cy={y} r={0.2} />
-      <line class="lever" x1={1.05} y1={y} x2={2.95} y2={y} />
-      <circle class="pivot" cx={1.05} cy={y} r={0.24} />
+      <path class="lead out" classList={{ high: props.on }} d={`M 3 ${y()} H ${props.width}`} />
+      <circle class="contact" cx={3} cy={y()} r={0.2} />
+      <line class="lever" x1={1.05} y1={y()} x2={2.95} y2={y()} />
+      <circle class="pivot" cx={1.05} cy={y()} r={0.24} />
     </>
   );
 }
 
 // A lamp: the schematic bulb, a circle with a cross, lit when on.
-function Lamp(props: { name: string; width: number; height: number }) {
-  const x = props.width / 2 + 0.2;
-  const y = props.height / 2;
+function Lamp(props: { name: string; width: number; height: number }): JSX.Element {
+  const x = (): number => props.width / 2 + 0.2;
+  const y = (): number => props.height / 2;
   const r = 0.75;
   const d = r * 0.7;
   return (
     <>
       <rect class="panel" x={0.35} y={0.35} width={props.width - 0.7} height={props.height - 0.7} rx={0.25} />
-      <text class="terminal-label small" x={x} y={props.height - 0.72}>
+      <text class="terminal-label small" x={x()} y={props.height - 0.72}>
         {props.name}
       </text>
-      <path class="lead in" d={`M 0 ${y} H ${x - r}`} />
-      <circle class="bulb" cx={x} cy={y} r={r} />
-      <path class="filament" d={`M ${x - d} ${y - d} L ${x + d} ${y + d} M ${x + d} ${y - d} L ${x - d} ${y + d}`} />
+      <path class="lead in" d={`M 0 ${y()} H ${x() - r}`} />
+      <circle class="bulb" cx={x()} cy={y()} r={r} />
+      <path
+        class="filament"
+        d={`M ${x() - d} ${y() - d} L ${x() + d} ${y() + d} M ${x() + d} ${y() - d} L ${x() - d} ${y() + d}`}
+      />
     </>
   );
 }
@@ -131,12 +139,13 @@ function Lamp(props: { name: string; width: number; height: number }) {
 // A bus terminal: a row of bit switches (an input) or lamps (an output), high
 // bit first, with the value they make as a number after them. An input's
 // value is its switches; an output shows the value on its wire.
-function BitRow(props: { node: Node }) {
-  const { width: bits, type } = props.node;
-  const { width, height } = props.node.rect;
+function BitRow(props: { node: Node }): JSX.Element {
+  // A terminal keeps its width, type and size, so they're read once.
+  const { width: bits, type } = untrack(() => props.node);
+  const { width, height } = untrack(() => props.node.rect);
   const y = height / 2;
   const isInput = type === "INPUT";
-  const value = () => {
+  const value = (): number => {
     current();
     return isInput ? (props.node.signals[0] ?? 0) : (edgeInto(current(), props.node.id, 0)?.value ?? 0);
   };
@@ -147,13 +156,25 @@ function BitRow(props: { node: Node }) {
       <text class="terminal-label small" x={1 + bits / 2} y={height - 0.72}>
         {props.node.label}
       </text>
-      <path class={`lead bus ${isInput ? "out" : "in"}`} classList={{ high: value() !== 0 }} d={isInput ? `M ${width - 1} ${y} H ${width}` : `M 0 ${y} H 1`} />
+      <path
+        class={`lead bus ${isInput ? "out" : "in"}`}
+        classList={{ high: value() !== 0 }}
+        d={isInput ? `M ${width - 1} ${y} H ${width}` : `M 0 ${y} H 1`}
+      />
       <For each={Array.from({ length: bits }, (_, i) => bits - 1 - i)}>
         {(bit) => {
-          const on = () => ((value() >> bit) & 1) === 1;
+          const on = (): boolean => ((value() >> bit) & 1) === 1;
           const x = bitCell(bits, bit) + 0.5;
           return isInput ? (
-            <rect class="bit switch" classList={{ high: on() }} x={x - 0.36} y={y - 0.36} width={0.72} height={0.72} rx={0.12} />
+            <rect
+              class="bit switch"
+              classList={{ high: on() }}
+              x={x - 0.36}
+              y={y - 0.36}
+              width={0.72}
+              height={0.72}
+              rx={0.12}
+            />
           ) : (
             <circle class="bit lamp" classList={{ high: on() }} cx={x} cy={y} r={0.36} />
           );

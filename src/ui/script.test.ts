@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
-import { LEVELS } from "../sim/level";
+import { LEVELS, type Level } from "../sim/level";
 import { help, intro, solved } from "./script";
 
-const level = (gate: string) => LEVELS.find((l) => l.gate === gate)!;
-const endOfFloor = (gate: string) => solved(level(gate)).some((line) => line.text.includes("more floors"));
+const level = (gate: string): Level => LEVELS.find((l) => l.gate === gate)!;
+const endOfFloor = (gate: string): boolean => solved(level(gate)).some((line) => line.text.includes("more floors"));
 
 test("the end-of-floor lines play when DEMUX is solved, and only then", () => {
   expect(endOfFloor("DEMUX")).toBe(true);

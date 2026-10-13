@@ -77,14 +77,18 @@ export function localSetting(key = "abstract.sound"): SoundSetting {
 
 // A sound that plays through the voice only while the setting is on.
 export function switchedSound(voice: Sound, setting: SoundSetting): Sound {
-  return { play: (cue, pitch) => setting.on() && voice.play(cue, pitch) };
+  return {
+    play: (cue, pitch) => {
+      if (setting.on()) voice.play(cue, pitch);
+    },
+  };
 }
 
 // Bitbox's typewriter: a key for each letter or digit, its pitch moving a
 // little from letter to letter so a line doesn't drone. Spaces and
 // punctuation are silent.
 export function typeLetter(sound: Sound, char: string): void {
-  if (!/[\p{L}\p{N}]/u.test(char)) return;
-  const code = char.toLowerCase().codePointAt(0)!;
+  const code = char.toLowerCase().codePointAt(0);
+  if (code === undefined || !/[\p{L}\p{N}]/u.test(char)) return;
   sound.play("key", (((code * 7) % 5) - 2) / 2);
 }

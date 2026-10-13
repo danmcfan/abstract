@@ -1,36 +1,47 @@
-import { Show, createEffect, createSignal, onCleanup, onMount } from "solid-js";
+import { Show, createEffect, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 import type { Expression } from "../robot/expression";
 import type { RobotStage, Shot } from "../robot/stage";
 
 // A little window with the robot in it, live in 3D. Three.js loads the first
 // time one opens; until then, or without WebGL, it shows the robot's sketch
 // from the vision board.
-export function RobotScreen(props: { expression: Expression; talking?: boolean; shot?: Shot; class?: string }) {
-  let host!: HTMLDivElement;
+export function RobotScreen(props: {
+  expression: Expression;
+  talking?: boolean;
+  shot?: Shot;
+  class?: string;
+}): JSX.Element {
+  let host: HTMLDivElement | undefined;
   const [stage, setStage] = createSignal<RobotStage>();
   let gone = false;
 
   onMount(() => {
     import("../robot/stage")
       .then(({ robotStage }) => {
-        if (gone) return;
+        if (gone || host === undefined) return null;
         const s = robotStage();
         s.mount(host, props.shot);
         setStage(s);
+        return s;
       })
       .catch(() => {});
   });
   createEffect(() => stage()?.express(props.expression));
-  createEffect(() => stage()?.talk(!!props.talking));
+  createEffect(() => stage()?.talk(props.talking === true));
   onCleanup(() => {
     gone = true;
-    stage()?.unmount(host);
+    if (host !== undefined) stage()?.unmount(host);
   });
 
   return (
     <div class={`relative overflow-hidden ${props.class ?? ""}`}>
       {/* The stage's canvas goes in here, apart from anything Solid manages. */}
-      <div ref={host} class="absolute inset-0" />
+      <div
+        ref={(el) => {
+          host = el;
+        }}
+        class="absolute inset-0"
+      />
       <Show when={!stage()}>
         <Sketch />
       </Show>
@@ -39,9 +50,18 @@ export function RobotScreen(props: { expression: Expression; talking?: boolean; 
 }
 
 // Concept B, the crate, as drawn on the vision board.
-function Sketch() {
+function Sketch(): JSX.Element {
   return (
-    <svg viewBox="20 0 160 240" class="absolute inset-0 m-auto h-[88%]" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <svg
+      viewBox="20 0 160 240"
+      class="absolute inset-0 m-auto h-[88%]"
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="3"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    >
       <g class="text-ink" fill="var(--color-surface)">
         <rect x="48" y="196" width="104" height="30" rx="15" />
         <circle cx="66" cy="211" r="8" />

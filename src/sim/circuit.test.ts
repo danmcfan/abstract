@@ -1,18 +1,32 @@
 import { describe, expect, test } from "bun:test";
-import { edgeInto, moveNode, newGame, pinPosition, placeNode, removeNode, setInput, unwire, wire, type Game, type Pin } from "./circuit";
+import {
+  edgeInto,
+  moveNode,
+  newGame,
+  pinPosition,
+  placeNode,
+  removeNode,
+  setInput,
+  unwire,
+  wire,
+  type Game,
+  type Pin,
+} from "./circuit";
 import { DEFAULT_GRID, overlaps } from "./grid";
-// Defines the parts levels give, such as MUX.
-import "./level";
-import type { NodeID, NodeType } from "./node";
+import { LEVELS } from "./level";
+import { definePart, type NodeID, type NodeType } from "./node";
 
 const out = (node: NodeID): Pin => ({ node, side: "out", index: 0 });
 const inp = (node: NodeID, index = 0): Pin => ({ node, side: "in", index });
+
+// The parts levels give, such as MUX.
+for (const level of LEVELS) definePart(level.gate, level);
 
 function add(game: Game, type: NodeType, x: number, y: number): NodeID {
   return placeNode(game, type, { x, y })!.id;
 }
 
-const high = (game: Game, id: NodeID) => game.nodes.get(id)!.isHigh;
+const high = (game: Game, id: NodeID): boolean => game.nodes.get(id)!.isHigh;
 
 describe("placeNode", () => {
   test("snaps the node onto the grid", () => {

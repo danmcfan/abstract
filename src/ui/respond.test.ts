@@ -10,7 +10,7 @@ const forbidden: CheckResult = { rows: [], forbidden: ["NOT"], hidden: { checked
 
 // Responds to a run of results in order, keeping story flags the way the
 // tutorial does.
-function play(results: CheckResult[]) {
+function play(results: CheckResult[]): ReturnType<typeof respond>[] {
   const flags = new Set<string>();
   return results.map((r) => {
     const response = respond(r, NOT, (flag) => flags.has(flag));
@@ -40,6 +40,9 @@ describe("Bitbox's response to a test run", () => {
   });
 
   test("a forbidden part gets its line every time", () => {
-    expect(play([forbidden, forbidden])).toEqual([{ say: script.forbidden(["NOT"]) }, { say: script.forbidden(["NOT"]) }]);
+    expect(play([forbidden, forbidden])).toEqual([
+      { say: script.forbidden(["NOT"]) },
+      { say: script.forbidden(["NOT"]) },
+    ]);
   });
 });

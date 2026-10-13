@@ -1,15 +1,16 @@
 import { describe, expect, test } from "bun:test";
 import { moveNode, placeNode, setInput, wire, type Game, type Pin } from "./circuit";
-import type { NodeID, NodeType } from "./node";
-import { memorySave, type SaveData } from "./save";
+import type { Node, NodeID, NodeType } from "./node";
+import type { Rect } from "./grid";
+import { memorySave, type SaveData, type SaveStore } from "./save";
 import { Session } from "./session";
 
 const out = (node: NodeID): Pin => ({ node, side: "out", index: 0 });
 const inp = (node: NodeID, index = 0): Pin => ({ node, side: "in", index });
-const find = (game: Game, type: NodeType) => [...game.nodes.values()].find((n) => n.type === type)!.id;
+const find = (game: Game, type: NodeType): NodeID => [...game.nodes.values()].find((n) => n.type === type)!.id;
 
 // Wires the NOT level with a single gate of the given type, both inputs from A.
-function buildNot(game: Game, type: NodeType = "NAND") {
+function buildNot(game: Game, type: NodeType = "NAND"): void {
   const a = find(game, "INPUT");
   const g = placeNode(game, type, { x: 20, y: 10 })!.id;
   wire(game, out(a), inp(g, 0));
@@ -17,7 +18,7 @@ function buildNot(game: Game, type: NodeType = "NAND") {
   wire(game, out(g), inp(find(game, "OUTPUT")));
 }
 
-function runAll(session: Session) {
+function runAll(session: Session): void {
   session.beginTest();
   while (session.step());
 }
@@ -26,12 +27,14 @@ const NOT_LEVEL = 1;
 const saved = (solved: number, levelIndex = solved): SaveData => ({ solved, levelIndex, boards: {}, flags: [] });
 
 // A session on the NOT level, with the NAND level already solved.
-function fresh(solved = 1) {
+function fresh(solved = 1): { session: Session; store: SaveStore } {
   const store = memorySave(saved(solved));
   const session = new Session(store);
   session.start(NOT_LEVEL);
   return { session, store };
 }
+
+const rect = (x: number, y: number, width = 4): Rect => ({ x, y, width, height: 4 });
 
 describe("session", () => {
   test("stepping reports each row's actual output", () => {
@@ -133,7 +136,9 @@ describe("session", () => {
     const { session, store } = fresh();
     buildNot(session.game);
     runAll(session);
-    session.edit((game) => placeNode(game, "NAND", { x: 30, y: 20 }));
+    session.edit((game) => {
+      placeNode(game, "NAND", { x: 30, y: 20 });
+    });
     expect(session.stamped).toBe(false);
     expect(session.result?.passed).toBe(true);
     expect(store.load()?.boards.NOT?.nodes.length).toBe(4);
@@ -145,10 +150,16 @@ describe("session", () => {
     runAll(session);
     const nand = find(session.game, "NAND");
     const a = find(session.game, "INPUT");
-    session.edit((game) => setInput(game, nand, 1));
-    session.edit((game) => wire(game, out(nand), out(a)));
+    session.edit((game) => {
+      setInput(game, nand, 1);
+    });
+    session.edit((game) => {
+      wire(game, out(nand), out(a));
+    });
     const onA = session.game.nodes.get(a)!.rect;
-    session.edit((game) => moveNode(game, nand, onA.x, onA.y));
+    session.edit((game) => {
+      moveNode(game, nand, onA.x, onA.y);
+    });
     expect(session.stamped).toBe(true);
   });
 
@@ -210,7 +221,6 @@ describe("saved games", () => {
   test("a save from before levels named their terminals resumes with its board intact", () => {
     // The AND level, part built: A and B into a NAND, written when inputs
     // were ALPHA and BETA, the output had no name, and nodes had no signals.
-    const rect = (x: number, y: number, width = 4) => ({ x, y, width, height: 4 });
     const old = {
       solved: 2,
       levelIndex: 2,
@@ -268,7 +278,9 @@ describe("saved games", () => {
   });
 
   test("a board that doesn't look like a board is dropped, keeping the rest of the save", () => {
-    const session = new Session(memorySave({ solved: 2, levelIndex: 1, boards: { NOT: 7, AND: { nodes: "x" } }, flags: [] }));
+    const session = new Session(
+      memorySave({ solved: 2, levelIndex: 1, boards: { NOT: 7, AND: { nodes: "x" } }, flags: [] }),
+    );
     session.resume();
     expect(session.levelIndex).toBe(1);
     expect(session.solved).toBe(2);
@@ -328,7 +340,8 @@ describe("one board per level", () => {
     session.place("SPLIT", 4);
     setInput(session.game, find(session.game, "INPUT"), 1);
     session.save();
-    const board = () => [...session.game.nodes.values()].map(({ type, width, signals }) => ({ type, width, signals }));
+    const board = (): Pick<Node, "type" | "width" | "signals">[] =>
+      [...session.game.nodes.values()].map(({ type, width, signals }) => ({ type, width, signals }));
     const before = board();
     const grid = { ...session.game.grid };
     expect(before.find((n) => n.type === "SPLIT")?.width).toBe(4);

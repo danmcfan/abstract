@@ -8,7 +8,7 @@ import { silent, type Sound } from "./sound";
 // it; nothing is editable while locked. Flipping a switch, drawing a wire
 // and connecting it play their sound cues.
 
-export interface Point {
+interface Point {
   x: number;
   y: number;
 }
@@ -34,7 +34,7 @@ export interface GestureHost {
   sound?: Sound;
 }
 
-export function nodeAt(game: Game, x: number, y: number): NodeID | null {
+function nodeAt(game: Game, x: number, y: number): NodeID | null {
   for (const node of game.nodes.values()) if (contains(node.rect, x, y)) return node.id;
   return null;
 }
@@ -46,16 +46,24 @@ export function createGestures(host: GestureHost): Gestures {
   let drag: { id: NodeID; offsetX: number; offsetY: number; moved: boolean } | null = null;
   const sound = host.sound ?? silent;
 
-  const hover = (p: Point) => {
+  const hover = (p: Point): void => {
     hoveredPin = pinAt(host.game(), p.x, p.y);
     hoveredNode = hoveredPin ? null : nodeAt(host.game(), p.x, p.y);
   };
 
   return {
-    get hoveredPin() { return hoveredPin; },
-    get hoveredNode() { return hoveredNode; },
-    get preview() { return preview; },
-    get dragging() { return drag !== null; },
+    get hoveredPin() {
+      return hoveredPin;
+    },
+    get hoveredNode() {
+      return hoveredNode;
+    },
+    get preview() {
+      return preview;
+    },
+    get dragging() {
+      return drag !== null;
+    },
 
     down(p, button) {
       hover(p);
@@ -114,9 +122,17 @@ export function createGestures(host: GestureHost): Gestures {
       hover(p);
       if (host.locked()) return;
       const pin = hoveredPin;
-      if (pin?.side === "in") return host.edit((g) => unwire(g, pin));
+      if (pin?.side === "in") {
+        host.edit((g) => {
+          unwire(g, pin);
+        });
+        return;
+      }
       const node = host.game().nodes.get(nodeAt(host.game(), p.x, p.y) ?? -1);
-      if (node && node.type !== "INPUT" && node.type !== "OUTPUT") host.edit((g) => removeNode(g, node.id));
+      if (node && node.type !== "INPUT" && node.type !== "OUTPUT")
+        host.edit((g) => {
+          removeNode(g, node.id);
+        });
     },
   };
 }

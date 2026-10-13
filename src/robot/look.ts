@@ -27,7 +27,7 @@ const BANDS: [from: number, tone: number][] = [
   [0.06, 0.55],
   [0.42, 1],
 ];
-const tones = (() => {
+const tones = ((): THREE.DataTexture => {
   const size = 64;
   const data = new Uint8Array(size);
   for (let i = 0; i < size; i++) {
@@ -55,7 +55,11 @@ export const ink = new THREE.MeshBasicMaterial({ color: PALETTE.ink, side: THREE
 // A mesh with an inked outline: a copy fattened along its normals by
 // outline units, drawn inside out. Small parts take thinner lines. Normals
 // are welded first so hard edges don't split the outline.
-export function inked(geometry: THREE.BufferGeometry, material: THREE.Material | THREE.Material[], outline = 0.02): THREE.Mesh {
+export function inked(
+  geometry: THREE.BufferGeometry,
+  material: THREE.Material | THREE.Material[],
+  outline = 0.02,
+): THREE.Mesh {
   const mesh = new THREE.Mesh(geometry, material);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
@@ -78,11 +82,11 @@ export function inked(geometry: THREE.BufferGeometry, material: THREE.Material |
 }
 
 // A soft additive glow sprite, standing in for bloom.
-const haloTexture = (() => {
+const haloTexture = ((): THREE.CanvasTexture => {
   const size = 64;
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = size;
-  const g = canvas.getContext("2d")!;
+  const g = context2d(canvas);
   const gradient = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
   gradient.addColorStop(0, "rgba(255,255,255,1)");
   gradient.addColorStop(0.25, "rgba(255,255,255,0.45)");
@@ -107,22 +111,36 @@ export function halo(size: number, color: THREE.ColorRepresentation = PALETTE.gl
   return sprite;
 }
 
+function context2d(canvas: HTMLCanvasElement): CanvasRenderingContext2D {
+  const g = canvas.getContext("2d");
+  if (g === null) throw new Error("No 2D canvas context available");
+  return g;
+}
+
+export interface CanvasTexture {
+  texture: THREE.CanvasTexture;
+  context: CanvasRenderingContext2D;
+  redraw: () => void;
+}
+
 // A canvas the size of a sign or screen, redrawn by the caller.
-export function canvasTexture(width: number, height: number, draw: (g: CanvasRenderingContext2D) => void) {
+export function canvasTexture(
+  width: number,
+  height: number,
+  draw: (g: CanvasRenderingContext2D) => void,
+): CanvasTexture {
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
-  const g = canvas.getContext("2d")!;
+  const g = context2d(canvas);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = 4;
-  const redraw = () => {
+  const redraw = (): void => {
     g.clearRect(0, 0, width, height);
     draw(g);
     texture.needsUpdate = true;
   };
   redraw();
-  return { texture, redraw };
+  return { texture, context: g, redraw };
 }
-
-export const MONO = '"Courier Prime", "Courier New", Courier, monospace';

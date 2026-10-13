@@ -15,7 +15,9 @@ function segments(game: Game, routing: Routing): { net: string; key: string }[] 
     const net = `${edge.from}:${edge.fromIndex}`;
     for (let i = 1; i < route.points.length; i++) {
       for (const [a, b] of unitSteps(route.points[i - 1]!, route.points[i]!)) {
-        const [p, q] = [`${a.x},${a.y}`, `${b.x},${b.y}`].sort();
+        const ends = [`${a.x},${a.y}`, `${b.x},${b.y}`];
+        ends.sort();
+        const [p, q] = ends;
         result.push({ net, key: `${p}-${q}` });
       }
     }
@@ -27,7 +29,7 @@ function unitSteps(a: Point, b: Point): [Point, Point][] {
   const steps: [Point, Point][] = [];
   const dx = Math.sign(b.x - a.x);
   const dy = Math.sign(b.y - a.y);
-  for (let p = a; p.x !== b.x || p.y !== b.y; ) {
+  for (let p = a; p.x !== b.x || p.y !== b.y;) {
     const q = { x: p.x + dx, y: p.y + dy };
     steps.push([p, q]);
     p = q;
@@ -36,7 +38,7 @@ function unitSteps(a: Point, b: Point): [Point, Point][] {
 }
 
 // Two inputs on the left, two gates whose wires have to cross.
-function crossingCircuit() {
+function crossingCircuit(): Game {
   const game = newGame();
   const a = placeNode(game, "INPUT", { x: 4, y: 10 })!.id;
   const b = placeNode(game, "INPUT", { x: 4, y: 30 })!.id;
@@ -102,23 +104,23 @@ describe("routeWires", () => {
   });
 });
 
-describe("createRouter", () => {
-  function circuit() {
-    const game = newGame();
-    const a = placeNode(game, "INPUT", { x: 4, y: 20 })!.id;
-    const g = placeNode(game, "NAND", { x: 25, y: 20 })!.id;
-    wire(game, out(a), inp(g, 0));
-    wire(game, out(a), inp(g, 1));
-    return { game, a, g };
-  }
+function fanOutCircuit(): { game: Game; a: NodeID; g: NodeID } {
+  const game = newGame();
+  const a = placeNode(game, "INPUT", { x: 4, y: 20 })!.id;
+  const g = placeNode(game, "NAND", { x: 25, y: 20 })!.id;
+  wire(game, out(a), inp(g, 0));
+  wire(game, out(a), inp(g, 1));
+  return { game, a, g };
+}
 
+describe("createRouter", () => {
   test("junctions report the driving pin", () => {
-    const { game, a } = circuit();
+    const { game, a } = fanOutCircuit();
     expect(routeWires(game).junctions.map((j) => j.source)).toEqual([out(a)]);
   });
 
   test("changing signals does not reroute", () => {
-    const { game, a } = circuit();
+    const { game, a } = fanOutCircuit();
     const route = createRouter();
     const key = layoutKey(game);
     const first = route(game);
@@ -128,7 +130,7 @@ describe("createRouter", () => {
   });
 
   test("moving a node reroutes", () => {
-    const { game, g } = circuit();
+    const { game, g } = fanOutCircuit();
     const route = createRouter();
     const first = route(game);
     const { x, y } = game.nodes.get(g)!.rect;
@@ -137,7 +139,7 @@ describe("createRouter", () => {
   });
 
   test("wiring reroutes", () => {
-    const { game, a } = circuit();
+    const { game, a } = fanOutCircuit();
     const route = createRouter();
     const first = route(game);
     const o = placeNode(game, "OUTPUT", { x: 40, y: 10 })!.id;

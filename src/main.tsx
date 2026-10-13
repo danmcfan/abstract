@@ -1,9 +1,8 @@
-import { Show, createSignal } from "solid-js";
+import { Show, createSignal, type JSX } from "solid-js";
 import { render } from "solid-js/web";
 import { pinPosition, type Pin } from "./sim/circuit";
 import { LEVELS } from "./sim/level";
-import type { NodeID } from "./sim/node";
-import "./styles.css";
+import type { Node, NodeID } from "./sim/node";
 import { Board, toScreen } from "./ui/Board";
 import { DesktopNotice } from "./ui/DesktopNotice";
 import { noticeDismissal, watchSmallTouch } from "./ui/device";
@@ -27,36 +26,39 @@ if (jump) startLevel(requested);
 // the title, which it returns to. Arriving from the floor below, it names
 // the layer the elevator rides up to.
 interface StackView {
-  arrive?: number;
+  arrive?: number | undefined;
 }
 
-function App() {
+function App(): JSX.Element {
   const smallTouch = watchSmallTouch((query) => window.matchMedia(query));
   const notice = noticeDismissal(() => localStorage);
   const [screen, setScreen] = createSignal<"title" | "play">(jump ? "play" : "title");
   const [stack, setStack] = createSignal<StackView | null>(null);
-  const play = (begin: () => void) => {
+  const play = (begin: () => void): void => {
     begin();
     setScreen("play");
   };
-  const menu = () => {
+  const menu = (): void => {
     hush();
     setScreen("title");
   };
-  const openStack = (arrive?: number) => {
+  const openStack = (arrive?: number): void => {
     hush();
     setStack({ arrive });
-    if (arrive) once(`floor:${arrive}`, () => say(script.floor(arrive)));
+    if (arrive !== undefined && arrive !== 0)
+      once(`floor:${arrive}`, () => {
+        say(script.floor(arrive));
+      });
   };
   // Picking the level already on the board leaves it alone, test result
   // and all.
-  const pick = (index: number) => {
+  const pick = (index: number): void => {
     hush();
     setStack(null);
     if (index !== levelIndex()) startLevel(index);
     setScreen("play");
   };
-  const closeStack = () => {
+  const closeStack = (): void => {
     hush();
     setStack(null);
   };
@@ -65,17 +67,19 @@ function App() {
     <Show when={!smallTouch() || notice.dismissed()} fallback={<DesktopNotice onContinue={notice.dismiss} />}>
       <Show when={screen() === "title" && !stack()}>
         <Title
-          onContinue={() =>
+          onContinue={() => {
             play(() => {
               continueGame();
               if (hasFlag(`intro:${level().gate}`)) say(script.welcomeBack(level()));
-            })
-          }
+            });
+          }}
           onStack={() => {
             continueGame();
             openStack();
           }}
-          onNew={() => play(newGame)}
+          onNew={() => {
+            play(newGame);
+          }}
         />
       </Show>
       <Show when={screen() === "play"}>
@@ -91,7 +95,7 @@ function App() {
   );
 }
 
-function Play(props: { onMenu: () => void; onStack: (arrive?: number) => void }) {
+function Play(props: { onMenu: () => void; onStack: (arrive?: number) => void }): JSX.Element {
   useTutorial();
   return (
     <>
@@ -105,6 +109,12 @@ listenForFirstGesture();
 render(() => <App />, document.body);
 
 // A dev-only hook so automated play-tests can find things on screen.
+function node(id: NodeID): Node {
+  const found = current().nodes.get(id);
+  if (found === undefined) throw new Error(`no node ${id} on the board`);
+  return found;
+}
+
 if (import.meta.env.DEV) {
   Object.assign(window, {
     __abstract: {
@@ -120,12 +130,12 @@ if (import.meta.env.DEV) {
       },
       nodes: () => [...current().nodes.values()].map(({ id, type, label, isHigh }) => ({ id, type, label, isHigh })),
       pinScreen: (id: NodeID, side: Pin["side"], index = 0) => {
-        const p = pinPosition(current().nodes.get(id)!, side, index);
+        const p = pinPosition(node(id), side, index);
         return toScreen(p.x, p.y);
       },
       boardScreen: (x: number, y: number) => toScreen(x, y),
       nodeScreen: (id: NodeID) => {
-        const { x, y, width, height } = current().nodes.get(id)!.rect;
+        const { x, y, width, height } = node(id).rect;
         return toScreen(x + width / 2, y + height / 2);
       },
     },

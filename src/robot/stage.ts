@@ -63,7 +63,7 @@ function createStage(): RobotStage {
   let frame = 0;
   let host: HTMLElement | null = null;
 
-  const resize = () => {
+  const resize = (): void => {
     if (!host) return;
     const { width, height } = host.getBoundingClientRect();
     if (width === 0 || height === 0) return;
@@ -75,7 +75,7 @@ function createStage(): RobotStage {
   };
   const observer = new ResizeObserver(resize);
 
-  const draw = (now: number) => {
+  const draw = (now: number): void => {
     // Reduced motion holds each clip on one early frame.
     const t = still ? 0.6 : (now - since) / 1000;
     const target = pose(expression, t);
@@ -85,7 +85,7 @@ function createStage(): RobotStage {
     robot.refreshFace();
     renderer.render(scene, camera);
   };
-  const loop = (now: number) => {
+  const loop = (now: number): void => {
     draw(now);
     frame = requestAnimationFrame(loop);
   };
@@ -97,7 +97,7 @@ function createStage(): RobotStage {
       if (host === container) return;
       if (host) observer.unobserve(host);
       host = container;
-      container.appendChild(canvas);
+      container.append(canvas);
       observer.observe(container);
       resize();
       cancelAnimationFrame(frame);

@@ -46,31 +46,40 @@ export function listenForFirstGesture(): void {
 
 // A burst of filtered noise: clicks, thuds, scratches.
 function burst(at: number, length: number, gain: number, type: BiquadFilterType, frequency: number, q = 1): void {
-  const source = ctx!.createBufferSource();
+  if (ctx === null || master === null) return;
+  const source = ctx.createBufferSource();
   source.buffer = noise;
-  const filter = ctx!.createBiquadFilter();
+  const filter = ctx.createBiquadFilter();
   filter.type = type;
   filter.frequency.value = frequency;
   filter.Q.value = q;
-  const env = ctx!.createGain();
+  const env = ctx.createGain();
   env.gain.setValueAtTime(gain, at);
   env.gain.exponentialRampToValueAtTime(0.0001, at + length);
-  source.connect(filter).connect(env).connect(master!);
+  source.connect(filter).connect(env).connect(master);
   source.start(at, Math.random() * 0.5);
   source.stop(at + length + 0.02);
 }
 
 // A tone that strikes and dies away.
-function tone(at: number, length: number, gain: number, frequency: number, type: OscillatorType = "sine", endFrequency = frequency): void {
-  const osc = ctx!.createOscillator();
+function tone(
+  at: number,
+  length: number,
+  gain: number,
+  frequency: number,
+  type: OscillatorType = "sine",
+  endFrequency = frequency,
+): void {
+  if (ctx === null || master === null) return;
+  const osc = ctx.createOscillator();
   osc.type = type;
   osc.frequency.setValueAtTime(frequency, at);
   if (endFrequency !== frequency) osc.frequency.exponentialRampToValueAtTime(endFrequency, at + length);
-  const env = ctx!.createGain();
+  const env = ctx.createGain();
   env.gain.setValueAtTime(0.0001, at);
   env.gain.exponentialRampToValueAtTime(gain, at + 0.004);
   env.gain.exponentialRampToValueAtTime(0.0001, at + length);
-  osc.connect(env).connect(master!);
+  osc.connect(env).connect(master);
   osc.start(at);
   osc.stop(at + length + 0.02);
 }
@@ -108,8 +117,12 @@ const CUES: Record<Cue, (now: number, pitch: number) => void> = {
     burst(at, 0.09, 0.6, "lowpass", 900);
     tone(at, 0.06, 0.15, 220, "triangle");
   },
-  tick: (t) => tone(t, 0.035, 0.18, 1600, "triangle"),
-  "fail-tick": (t) => tone(t, 0.05, 0.18, 640, "triangle"),
+  tick: (t) => {
+    tone(t, 0.035, 0.18, 1600, "triangle");
+  },
+  "fail-tick": (t) => {
+    tone(t, 0.05, 0.18, 640, "triangle");
+  },
   stamp: (t) => {
     burst(t, 0.2, 0.9, "lowpass", 300);
     tone(t, 0.16, 0.5, 90, "sine", 55);
@@ -134,7 +147,7 @@ const CUES: Record<Cue, (now: number, pitch: number) => void> = {
 
 const voice: Sound = {
   play(cue, pitch = 0) {
-    if (!ctx || ctx.state !== "running") return;
+    if (ctx?.state !== "running") return;
     try {
       CUES[cue](ctx.currentTime, pitch);
     } catch {}

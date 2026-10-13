@@ -1,6 +1,18 @@
 import type { Game } from "./circuit";
 import { placeNode } from "./circuit";
-import { applyInputs, checkLevel, LEVELS, loadLevel, matches, playableCount, truthTable, type CheckResult, type Level, type Row } from "./level";
+import {
+  applyInputs,
+  checkLevel,
+  levelAt,
+  LEVELS,
+  loadLevel,
+  matches,
+  playableCount,
+  truthTable,
+  type CheckResult,
+  type Level,
+  type Row,
+} from "./level";
 import type { NodeType, Value } from "./node";
 import { loadBoard, saveBoard, type Boards, type SaveStore } from "./save";
 import { silent, type Sound } from "./sound";
@@ -12,7 +24,7 @@ import { silent, type Sound } from "./sound";
 // run plays its sound cues as it goes.
 export class Session {
   levelIndex = 0;
-  game: Game = loadLevel(LEVELS[0]!);
+  game: Game = loadLevel(levelAt(0));
   solved: number;
   // Bumped whenever a test run begins or is aborted, so a caller holding a
   // run can tell it's stale.
@@ -30,10 +42,12 @@ export class Session {
   private boards: Boards = {};
   private check: CheckResult | null = null;
 
-  constructor(
-    private store: SaveStore,
-    private sound: Sound = silent,
-  ) {
+  private readonly store: SaveStore;
+  private readonly sound: Sound;
+
+  constructor(store: SaveStore, sound: Sound = silent) {
+    this.store = store;
+    this.sound = sound;
     const data = store.load();
     this.solved = data?.solved ?? 0;
     this.boards = data?.boards ?? {};
@@ -55,7 +69,10 @@ export class Session {
   // Picks up the saved game where it left off, boards and all.
   resume(): void {
     const data = this.store.load();
-    if (!data) return this.reset();
+    if (!data) {
+      this.reset();
+      return;
+    }
     this.solved = Math.min(data.solved, LEVELS.length);
     this.flags = new Set(data.flags);
     this.boards = data.boards;
@@ -92,7 +109,7 @@ export class Session {
   }
 
   get level(): Level {
-    return LEVELS[this.levelIndex]!;
+    return levelAt(this.levelIndex);
   }
 
   // The rows the level panel shows: the truth table, then any rows the last
@@ -108,7 +125,7 @@ export class Session {
   // Opens a level on the board the player left there, or a fresh one if
   // they've never been, aborting any test run without recording a result.
   start(index: number): void {
-    const level = LEVELS[index]!;
+    const level = levelAt(index);
     const board = this.boards[level.gate];
     this.levelIndex = index;
     this.load(board ? loadBoard(board) : loadLevel(level));
@@ -174,7 +191,7 @@ export class Session {
     this.check = null;
     this.currentRow = null;
     this.result = check;
-    this.rowResults = [...this.rowResults, ...check.hidden.failed.map((row) => row.actual)];
+    this.rowResults = [...this.rowResults, ...check.hidden.failed.map((failed) => failed.actual)];
     this.stamped = check.passed;
     if (check.passed) {
       this.sound.play("stamp");

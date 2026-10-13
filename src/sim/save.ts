@@ -1,7 +1,7 @@
 import type { Edge, Game } from "./circuit";
 import { DEFAULT_GRID, type Size } from "./grid";
 import { LEVELS } from "./level";
-import { outputCount, type Label, type Node, type NodeType } from "./node";
+import { isNodeType, outputCount, type Label, type Node, type NodeType, type Value } from "./node";
 
 // A saved game: how far the player has got, the level they're on, the board
 // they left on each level, and story flags (such as which robot lines
@@ -51,7 +51,7 @@ export function localSave(key = "abstract.save"): SaveStore {
     load: () => {
       try {
         const raw = localStorage.getItem(key);
-        if (raw) return parseSave(JSON.parse(raw));
+        if (raw !== null && raw !== "") return parseSave(JSON.parse(raw));
         const legacy = Number(localStorage.getItem(LEGACY_KEY));
         return legacy > 0 ? { solved: legacy + 1, levelIndex: legacy + 1, boards: {}, flags: [] } : null;
       } catch {
@@ -74,8 +74,8 @@ export function localSave(key = "abstract.save"): SaveStore {
 
 export function saveBoard(game: Game): SavedBoard {
   return {
-    nodes: [...game.nodes.values()].map((node) => ({ ...node, rect: { ...node.rect } })),
-    edges: [...game.edges.values()].map((edge) => ({ ...edge })),
+    nodes: [...game.nodes.values()].map((node) => Object.assign({}, node, { rect: { ...node.rect } })),
+    edges: [...game.edges.values()].map((edge) => Object.assign({}, edge)),
     nextNodeID: game.nextNodeID,
     nextEdgeID: game.nextEdgeID,
     grid: { ...game.grid },
@@ -88,7 +88,11 @@ export function saveBoard(game: Game): SavedBoard {
 // isHigh rather than a value.
 const LEGACY_LABELS: Record<string, Label> = { ALPHA: "A", BETA: "B", NONE: "" };
 
-function upgradeNode(node: Node): Node {
+// A node or wire as an older save may hold it.
+type OldNode = Omit<Node, "width"> & { width?: number };
+type OldEdge = Omit<Edge, "value"> & { value?: Value; isHigh?: boolean };
+
+function upgradeNode(node: OldNode): Node {
   let label = LEGACY_LABELS[node.label] ?? node.label;
   if (node.type === "OUTPUT" && label === "") label = "OUT";
   const signals = Array.isArray(node.signals)
@@ -97,7 +101,7 @@ function upgradeNode(node: Node): Node {
   return { ...node, label, signals, width: node.width ?? 1, rect: { ...node.rect } };
 }
 
-function upgradeEdge(edge: Edge & { isHigh?: boolean }): Edge {
+function upgradeEdge(edge: OldEdge): Edge {
   const { isHigh, ...rest } = edge;
   return { ...rest, value: edge.value ?? Number(isHigh ?? false) };
 }
@@ -112,22 +116,31 @@ export function loadBoard(board: SavedBoard): Game {
   };
 }
 
-const isBoard = (board: unknown): board is SavedBoard =>
-  typeof board === "object" && board !== null && Array.isArray((board as SavedBoard).nodes) && Array.isArray((board as SavedBoard).edges);
+// Only the arrays are checked; the rest of a board is trusted as saved.
+function isBoard(board: unknown): board is SavedBoard {
+  return (
+    typeof board === "object" &&
+    board !== null &&
+    "nodes" in board &&
+    Array.isArray(board.nodes) &&
+    "edges" in board &&
+    Array.isArray(board.edges)
+  );
+}
 
 // Anything that doesn't look like a save reads as no save, and a board that
 // doesn't look like a board is dropped. Saves from before each level kept
 // its own board held one board, for the level they were on.
 function parseSave(value: unknown): SaveData | null {
   if (typeof value !== "object" || value === null) return null;
-  const v = value as Partial<SaveData> & { board?: unknown };
+  const v: { solved?: unknown; levelIndex?: unknown; boards?: unknown; board?: unknown; flags?: unknown } = value;
   if (typeof v.solved !== "number" || typeof v.levelIndex !== "number") return null;
   const boards: Boards = {};
   if (typeof v.boards === "object" && v.boards !== null) {
-    for (const [gate, board] of Object.entries(v.boards)) if (isBoard(board)) boards[gate as NodeType] = board;
+    for (const [gate, board] of Object.entries(v.boards)) if (isNodeType(gate) && isBoard(board)) boards[gate] = board;
   }
   const legacy = LEVELS[v.levelIndex];
-  if (isBoard(v.board) && legacy) boards[legacy.gate] = v.board;
+  if (isBoard(v.board) && legacy !== undefined) boards[legacy.gate] = v.board;
   const flags = Array.isArray(v.flags) ? v.flags.filter((f) => typeof f === "string") : [];
   return { solved: v.solved, levelIndex: v.levelIndex, boards, flags };
 }

@@ -14,8 +14,8 @@ export interface Glyph {
   height: number;
   body: string;
   // A second back line, for XOR and XNOR.
-  back?: string;
-  bubble?: { cx: number; cy: number; r: number };
+  back?: string | undefined;
+  bubble?: { cx: number; cy: number; r: number } | undefined;
   // One lead per input pin, in pin order.
   inLeads: string[];
   // One lead per output pin, in pin order.
@@ -60,8 +60,7 @@ export function glyph(type: NodeType, busWidth = 1): Glyph {
       break;
     }
     case "AND":
-    case "NAND":
-    default: {
+    case "NAND": {
       const r = (BOTTOM - TOP) / 2;
       front = 3.85;
       const flat = front - r;
@@ -78,10 +77,11 @@ export function glyph(type: NodeType, busWidth = 1): Glyph {
   return { width, height, body, back, bubble, inLeads, outLeads, label, pinLabels: [] };
 }
 
-const SYMBOLS = new Set<NodeType>(["NOT", "OR", "NOR", "XOR", "XNOR", "AND", "NAND"]);
+const SYMBOLS = ["NOT", "OR", "NOR", "XOR", "XNOR", "AND", "NAND"] as const satisfies readonly NodeType[];
+type SymbolType = (typeof SYMBOLS)[number];
 
-export function hasSymbol(type: NodeType): boolean {
-  return SYMBOLS.has(type);
+function hasSymbol(type: NodeType): type is SymbolType {
+  return SYMBOLS.some((symbol) => symbol === type);
 }
 
 function box(type: NodeType, width: number, height: number): Glyph {
@@ -109,7 +109,9 @@ const BAR = { left: 1.2, right: 1.8, inset: 0.4 };
 
 function bundle(type: "SPLIT" | "JOIN", busWidth: number, width: number, height: number): Glyph {
   const bus = height / 2;
-  const bits = Array.from({ length: busWidth }, (_, i) => pinOffset(type, type === "SPLIT" ? "out" : "in", i, busWidth));
+  const bits = Array.from({ length: busWidth }, (_, i) =>
+    pinOffset(type, type === "SPLIT" ? "out" : "in", i, busWidth),
+  );
   const busLead = type === "SPLIT" ? `M 0 ${bus} H ${BAR.left}` : `M ${BAR.right} ${bus} H ${width}`;
   const bitLeads = bits.map((y) => (type === "SPLIT" ? `M ${BAR.right} ${y} H ${width}` : `M 0 ${y} H ${BAR.left}`));
   return {

@@ -7,10 +7,13 @@ const HOP_RADIUS = 0.4;
 // crossing wire.
 export function wirePath(route: Route): string {
   const points = route.points;
-  const parts = [`M ${points[0]!.x} ${points[0]!.y}`];
-  for (let i = 1; i < points.length; i++) {
-    const from = points[i - 1]!;
-    const corner = points[i]!;
+  const [start] = points;
+  if (start === undefined) throw new Error("A route needs at least one point");
+  const parts = [`M ${start.x} ${start.y}`];
+  let previous = start;
+  for (const [i, corner] of points.entries()) {
+    if (i === 0) continue;
+    const from = previous;
     const next = points[i + 1];
     const inLength = Math.hypot(corner.x - from.x, corner.y - from.y);
     const outLength = next ? Math.hypot(next.x - corner.x, next.y - corner.y) : 0;
@@ -20,23 +23,27 @@ export function wirePath(route: Route): string {
 
     // Hops along this segment, in travel order.
     if (uy === 0) {
-      const hops = route.hops
-        .filter((h) => h.y === corner.y && (h.x - from.x) * ux > 0 && (corner.x - h.x) * ux > 0)
-        .sort((a, b) => (a.x - b.x) * ux);
+      const hops = route.hops.filter((h) => h.y === corner.y && (h.x - from.x) * ux > 0 && (corner.x - h.x) * ux > 0);
+      hops.sort((a, b) => (a.x - b.x) * ux);
       for (const h of hops) {
-        parts.push(`L ${h.x - HOP_RADIUS * ux} ${h.y}`);
-        parts.push(`A ${HOP_RADIUS} ${HOP_RADIUS} 0 0 ${ux > 0 ? 1 : 0} ${h.x + HOP_RADIUS * ux} ${h.y}`);
+        parts.push(
+          `L ${h.x - HOP_RADIUS * ux} ${h.y}`,
+          `A ${HOP_RADIUS} ${HOP_RADIUS} 0 0 ${ux > 0 ? 1 : 0} ${h.x + HOP_RADIUS * ux} ${h.y}`,
+        );
       }
     }
 
     if (!next || r === 0) {
       parts.push(`L ${corner.x} ${corner.y}`);
-      continue;
+    } else {
+      const vx = Math.sign(next.x - corner.x);
+      const vy = Math.sign(next.y - corner.y);
+      parts.push(
+        `L ${corner.x - ux * r} ${corner.y - uy * r}`,
+        `Q ${corner.x} ${corner.y} ${corner.x + vx * r} ${corner.y + vy * r}`,
+      );
     }
-    const vx = Math.sign(next.x - corner.x);
-    const vy = Math.sign(next.y - corner.y);
-    parts.push(`L ${corner.x - ux * r} ${corner.y - uy * r}`);
-    parts.push(`Q ${corner.x} ${corner.y} ${corner.x + vx * r} ${corner.y + vy * r}`);
+    previous = corner;
   }
   return parts.join(" ");
 }

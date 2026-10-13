@@ -1,24 +1,38 @@
 import { expect, test } from "bun:test";
 import { SMALL_TOUCH_QUERY, noticeDismissal, watchSmallTouch } from "./device";
 
-function fakeMedia(initial: boolean) {
-  const listeners: ((event: { matches: boolean }) => void)[] = [];
+type Listener = (event: { matches: boolean }) => void;
+
+function fakeMedia(initial: boolean): {
+  matchMedia: (query: string) => MediaQueryList;
+  change: (matches: boolean) => void;
+  queries: string[];
+} {
+  const listeners: Listener[] = [];
   const queries: string[] = [];
   const list = {
     matches: initial,
-    addEventListener: (_: string, listener: (event: { matches: boolean }) => void) => void listeners.push(listener),
+    addEventListener: (_: string, listener: Listener): void => void listeners.push(listener),
   };
-  const matchMedia = (query: string) => (queries.push(query), list as unknown as MediaQueryList);
-  const change = (matches: boolean) => {
+  const matchMedia = (query: string): MediaQueryList => (queries.push(query), list as unknown as MediaQueryList);
+  const change = (matches: boolean): void => {
     list.matches = matches;
     for (const listener of listeners) listener({ matches });
   };
   return { matchMedia, change, queries };
 }
 
-function fakeStorage() {
+function fakeStorage(): {
+  getItem: (key: string) => string | null;
+  setItem: (key: string, value: string) => void;
+  items: Map<string, string>;
+} {
   const items = new Map<string, string>();
-  return { getItem: (key: string) => items.get(key) ?? null, setItem: (key: string, value: string) => void items.set(key, value), items };
+  return {
+    getItem: (key: string): string | null => items.get(key) ?? null,
+    setItem: (key: string, value: string): void => void items.set(key, value),
+    items,
+  };
 }
 
 test("small touch needs a narrow window, a coarse pointer and no hover", () => {
@@ -51,10 +65,11 @@ test("dismissal is kept apart from the save", () => {
   expect([...storage.items.keys()]).not.toContain("abstract.save");
 });
 
+function broken(): never {
+  throw new Error("blocked");
+}
+
 test("unreadable storage shows the notice and dismissing still works", () => {
-  const broken = () => {
-    throw new Error("blocked");
-  };
   const notice = noticeDismissal(broken);
   expect(notice.dismissed()).toBe(false);
   notice.dismiss();

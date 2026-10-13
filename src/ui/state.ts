@@ -14,8 +14,12 @@ const TEST_STEP_MS = 600;
 
 const session = new Session(localSave(), sound);
 const [version, setVersion] = createSignal(0);
-const touch = () => setVersion((v) => v + 1);
-const read = <T,>(get: () => T) => () => (version(), get());
+const touch = (): void => {
+  setVersion((v) => v + 1);
+};
+const read =
+  <T>(get: () => T): (() => T) =>
+  (): T => (version(), get());
 
 export function current(): Game {
   version();
@@ -28,7 +32,9 @@ export function mutate(change: (game: Game) => void): void {
 }
 
 export function placePart(type: NodeType, width = 1): void {
-  mutate(() => session.place(type, width));
+  mutate(() => {
+    session.place(type, width);
+  });
 }
 
 export const levelIndex = read(() => session.levelIndex);
@@ -67,7 +73,7 @@ export function newGame(): void {
 
 // Story flags, such as which robot lines the player has heard. Saved with
 // the game, so a new game hears them again.
-export const hasFlag = (flag: string) => (version(), session.flags.has(flag));
+export const hasFlag = (flag: string): boolean => (version(), session.flags.has(flag));
 
 export function setFlag(flag: string): void {
   session.flags.add(flag);
@@ -87,10 +93,17 @@ export async function runTest(): Promise<void> {
   if (!session.beginTest()) return;
   const run = session.run;
   touch();
-  while (session.step()) {
-    touch();
-    await new Promise((resolve) => setTimeout(resolve, TEST_STEP_MS));
-    if (session.run !== run) return;
-  }
+  if (await stepRows(run)) touch();
+}
+
+// Steps one row at a time, pausing between rows. False if another run took
+// over in the meantime.
+async function stepRows(run: number): Promise<boolean> {
+  if (!session.step()) return true;
   touch();
+  await new Promise<void>((resolve) => {
+    setTimeout(resolve, TEST_STEP_MS);
+  });
+  if (session.run !== run) return false;
+  return stepRows(run);
 }

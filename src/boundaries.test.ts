@@ -6,17 +6,27 @@ import { join } from "node:path";
 
 const root = join(import.meta.dir, "..");
 const sources = [...new Glob("src/**/*.{ts,tsx}").scanSync({ cwd: root })].filter((file) => !file.endsWith(".test.ts"));
-const contents = new Map(await Promise.all(sources.map(async (file) => [file, await Bun.file(join(root, file)).text()] as const)));
-const imports = (file: string) => [...contents.get(file)!.matchAll(/(?:from|import)\s*\(?\s*"([^"]+)"/g)].map((m) => m[1]!);
+const contents = new Map(
+  await Promise.all(sources.map(async (file) => [file, await Bun.file(join(root, file)).text()] as const)),
+);
+const imports = (file: string): string[] =>
+  [...contents.get(file)!.matchAll(/(?:from|import)\s*\(?\s*"([^"]+)"/gu)].map((m) => m[1]!);
 
 test("only src/robot/ imports Three.js", () => {
-  const offenders = sources.filter((file) => !file.startsWith("src/robot/") && imports(file).some((spec) => spec === "three" || spec.startsWith("three/")));
+  const offenders = sources.filter(
+    (file) =>
+      !file.startsWith("src/robot/") && imports(file).some((spec) => spec === "three" || spec.startsWith("three/")),
+  );
   expect(offenders).toEqual([]);
 });
 
 test("src/sim/ imports only other sim modules", () => {
   const offenders = sources
     .filter((file) => file.startsWith("src/sim/"))
-    .flatMap((file) => imports(file).filter((spec) => !spec.startsWith("./")).map((spec) => `${file}: ${spec}`));
+    .flatMap((file) =>
+      imports(file)
+        .filter((spec) => !spec.startsWith("./"))
+        .map((spec) => `${file}: ${spec}`),
+    );
   expect(offenders).toEqual([]);
 });

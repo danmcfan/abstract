@@ -18,7 +18,9 @@ type MatchMedia = (query: string) => Pick<MediaQueryList, "matches" | "addEventL
 export function watchSmallTouch(matchMedia: MatchMedia): Accessor<boolean> {
   const query = matchMedia(SMALL_TOUCH_QUERY);
   const [matches, setMatches] = createSignal(query.matches);
-  query.addEventListener("change", (event) => setMatches(event.matches));
+  query.addEventListener("change", (event) => {
+    setMatches(event.matches);
+  });
   return matches;
 }
 
@@ -28,8 +30,8 @@ type Storage = Pick<globalThis.Storage, "getItem" | "setItem">;
 // key, apart from the save, so New Game doesn't bring the notice back.
 const DISMISSED_KEY = "abstract.desktop-notice-dismissed";
 
-export function noticeDismissal(storage: () => Storage) {
-  const read = () => {
+export function noticeDismissal(storage: () => Storage): { dismissed: Accessor<boolean>; dismiss: () => void } {
+  const read = (): boolean => {
     try {
       return storage().getItem(DISMISSED_KEY) === "1";
     } catch {
@@ -37,7 +39,7 @@ export function noticeDismissal(storage: () => Storage) {
     }
   };
   const [dismissed, setDismissed] = createSignal(read());
-  const dismiss = () => {
+  const dismiss = (): void => {
     setDismissed(true);
     try {
       storage().setItem(DISMISSED_KEY, "1");

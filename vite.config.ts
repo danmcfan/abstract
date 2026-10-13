@@ -8,7 +8,7 @@ export default defineConfig({
   plugins: [solid(), tailwindcss()],
   // scripts/with-server.sh turns hot reload off, so a file saved mid-run
   // can't reload the page a playthrough is driving.
-  server: { hmr: process.env.ABSTRACT_NO_HMR ? false : undefined },
+  server: { hmr: process.env["ABSTRACT_NO_HMR"] !== "1" },
   build: {
     rolldownOptions: {
       output: {
@@ -17,8 +17,8 @@ export default defineConfig({
         // Vite's 500 kB warning.
         codeSplitting: {
           groups: [
-            { name: "three-core", test: /node_modules[\\/]three[\\/]build[\\/]three\.core\.js$/ },
-            { name: "three", test: /node_modules[\\/]three[\\/]/ },
+            { name: "three-core", test: /node_modules[\\/]three[\\/]build[\\/]three\.core\.js$/u },
+            { name: "three", test: /node_modules[\\/]three[\\/]/u },
           ],
         },
       },

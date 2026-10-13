@@ -17,9 +17,9 @@ const index = readFileSync(join(DIST, "index.html"), "utf8");
 // The entry script plus every chunk it imports statically (Vite preloads
 // those) make up the first load.
 const firstLoad = [
-  ...[...index.matchAll(/<script[^>]+src="\/([^"]+\.js)"/g)].map((m) => m[1]!),
-  ...[...index.matchAll(/<link[^>]+rel="modulepreload"[^>]+href="\/([^"]+\.js)"/g)].map((m) => m[1]!),
-];
+  ...index.matchAll(/<script[^>]+src="\/([^"]+\.js)"/gu),
+  ...index.matchAll(/<link[^>]+rel="modulepreload"[^>]+href="\/([^"]+\.js)"/gu),
+].flatMap((m) => (m[1] === undefined ? [] : [m[1]]));
 if (firstLoad.length === 0) failures.push("no entry script found in dist/index.html");
 for (const file of firstLoad) {
   if (readFileSync(join(DIST, file), "utf8").includes(THREE_MARKER)) {
@@ -30,11 +30,12 @@ for (const file of firstLoad) {
 const assets = join(DIST, "assets");
 for (const file of readdirSync(assets).filter((f) => f.endsWith(".js"))) {
   const size = statSync(join(assets, file)).size;
-  if (size > CHUNK_LIMIT) failures.push(`${file} is ${Math.round(size / 1024)} kB, over the ${CHUNK_LIMIT / 1024} kB limit`);
+  if (size > CHUNK_LIMIT)
+    failures.push(`${file} is ${Math.round(size / 1024)} kB, over the ${CHUNK_LIMIT / 1024} kB limit`);
 }
 
 if (failures.length > 0) {
-  console.error(`bundle check failed:\n- ${failures.join("\n- ")}`);
+  process.stderr.write(`bundle check failed:\n- ${failures.join("\n- ")}\n`);
   process.exit(1);
 }
-console.log(`bundle check passed (first load: ${firstLoad.join(", ")})`);
+process.stdout.write(`bundle check passed (first load: ${firstLoad.join(", ")})\n`);

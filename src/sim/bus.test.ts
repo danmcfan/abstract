@@ -3,7 +3,7 @@ import { edgeInto, newGame, placeNode, setInput, switchAt, widthOf, wire, type G
 import { createGestures } from "./gesture";
 import { checkLevel, LEVELS, loadLevel, rowCount, truthTable, wiring, type Level } from "./level";
 import { definePart, type Label, type NodeID, type NodeType } from "./node";
-import { loadBoard, saveBoard } from "./save";
+import { loadBoard, saveBoard, type SavedBoard } from "./save";
 
 const out = (node: NodeID, index = 0): Pin => ({ node, side: "out", index });
 const inp = (node: NodeID, index = 0): Pin => ({ node, side: "in", index });
@@ -52,16 +52,16 @@ const ADD8 = adder(8, [
   [255, 1, 0],
   [100, 55, 0],
 ]);
-const levelsWith = (level: Level) => [...LEVELS, FULL_ADDER, level];
+const levelsWith = (level: Level): Level[] => [...LEVELS, FULL_ADDER, level];
 
 // A ripple-carry adder: split A and B into bits, chain a full adder per bit
 // from the low bit up, and join the sums. With a glitch, COUT is also forced
 // off when every input signal is on, which only one row of the table sees.
-function buildAdder(game: Game, width: number, glitch = false) {
+function buildAdder(game: Game, width: number, glitch = false): void {
   const a = terminal(game, "INPUT", "A");
   const b = terminal(game, "INPUT", "B");
   const cin = terminal(game, "INPUT", "CIN");
-  const place = (type: NodeType, x: number, y: number, w = 1) => placeNode(game, type, { x, y }, "", w)!.id;
+  const place = (type: NodeType, x: number, y: number, w = 1): NodeID => placeNode(game, type, { x, y }, "", w)!.id;
   const splitA = place("SPLIT", 16, 15, width);
   const splitB = place("SPLIT", 16, 45, width);
   const join = place("JOIN", 55, 30, width);
@@ -81,7 +81,10 @@ function buildAdder(game: Game, width: number, glitch = false) {
   }
   wire(game, out(join), inp(terminal(game, "OUTPUT", "SUM")));
   const cout = terminal(game, "OUTPUT", "COUT");
-  if (!glitch) return void wire(game, carry, inp(cout));
+  if (!glitch) {
+    wire(game, carry, inp(cout));
+    return;
+  }
   // AND every input signal together, then let COUT through only when that's off.
   let all = bits[0]!;
   for (const next of bits.slice(1)) {
@@ -132,7 +135,9 @@ describe("buses", () => {
     const split = placeNode(game, "SPLIT", { x: 18, y: 20 }, "", 8)!;
     const join = placeNode(game, "JOIN", { x: 28, y: 20 }, "", 8)!;
     const lamp = placeNode(game, "OUTPUT", { x: 40, y: 20 }, "OUT", 8)!.id;
-    expect([widthOf(split, inp(0)), widthOf(split, out(0)), widthOf(join, inp(0)), widthOf(join, out(0))]).toEqual([8, 1, 1, 8]);
+    expect([widthOf(split, inp(0)), widthOf(split, out(0)), widthOf(join, inp(0)), widthOf(join, out(0))]).toEqual([
+      8, 1, 1, 8,
+    ]);
     wire(game, out(a), inp(split.id));
     for (let i = 0; i < 8; i++) expect(wire(game, out(split.id, i), inp(join.id, i))).not.toBeNull();
     wire(game, out(join.id), inp(lamp));
@@ -156,8 +161,14 @@ describe("a bus input terminal", () => {
   test("is a row of switches, high bit first; clicking one flips that bit", () => {
     const game = newGame();
     const a = placeNode(game, "INPUT", { x: 10, y: 10 }, "A", 4)!;
-    const g = createGestures({ game: () => game, edit: (change) => change(game), locked: () => false });
-    const click = (bit: number) => {
+    const g = createGestures({
+      game: () => game,
+      edit: (change) => {
+        change(game);
+      },
+      locked: () => false,
+    });
+    const click = (bit: number): void => {
       const p = { x: a.rect.x + 1.5 + (3 - bit), y: a.rect.y + a.rect.height / 2 };
       expect(switchAt(a, p.x, p.y)).toBe(bit);
       g.down(p, 0);
@@ -244,7 +255,6 @@ describe("a level with buses", () => {
     const start = performance.now();
     const result = checkLevel(game, levels.length - 1, levels);
     const ms = performance.now() - start;
-    console.log(`checked ${result.hidden.checked + result.rows.length} rows in ${ms.toFixed(0)} ms`);
     expect(result.hidden.checked).toBe(131_072 - 4);
     expect(result.passed).toBe(true);
     expect(ms).toBeLessThan(1000);
@@ -252,8 +262,12 @@ describe("a level with buses", () => {
 
   test("a level too long to check in full checks the same seeded sample every run", () => {
     // 2^20 rows, past the full check: a wrong board fails on the same rows.
-    const wide: Level = { ...adder(8, [[0, 0, 0]]), inputs: ["A", "B", "C"], widths: { A: 8, B: 8, C: 4, SUM: 8 } };
-    wide.target = ([a = 0, b = 0, c = 0]) => [(a + b + c) % 256, 0];
+    const wide: Level = {
+      ...adder(8, [[0, 0, 0]]),
+      inputs: ["A", "B", "C"],
+      widths: { A: 8, B: 8, C: 4, SUM: 8 },
+      target: ([a = 0, b = 0, c = 0]) => [(a + b + c) % 256, 0],
+    };
     const levels = [...LEVELS, wide];
     const game = loadLevel(wide);
     wire(game, out(terminal(game, "INPUT", "A")), inp(terminal(game, "OUTPUT", "SUM")));
@@ -282,7 +296,7 @@ describe("a part with bus pins", () => {
     wire(game, out(cin), inp(add.id, 2));
     wire(game, out(add.id, 0), inp(sum));
     wire(game, out(add.id, 1), inp(cout));
-    const read = () => [edgeInto(game, sum, 0)!.value, edgeInto(game, cout, 0)!.value];
+    const read = (): number[] => [edgeInto(game, sum, 0)!.value, edgeInto(game, cout, 0)!.value];
     setInput(game, a, 100);
     setInput(game, b, 55);
     expect(read()).toEqual([155, 0]);
@@ -294,8 +308,8 @@ describe("a part with bus pins", () => {
   test("a board with buses saves and loads with its widths and size", () => {
     const game = loadLevel(ADD4);
     setInput(game, terminal(game, "INPUT", "A"), 9);
-    const loaded = loadBoard(JSON.parse(JSON.stringify(saveBoard(game))));
+    const loaded = loadBoard(JSON.parse(JSON.stringify(saveBoard(game))) as SavedBoard);
     expect(loaded.grid).toEqual(ADD4.grid!);
-    expect(loaded.nodes.get(terminal(game, "INPUT", "A"))).toEqual(game.nodes.get(terminal(game, "INPUT", "A"))!);
+    expect(loaded.nodes.get(terminal(game, "INPUT", "A"))).toEqual(game.nodes.get(terminal(game, "INPUT", "A")));
   });
 });

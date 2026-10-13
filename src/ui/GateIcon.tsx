@@ -1,10 +1,10 @@
-import { Show, createMemo } from "solid-js";
+import { Show, createMemo, type JSX } from "solid-js";
 import type { NodeType } from "../sim/node";
 import { glyph } from "./glyph";
 
 // A gate's schematic symbol at icon size, inked in the current text colour.
 // The width is how many signals a split or join carries.
-export function GateIcon(props: { type: NodeType; width?: number; class?: string }) {
+export function GateIcon(props: { type: NodeType; width?: number; class?: string }): JSX.Element {
   const g = createMemo(() => glyph(props.type, props.width));
   return (
     <svg

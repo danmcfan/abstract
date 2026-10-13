@@ -1,4 +1,4 @@
-import { pinPosition, type EdgeID, type Game, type Pin } from "./circuit";
+import { pinPosition, wiredNode, type EdgeID, type Game, type Pin } from "./circuit";
 import type { Size } from "./grid";
 import { inputCount, outputCount } from "./node";
 
@@ -59,15 +59,15 @@ const BESIDE_COST = 1.5;
 
 const DX = [1, 0, -1, 0];
 const DY = [0, 1, 0, -1];
-const axisOf = (dir: number) => (dir % 2 === 0 ? "h" : "v");
+const axisOf = (dir: number): "h" | "v" => (dir % 2 === 0 ? "h" : "v");
 
 type Usage = "h" | "v" | "bend";
 
 // Lattice points of a board, numbered row by row, and back.
 interface Lattice {
-  key(x: number, y: number): number;
-  point(k: number): Point;
-  inside(x: number, y: number): boolean;
+  key: (x: number, y: number) => number;
+  point: (k: number) => Point;
+  inside: (x: number, y: number) => boolean;
 }
 
 function lattice(grid: Size): Lattice {
@@ -79,7 +79,7 @@ function lattice(grid: Size): Lattice {
   };
 }
 
-const edgeKey = (a: number, b: number) => (a < b ? `${a}-${b}` : `${b}-${a}`);
+const edgeKey = (a: number, b: number): string => (a < b ? `${a}-${b}` : `${b}-${a}`);
 
 export function routeWires(game: Game): Routing {
   const grid = lattice(game.grid);
@@ -106,8 +106,7 @@ export function routeWires(game: Game): Routing {
     }
   }
   for (const edge of game.edges.values()) {
-    const to = game.nodes.get(edge.to)!;
-    const p = pinPosition(to, "in", edge.toIndex);
+    const p = pinPosition(wiredNode(game, edge.to), "in", edge.toIndex);
     reserved.set(key(p.x - 1, p.y), `${edge.from}:${edge.fromIndex}`);
   }
 
@@ -116,12 +115,12 @@ export function routeWires(game: Game): Routing {
   const netEdges = new Map<string, Set<string>>();
   const sources = new Map<string, Pin>();
   const routes = new Map<EdgeID, Route>();
-  const lattices = new Map<EdgeID, { net: string; path: Point[] }>();
+  const lattices = new Map<EdgeID, { net: string; path: Point[]; route: Route }>();
 
   // Short wires first: they have the fewest options.
   const edges = [...game.edges.values()].map((edge) => {
-    const a = pinPosition(game.nodes.get(edge.from)!, "out", edge.fromIndex);
-    const b = pinPosition(game.nodes.get(edge.to)!, "in", edge.toIndex);
+    const a = pinPosition(wiredNode(game, edge.from), "out", edge.fromIndex);
+    const b = pinPosition(wiredNode(game, edge.to), "in", edge.toIndex);
     return { edge, a, b, length: Math.abs(a.x - b.x) + Math.abs(a.y - b.y) };
   });
   edges.sort((p, q) => p.length - q.length || p.edge.id - q.edge.id);
@@ -129,19 +128,30 @@ export function routeWires(game: Game): Routing {
   for (const { edge, a, b } of edges) {
     const net = `${edge.from}:${edge.fromIndex}`;
     sources.set(net, { node: edge.from, side: "out", index: edge.fromIndex });
-    const path = search(grid, net, { x: a.x + 1, y: a.y }, { x: b.x - 1, y: b.y }, blocked, reserved, pointUse, edgeUse);
+    const path = search(
+      grid,
+      net,
+      { x: a.x + 1, y: a.y },
+      { x: b.x - 1, y: b.y },
+      blocked,
+      reserved,
+      pointUse,
+      edgeUse,
+    );
     if (!path) {
       const midX = (a.x + b.x) / 2;
-      routes.set(edge.id, { points: simplify([a, { x: midX, y: a.y }, { x: midX, y: b.y }, b]), hops: [], routed: false });
+      routes.set(edge.id, {
+        points: simplify([a, { x: midX, y: a.y }, { x: midX, y: b.y }, b]),
+        hops: [],
+        routed: false,
+      });
       continue;
     }
     const full = [a, ...path, b];
-    for (let i = 0; i < full.length; i++) {
-      const p = full[i]!;
+    for (const [i, p] of full.entries()) {
       const prev = full[i - 1];
       const next = full[i + 1];
-      const straight = prev && next && (prev.x === next.x || prev.y === next.y);
-      const usage: Usage = !straight ? "bend" : prev.y === next.y ? "h" : "v";
+      const usage = pointUsage(prev, next);
       const uses = pointUse.get(key(p.x, p.y)) ?? new Map<string, Usage>();
       // A point the net already turns at stays a turn.
       if (uses.get(net) !== "bend") uses.set(net, uses.has(net) && uses.get(net) !== usage ? "bend" : usage);
@@ -149,40 +159,53 @@ export function routeWires(game: Game): Routing {
       if (next) {
         const e = edgeKey(key(p.x, p.y), key(next.x, next.y));
         edgeUse.set(e, net);
-        if (!netEdges.has(net)) netEdges.set(net, new Set());
-        netEdges.get(net)!.add(e);
+        const set = netEdges.get(net) ?? new Set<string>();
+        set.add(e);
+        netEdges.set(net, set);
       }
     }
-    lattices.set(edge.id, { net, path: full });
-    routes.set(edge.id, { points: simplify(full), hops: [], routed: true });
+    const route: Route = { points: simplify(full), hops: [], routed: true };
+    lattices.set(edge.id, { net, path: full, route });
+    routes.set(edge.id, route);
   }
 
   // A horizontal run hops wherever another signal crosses it vertically.
-  for (const [id, { net, path }] of lattices) {
+  for (const { net, path, route } of lattices.values()) {
     const hops: Point[] = [];
-    for (let i = 1; i < path.length - 1; i++) {
-      const p = path[i]!;
-      if (path[i - 1]!.y !== p.y || path[i + 1]!.y !== p.y) continue;
-      const uses = pointUse.get(key(p.x, p.y))!;
+    for (const [i, p] of path.entries()) {
+      if (path[i - 1]?.y !== p.y || path[i + 1]?.y !== p.y) continue;
+      const uses = pointUse.get(key(p.x, p.y)) ?? new Map<string, Usage>();
       if ([...uses].some(([other, usage]) => other !== net && usage === "v")) hops.push(p);
     }
-    routes.get(id)!.hops = hops;
+    route.hops = hops;
   }
 
   // A junction is where three or more of one signal's segments meet.
   const junctions: Routing["junctions"] = [];
   for (const [net, set] of netEdges) {
+    const source = sources.get(net);
+    if (source === undefined) continue;
     const degree = new Map<number, number>();
     for (const e of set) {
       for (const end of e.split("-").map(Number)) degree.set(end, (degree.get(end) ?? 0) + 1);
     }
     for (const [k, d] of degree) {
-      if (d >= 3) junctions.push({ point: grid.point(k), source: sources.get(net)! });
+      if (d >= 3) junctions.push({ point: grid.point(k), source });
     }
   }
 
   return { routes, junctions };
 }
+
+// How a net uses a point of its path: running straight through it, or
+// turning (which includes the path's ends).
+function pointUsage(prev: Point | undefined, next: Point | undefined): Usage {
+  if (prev === undefined || next === undefined) return "bend";
+  if (prev.x !== next.x && prev.y !== next.y) return "bend";
+  return prev.y === next.y ? "h" : "v";
+}
+
+const stateOf = (k: number, dir: number): number => k * 4 + dir;
 
 // A* over (point, heading) from start to goal, both of which are pin stubs.
 // Returns the lattice points from start to goal, or null.
@@ -197,7 +220,7 @@ function search(
   edgeUse: Map<string, string>,
 ): Point[] | null {
   const key = grid.key;
-  const passable = (x: number, y: number) => {
+  const passable = (x: number, y: number): boolean => {
     if (!grid.inside(x, y)) return false;
     const k = key(x, y);
     if (blocked.has(k)) return false;
@@ -206,14 +229,13 @@ function search(
   };
   if (!passable(start.x, start.y) || !passable(goal.x, goal.y)) return null;
 
-  const others = (k: number) => [...(pointUse.get(k) ?? [])].filter(([other]) => other !== net);
-  const state = (k: number, dir: number) => k * 4 + dir;
+  const others = (k: number): [string, Usage][] => [...(pointUse.get(k) ?? [])].filter(([other]) => other !== net);
   const cost = new Map<number, number>();
   const parent = new Map<number, number>();
   const heap = new Heap();
-  const h = (x: number, y: number) => Math.abs(x - goal.x) + Math.abs(y - goal.y);
+  const h = (x: number, y: number): number => Math.abs(x - goal.x) + Math.abs(y - goal.y);
 
-  const s0 = state(key(start.x, start.y), 0);
+  const s0 = stateOf(key(start.x, start.y), 0);
   cost.set(s0, 0);
   heap.push(s0, h(start.x, start.y));
 
@@ -228,8 +250,10 @@ function search(
 
     for (let d = 0; d < 4; d++) {
       if (d === (dir + 2) % 4) continue;
-      const nx = x + DX[d]!;
-      const ny = y + DY[d]!;
+      const dx = DX[d] ?? 0;
+      const dy = DY[d] ?? 0;
+      const nx = x + dx;
+      const ny = y + dy;
       if (!passable(nx, ny)) continue;
       const nk = key(nx, ny);
       const owner = edgeUse.get(edgeKey(k, nk));
@@ -247,13 +271,13 @@ function search(
         step += CROSS_COST;
       }
 
-      const sideX = DY[d]!;
-      const sideY = DX[d]!;
-      const beside = (bx: number, by: number) => grid.inside(bx, by) && others(key(bx, by)).length > 0;
+      const sideX = dy;
+      const sideY = dx;
+      const beside = (bx: number, by: number): boolean => grid.inside(bx, by) && others(key(bx, by)).length > 0;
       if (beside(nx + sideX, ny + sideY) || beside(nx - sideX, ny - sideY)) step += BESIDE_COST;
 
-      const ns = state(nk, d);
-      const total = cost.get(s)! + step;
+      const ns = stateOf(nk, d);
+      const total = (cost.get(s) ?? Infinity) + step;
       if (total < (cost.get(ns) ?? Infinity)) {
         cost.set(ns, total);
         parent.set(ns, s);
@@ -266,8 +290,10 @@ function search(
 
 function unwind(grid: Lattice, s: number, parent: Map<number, number>): Point[] {
   const points: Point[] = [];
-  for (let at: number | undefined = s; at !== undefined; at = parent.get(at)) points.push(grid.point(Math.floor(at / 4)));
-  return points.reverse();
+  for (let at: number | undefined = s; at !== undefined; at = parent.get(at))
+    points.push(grid.point(Math.floor(at / 4)));
+  points.reverse();
+  return points;
 }
 
 // Drops points that lie on a straight line between their neighbours.
@@ -282,42 +308,52 @@ function simplify(points: Point[]): Point[] {
 
 // A binary min-heap of states keyed by priority.
 class Heap {
-  private items: { state: number; priority: number }[] = [];
+  private readonly items: { state: number; priority: number }[] = [];
 
   get size(): number {
     return this.items.length;
   }
 
   push(state: number, priority: number): void {
+    const item = { state, priority };
     const items = this.items;
-    items.push({ state, priority });
-    let i = items.length - 1;
+    let i = items.length;
+    items.push(item);
     while (i > 0) {
       const up = (i - 1) >> 1;
-      if (items[up]!.priority <= items[i]!.priority) break;
-      [items[up], items[i]] = [items[i]!, items[up]!];
+      const parent = items[up];
+      if (parent === undefined || parent.priority <= priority) break;
+      items[i] = parent;
+      items[up] = item;
       i = up;
     }
   }
 
+  // Throws when empty; callers check size first.
   pop(): number {
     const items = this.items;
-    const top = items[0]!.state;
-    const last = items.pop()!;
+    const top = items[0];
+    const last = items.pop();
+    if (top === undefined || last === undefined) throw new Error("Heap is empty");
     if (items.length > 0) {
       items[0] = last;
       let i = 0;
       for (;;) {
-        const l = i * 2 + 1;
-        const r = l + 1;
         let min = i;
-        if (l < items.length && items[l]!.priority < items[min]!.priority) min = l;
-        if (r < items.length && items[r]!.priority < items[min]!.priority) min = r;
+        let minItem = last;
+        for (const child of [i * 2 + 1, i * 2 + 2]) {
+          const candidate = items[child];
+          if (candidate !== undefined && candidate.priority < minItem.priority) {
+            min = child;
+            minItem = candidate;
+          }
+        }
         if (min === i) break;
-        [items[min], items[i]] = [items[i]!, items[min]!];
+        items[min] = last;
+        items[i] = minItem;
         i = min;
       }
     }
-    return top;
+    return top.state;
   }
 }

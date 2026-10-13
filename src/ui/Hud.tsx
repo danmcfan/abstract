@@ -1,5 +1,5 @@
-import { For, Show, createEffect, createSignal, on } from "solid-js";
-import { floorAbove, layerOf, LEVELS, matches, partsBin, terminalWidth, wiring } from "../sim/level";
+import { For, Show, createEffect, createSignal, on, type JSX } from "solid-js";
+import { floorAbove, layerOf, LEVELS, type Layer, matches, partsBin, terminalWidth, wiring } from "../sim/level";
 import type { Value } from "../sim/node";
 import { say } from "./speech";
 import { GateIcon } from "./GateIcon";
@@ -20,46 +20,57 @@ import {
   testing,
 } from "./state";
 
-const pad = (n: number) => String(n).padStart(2, "0");
+const pad = (n: number): string => String(n).padStart(2, "0");
 // A bus value's signals, high bit first, for hovering over its number.
-const binary = (value: Value, width: number) => value.toString(2).padStart(width, "0");
+const binary = (value: Value, width: number): string => value.toString(2).padStart(width, "0");
 
 // The overlay, drawn like sheets pinned to the drafting board: the level's
 // title block and truth table, the parts bin, and the button that opens the
 // stack. Passing a layer's last level leads up to the next floor, through
 // the stack.
-export function Hud(props: { onMenu: () => void; onStack: (arrive?: number) => void }) {
-  const labels = () => [...level().inputs, ...level().outputs];
-  const widths = () => labels().map((label) => terminalWidth(level(), label));
-  // A row's outputs as the test column writes them: single signals run
-  // together as bits, bus values are numbers apart.
-  const written = (values: Value[]) => values.join(widths().some((width) => width > 1) ? " " : "");
-  const layer = () => layerOf(levelIndex());
-  const above = () => floorAbove(levelIndex());
-  const [clearing, setClearing] = createSignal(false);
-  createEffect(on(levelIndex, () => setClearing(false)));
+const labels = (): string[] => [...level().inputs, ...level().outputs];
+const widths = (): number[] => labels().map((label) => terminalWidth(level(), label));
+// A row's outputs as the test column writes them: single signals run
+// together as bits, bus values are numbers apart.
+const written = (values: Value[]): string => values.join(widths().some((width) => width > 1) ? " " : "");
+const layer = (): Layer => layerOf(levelIndex());
+const above = (): Layer | null => floorAbove(levelIndex());
 
-  const status = () => {
-    if (testing()) return { text: "Testing…", tone: "text-pencil" };
-    const r = result();
-    if (!r) return null;
-    if (r.forbidden.length > 0) return { text: `${r.forbidden.join(", ")} isn't in this level's parts bin.`, tone: "text-fail" };
-    if (!r.passed) return { text: "Not quite. Some rows don't match.", tone: "text-fail" };
-    const hasNext = levelIndex() + 1 < LEVELS.length;
-    return { text: hasNext ? `Tested! ${level().gate} is in your parts bin.` : "Tested! That's every level so far.", tone: "text-pass" };
+function status(): { text: string; tone: string } | null {
+  if (testing()) return { text: "Testing…", tone: "text-pencil" };
+  const r = result();
+  if (!r) return null;
+  if (r.forbidden.length > 0)
+    return { text: `${r.forbidden.join(", ")} isn't in this level's parts bin.`, tone: "text-fail" };
+  if (!r.passed) return { text: "Not quite. Some rows don't match.", tone: "text-fail" };
+  const hasNext = levelIndex() + 1 < LEVELS.length;
+  return {
+    text: hasNext ? `Tested! ${level().gate} is in your parts bin.` : "Tested! That's every level so far.",
+    tone: "text-pass",
   };
+}
+
+export function Hud(props: { onMenu: () => void; onStack: (arrive?: number) => void }): JSX.Element {
+  const [clearing, setClearing] = createSignal(false);
+  createEffect(
+    on(levelIndex, (): void => {
+      setClearing(false);
+    }),
+  );
 
   return (
     <div class="text-sm leading-normal text-ink-deep">
       <section
         id="level-panel"
         classList={{ shake: stamped() }}
-        class="sheet fixed top-3 right-3 left-3 p-3 min-[900px]:top-5 min-[900px]:right-auto min-[900px]:left-5 min-[900px]:w-[290px] min-[900px]:p-4"
+        class="fixed top-3 right-3 left-3 p-3 sheet min-[900px]:top-5 min-[900px]:right-auto min-[900px]:left-5 min-[900px]:w-[290px] min-[900px]:p-4"
       >
         <div class="flex w-fit max-w-full border-2 border-ink">
-          <span class="flex items-center border-r-2 border-ink px-2 text-xs text-pencil">SH {pad(levelIndex() + 1)}</span>
+          <span class="flex items-center border-r-2 border-ink px-2 text-xs text-pencil">
+            SH {pad(levelIndex() + 1)}
+          </span>
           <h1 class="px-2.5 py-0.5 text-lg font-bold text-ink">
-            {level().prebuilt ? "Meet" : "Build"} {level().gate}
+            {level().prebuilt === true ? "Meet" : "Build"} {level().gate}
           </h1>
         </div>
 
@@ -80,23 +91,34 @@ export function Hud(props: { onMenu: () => void; onStack: (arrive?: number) => v
               <tbody>
                 <For each={tableRows()}>
                   {(row, i) => {
-                    const actual = () => rowResults()[i()];
-                    const ok = () => matches(actual() ?? [], row.expected);
+                    const actual = (): Value[] | undefined => rowResults()[i()];
+                    const ok = (): boolean => matches(actual() ?? [], row.expected);
+                    const got = (): string | undefined => {
+                      const values = actual();
+                      return values === undefined || ok() ? undefined : `got ${written(values)}`;
+                    };
                     return (
                       <tr class={currentRow() === i() ? "bg-wash font-bold" : ""}>
                         <For each={[...row.inputs, ...row.expected]}>
-                          {(value, column) => (
-                            <td
-                              class="border-[1.5px] border-ink px-2 py-0.5"
-                              title={widths()[column()]! > 1 ? binary(value, widths()[column()]!) : undefined}
-                            >
-                              {value}
-                            </td>
-                          )}
+                          {(value, column) => {
+                            const width = (): number => widths()[column()] ?? 1;
+                            return (
+                              <td
+                                class="border-[1.5px] border-ink px-2 py-0.5"
+                                title={width() > 1 ? binary(value, width()) : undefined}
+                              >
+                                {value}
+                              </td>
+                            );
+                          }}
                         </For>
-                        <td class="border-[1.5px] border-ink px-1 py-0.5" title={actual() === undefined || ok() ? undefined : `got ${written(actual()!)}`}>
-                          <Show when={actual() !== undefined} fallback={<span class="text-pencil/50">·</span>}>
-                            <span class={ok() ? "text-pass" : "text-fail"}>{ok() ? "✓" : `✗${written(actual()!)}`}</span>
+                        <td class="border-[1.5px] border-ink px-1 py-0.5" title={got()}>
+                          <Show when={actual()} fallback={<span class="text-pencil/50">·</span>}>
+                            {(values) => (
+                              <span class={ok() ? "text-pass" : "text-fail"}>
+                                {ok() ? "✓" : `✗${written(values())}`}
+                              </span>
+                            )}
                           </Show>
                         </td>
                       </tr>
@@ -113,10 +135,24 @@ export function Hud(props: { onMenu: () => void; onStack: (arrive?: number) => v
           </div>
 
           <div class="flex shrink-0 flex-col items-start gap-2 min-[900px]:mt-3.5 min-[900px]:flex-row min-[900px]:items-center min-[900px]:gap-3">
-            <button id="test" class="btn" disabled={testing()} onClick={() => void runTest()}>
+            <button
+              id="test"
+              class="btn"
+              disabled={testing()}
+              onClick={() => {
+                void runTest();
+              }}
+            >
               Run test
             </button>
-            <button id="clear" class="btn btn-ghost btn-sm" disabled={clearing()} onClick={() => setClearing(true)}>
+            <button
+              id="clear"
+              class="btn btn-sm btn-ghost"
+              disabled={clearing()}
+              onClick={() => {
+                setClearing(true);
+              }}
+            >
               Clear
             </button>
           </div>
@@ -128,7 +164,7 @@ export function Hud(props: { onMenu: () => void; onStack: (arrive?: number) => v
             <div class="flex gap-3">
               <button
                 id="clear-confirm"
-                class="btn btn-sm border-fail bg-fail"
+                class="btn border-fail bg-fail btn-sm"
                 onClick={() => {
                   setClearing(false);
                   clearBoard();
@@ -136,7 +172,13 @@ export function Hud(props: { onMenu: () => void; onStack: (arrive?: number) => v
               >
                 Clear
               </button>
-              <button id="clear-keep" class="btn btn-ghost btn-sm" onClick={() => setClearing(false)}>
+              <button
+                id="clear-keep"
+                class="btn btn-sm btn-ghost"
+                onClick={() => {
+                  setClearing(false);
+                }}
+              >
                 Keep it
               </button>
             </div>
@@ -150,17 +192,29 @@ export function Hud(props: { onMenu: () => void; onStack: (arrive?: number) => v
             </p>
           )}
         </Show>
-        <Show when={result()?.passed && levelIndex() + 1 < LEVELS.length}>
+        <Show when={result()?.passed === true && levelIndex() + 1 < LEVELS.length}>
           <Show
             when={above()}
             fallback={
-              <button id="next" class="btn mt-2.5" onClick={() => startLevel(levelIndex() + 1)}>
+              <button
+                id="next"
+                class="mt-2.5 btn"
+                onClick={() => {
+                  startLevel(levelIndex() + 1);
+                }}
+              >
                 Next level ▸
               </button>
             }
           >
             {(next) => (
-              <button id="up" class="btn mt-2.5" onClick={() => props.onStack(next().number)}>
+              <button
+                id="up"
+                class="mt-2.5 btn"
+                onClick={() => {
+                  props.onStack(next().number);
+                }}
+              >
                 Up to {next().floor} ▸
               </button>
             )}
@@ -170,23 +224,43 @@ export function Hud(props: { onMenu: () => void; onStack: (arrive?: number) => v
       </section>
 
       <nav class="fixed top-3 right-3 flex gap-1.5 max-[899px]:top-auto max-[899px]:right-auto max-[899px]:bottom-3 max-[899px]:left-3 min-[900px]:top-5 min-[900px]:right-5">
-        <button id="open-stack" class="btn btn-ghost btn-sm" onClick={() => props.onStack()}>
+        <button
+          id="open-stack"
+          class="btn btn-sm btn-ghost"
+          onClick={() => {
+            props.onStack();
+          }}
+        >
           L{layer().number} · {layer().floor}
         </button>
-        <button id="help" class="btn btn-ghost btn-sm" onClick={() => say(script.help(level()))}>
+        <button
+          id="help"
+          class="btn btn-sm btn-ghost"
+          onClick={() => {
+            say(script.help(level()));
+          }}
+        >
           ? Help
         </button>
         <SoundButton />
-        <button id="menu" class="btn btn-ghost btn-sm" onClick={() => props.onMenu()}>
+        <button
+          id="menu"
+          class="btn btn-sm btn-ghost"
+          onClick={() => {
+            props.onMenu();
+          }}
+        >
           Menu
         </button>
       </nav>
 
       <section
         id="parts-bin"
-        class="sheet fixed bottom-3 left-1/2 flex -translate-x-1/2 items-stretch max-[899px]:right-3 max-[899px]:left-auto max-[899px]:translate-x-0"
+        class="fixed bottom-3 left-1/2 flex -translate-x-1/2 items-stretch sheet max-[899px]:right-3 max-[899px]:left-auto max-[899px]:translate-x-0"
       >
-        <span class="flex items-center border-r-2 border-ink px-2.5 text-[11px] tracking-[0.1em] text-pencil uppercase max-[899px]:hidden">Parts bin</span>
+        <span class="flex items-center border-r-2 border-ink px-2.5 text-[11px] tracking-[0.1em] text-pencil uppercase max-[899px]:hidden">
+          Parts bin
+        </span>
         <For
           each={partsBin(levelIndex())}
           fallback={<span class="flex items-center px-3 py-2 text-xs text-pencil">Empty, for now</span>}
@@ -196,7 +270,9 @@ export function Hud(props: { onMenu: () => void; onStack: (arrive?: number) => v
               class="flex flex-col items-center gap-0.5 px-2.5 pt-1.5 pb-1 text-[11px] font-bold text-ink hover:bg-wash disabled:opacity-40 max-[899px]:px-2"
               data-gate={type}
               disabled={testing()}
-              onClick={() => placePart(type)}
+              onClick={() => {
+                placePart(type);
+              }}
             >
               <GateIcon type={type} class="h-6 w-9" />
               {type}
@@ -216,7 +292,9 @@ export function Hud(props: { onMenu: () => void; onStack: (arrive?: number) => v
                 data-gate={w.type}
                 data-width={w.width}
                 disabled={testing()}
-                onClick={() => placePart(w.type, w.width)}
+                onClick={() => {
+                  placePart(w.type, w.width);
+                }}
               >
                 <GateIcon type={w.type} width={Math.min(w.width, 4)} class="h-6 w-9" />
                 {`${w.type} ${w.width}`}
@@ -231,13 +309,25 @@ export function Hud(props: { onMenu: () => void; onStack: (arrive?: number) => v
 
 // Roughens the stamp's edges and leaves gaps in its ink, the way a rubber
 // stamp prints.
-function RoughInk() {
+function RoughInk(): JSX.Element {
   return (
     <svg class="absolute size-0" aria-hidden="true">
       <filter id="rough-ink" x="-10%" y="-20%" width="120%" height="140%">
         <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="4" result="noise" />
-        <feDisplacementMap in="SourceGraphic" in2="noise" scale="2.5" xChannelSelector="R" yChannelSelector="G" result="rough" />
-        <feColorMatrix in="noise" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -1.6 1.6" result="speckle" />
+        <feDisplacementMap
+          in="SourceGraphic"
+          in2="noise"
+          scale="2.5"
+          xChannelSelector="R"
+          yChannelSelector="G"
+          result="rough"
+        />
+        <feColorMatrix
+          in="noise"
+          type="matrix"
+          values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -1.6 1.6"
+          result="speckle"
+        />
         <feComposite in="rough" in2="speckle" operator="in" />
       </filter>
     </svg>
