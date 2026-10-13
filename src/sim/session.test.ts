@@ -218,6 +218,23 @@ describe("saved games", () => {
     expect(later.game.edges.size).toBe(3);
   });
 
+  test("a board holding a part the game no longer has is dropped for a fresh one", () => {
+    const { session, store } = fresh();
+    buildNot(session.game);
+    session.save();
+    const data = store.load()!;
+    const board = data.boards["NOT"]!;
+    const gone = {
+      ...data,
+      boards: { NOT: { ...board, nodes: [...board.nodes, { ...board.nodes[0]!, type: "GONE" }] } },
+    };
+
+    const later = new Session(memorySave(gone));
+    later.resume();
+    expect(later.levelIndex).toBe(NOT_LEVEL);
+    expect(later.game.edges.size).toBe(0);
+  });
+
   test("a save from before levels named their terminals resumes with its board intact", () => {
     // The AND level, part built: A and B into a NAND, written when inputs
     // were ALPHA and BETA, the output had no name, and nodes had no signals.

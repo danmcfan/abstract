@@ -1,7 +1,7 @@
 import type { Edge, Game } from "./circuit";
 import { DEFAULT_GRID, type Size } from "./grid";
-import { LEVELS } from "./level";
-import { kindOf, type Parts } from "./kind";
+import { LEVELS, PARTS } from "./level";
+import { hasKind, kindOf, type Parts } from "./kind";
 import type { Label, Node, NodeType, Value } from "./node";
 
 // A saved game: how far the player has got, the level they're on, the board
@@ -120,15 +120,28 @@ export function loadBoard(board: SavedBoard, parts: Parts): Game {
   };
 }
 
-// Only the arrays are checked; the rest of a board is trusted as saved.
+// Only the arrays and the node kinds are checked; the rest of a board is
+// trusted as saved. A node of a kind the game no longer has would make the
+// board unloadable.
 function isBoard(board: unknown): board is SavedBoard {
   return (
     typeof board === "object" &&
     board !== null &&
     "nodes" in board &&
     Array.isArray(board.nodes) &&
+    board.nodes.every((node: unknown) => isKnownNode(node)) &&
     "edges" in board &&
     Array.isArray(board.edges)
+  );
+}
+
+function isKnownNode(node: unknown): boolean {
+  return (
+    typeof node === "object" &&
+    node !== null &&
+    "type" in node &&
+    typeof node.type === "string" &&
+    hasKind(PARTS, node.type)
   );
 }
 

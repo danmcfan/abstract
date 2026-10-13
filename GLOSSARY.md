@@ -42,6 +42,9 @@ _Avoid_: component, element, block
 **Gate**:
 A node that computes an output from its inputs: NAND, NOT, AND, OR, and later parts.
 
+**Node kind**:
+What a node is: an input or output terminal, a split or join, or a part. A kind says how many pins it has and how wide they are, its size, what it computes, whether the player can flip or remove it, and how it's drawn. Parts' kinds come from their levels. In code, `NodeKind` in `src/sim/kind.ts`.
+
 **Terminal**:
 A node at the board's edge that the level places and the player can't remove: an input (a switch the player can flip) or an output (a lamp). Each level gives its terminals short names, such as A, B, SEL or CIN in and SUM or COUT out; a level with one output calls it OUT. A part's pins carry the same names.
 _Avoid_: port, I/O

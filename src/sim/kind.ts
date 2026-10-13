@@ -175,6 +175,10 @@ export function kinds(parts: Parts): NodeKind[] {
   return [...SUPPLIED, ...parts.values()];
 }
 
+export function hasKind(parts: Parts, type: NodeType): boolean {
+  return SUPPLIED_KINDS.has(type) || parts.has(type);
+}
+
 export function kindOf(parts: Parts, type: NodeType): NodeKind {
   const kind = SUPPLIED_KINDS.get(type) ?? parts.get(type);
   if (kind === undefined) throw new Error(`No node kind ${type}`);
