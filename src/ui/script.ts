@@ -177,6 +177,71 @@ const LEVELS: Partial<Record<NodeType, LevelScript>> = {
       { face: "happy", text: "Our gates can count now. Next, we teach them some new tricks." },
     ],
   },
+  MUX8: {
+    intro: [
+      { face: "idle", text: "Remember MUX? It picks A or B, one signal at a time." },
+      { face: "thinking", text: "Up here everything is 8 signals wide. We need a MUX for whole buses." },
+      { face: "idle", text: "One SEL picks all eight at once." },
+    ],
+    hint: [
+      { face: "thinking", text: "Split A and split B. Give each pair of signals its own MUX." },
+      { face: "thinking", text: "SEL goes to every MUX. One wire can feed them all." },
+      { face: "thinking", text: "Join the eight outputs, in order, into OUT." },
+      CONTROLS,
+    ],
+    solved: [{ face: "happy", text: "MUX8, done! Later on, lots of parts pick between buses with this." }],
+  },
+  "ZERO TEST": {
+    intro: [
+      { face: "idle", text: "Sometimes we just need to know: is this number zero?" },
+      { face: "thinking", text: "ZERO lights up only when every signal of A is off." },
+    ],
+    hint: [
+      { face: "thinking", text: "Split A. If any signal is on, the number isn't zero." },
+      { face: "thinking", text: "OR the signals together in pairs, until one wire is left." },
+      { face: "thinking", text: "That wire says 'not zero'. Flip it with a NOT." },
+      CONTROLS,
+    ],
+    solved: [{ face: "happy", text: "Zero test, done! A computer asks that question all the time." }],
+  },
+  "ALU SLICE": {
+    intro: [
+      { face: "amazed", text: "This is the big one. One part that does six jobs." },
+      { face: "idle", text: "OP is a 3-signal bus. Its number says which job to do." },
+      { face: "idle", text: "0 adds, 1 subtracts, 2 is AND, 3 is OR, 4 is XOR, 5 is NOT A." },
+      { face: "thinking", text: "We start with a slice: the whole thing for one signal." },
+    ],
+    hint: [
+      { face: "thinking", text: "Build every job side by side. Then MUXes pick the answer." },
+      { face: "thinking", text: "Split OP. Its bottom pin, the ones place, picks between pairs of jobs." },
+      { face: "thinking", text: "Subtract is add with B flipped. XOR B with OP's ones place first." },
+      { face: "thinking", text: "COUT only counts for add and subtract. Keep it off for the rest." },
+      CONTROLS,
+    ],
+    solved: [{ face: "happy", text: "ALU slice, done! Eight of these in a chain make the real thing." }],
+  },
+  ALU: {
+    intro: [
+      { face: "happy", text: "Time to build the ALU. Eight slices, one for each signal." },
+      { face: "idle", text: "ZERO tests A, not OUT. Later, the CPU uses it to decide where to jump." },
+    ],
+    hint: [
+      { face: "thinking", text: "Split A and B. Each slice gets one signal of each, and all of OP." },
+      { face: "thinking", text: "Chain them like the adder: each COUT into the next CIN." },
+      {
+        face: "thinking",
+        text: "Subtract needs a carry in at the bottom, and add needs none. OP's ones place tells them apart.",
+      },
+      { face: "thinking", text: "Don't forget ZERO. You built a part for that." },
+      CONTROLS,
+    ],
+    solved: [
+      { face: "amazed", text: "The ALU works! Add, subtract, and, or, xor, not. All on whole numbers." },
+      { face: "happy", text: "That's the last level on the calculation shop." },
+      { face: "idle", text: "But it forgets every answer the moment the switches change." },
+      { face: "thinking", text: "Next floor up, we teach our parts to remember." },
+    ],
+  },
 };
 
 // The first time the elevator reaches each floor, by layer number.

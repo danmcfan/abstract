@@ -154,7 +154,98 @@ export const LEVELS: Level[] = [
       target: ([a = 0, b = 0, cin = 0]) => [(a + b + cin) % 256, a + b + cin >= 256 ? 1 : 0],
     },
   },
+  {
+    gate: "MUX8",
+    goal: "OUT is all of A when SEL is off, and all of B when SEL is on.",
+    layer: 4,
+    inputs: ["A", "B", "SEL"],
+    outputs: ["OUT"],
+    widths: { A: 8, B: 8, OUT: 8 },
+    target: ([a = 0, b = 0, sel = 0]) => [sel ? b : a],
+    grid: { width: 64, height: 64 },
+    cases: [
+      [12, 200, 0],
+      [12, 200, 1],
+      [255, 0, 0],
+      [255, 0, 1],
+      [170, 85, 1],
+    ],
+  },
+  {
+    gate: "ZERO TEST",
+    goal: "ZERO is on only when every signal of A is off.",
+    layer: 4,
+    inputs: ["A"],
+    outputs: ["ZERO"],
+    widths: { A: 8 },
+    target: ([a = 0]) => [a === 0 ? 1 : 0],
+    grid: { width: 60, height: 45 },
+    cases: [[0], [1], [16], [128], [255]],
+  },
+  {
+    gate: "ALU SLICE",
+    goal: "Do OP to A and B: 0 add, 1 subtract, 2 and, 3 or, 4 xor, 5 not A. OP 6 and 7 give nothing.",
+    layer: 4,
+    inputs: ["A", "B", "CIN", "OP"],
+    outputs: ["OUT", "COUT"],
+    widths: { OP: 3 },
+    target: ([a = 0, b = 0, cin = 0, op = 0]) => operate(op, a, b, cin, 1),
+    grid: { width: 60, height: 60 },
+    cases: [
+      [1, 1, 0, 0],
+      [1, 0, 1, 0],
+      [0, 1, 1, 1],
+      [1, 1, 1, 1],
+      [1, 1, 0, 2],
+      [1, 0, 0, 3],
+      [1, 1, 0, 4],
+      [0, 1, 0, 5],
+      [1, 1, 1, 6],
+      [1, 1, 1, 7],
+    ],
+  },
+  {
+    gate: "ALU",
+    goal: "OUT is OP's operation on A and B, as on the slice. ZERO is on when A is 0, whatever OP is.",
+    layer: 4,
+    inputs: ["A", "B", "OP"],
+    outputs: ["OUT", "ZERO"],
+    widths: { A: 8, B: 8, OP: 3, OUT: 8 },
+    // Subtract is add with B flipped and a carry in, which wraps 3 - 5
+    // round to 254.
+    target: ([a = 0, b = 0, op = 0]) => [operate(op, a, b, op === 1 ? 1 : 0, 8)[0] ?? 0, a === 0 ? 1 : 0],
+    grid: { width: 72, height: 88 },
+    cases: [
+      [100, 55, 0],
+      [200, 100, 0],
+      [9, 4, 1],
+      [3, 5, 1],
+      [12, 10, 2],
+      [12, 10, 3],
+      [12, 10, 4],
+      [12, 10, 5],
+      [0, 7, 0],
+      [12, 10, 6],
+      [12, 10, 7],
+    ],
+  },
 ];
+
+// The ALU's operations on buses width signals wide, by OP: the result and the carry
+// out. Only add and subtract carry; OP 6 and 7 are unused and give nothing.
+function operate(op: Value, a: Value, b: Value, cin: Value, width: number): Value[] {
+  const all = 2 ** width - 1;
+  const sum = (x: Value): Value[] => [x & all, x > all ? 1 : 0];
+  const results: Value[][] = [
+    sum(a + b + cin),
+    sum(a + (~b & all) + cin),
+    [a & b, 0],
+    [a | b, 0],
+    [a ^ b, 0],
+    [~a & all, 0],
+  ];
+  return results[op] ?? [0, 0];
+}
 
 // The part a solved level adds to the bin: the gate it builds, unless it
 // gives another.

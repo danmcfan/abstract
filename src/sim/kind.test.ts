@@ -125,6 +125,54 @@ const EXPECTED: Record<NodeType, Expected[]> = {
       ],
     },
   ],
+  MUX8: [
+    {
+      ins: [8, 8, 1],
+      outs: [8],
+      size: [6, 6],
+      cases: [
+        [[12, 200, 0], [12]],
+        [[12, 200, 1], [200]],
+      ],
+    },
+  ],
+  "ZERO TEST": [
+    {
+      ins: [8],
+      outs: [1],
+      size: [6, 4],
+      cases: [
+        [[0], [1]],
+        [[128], [0]],
+      ],
+    },
+  ],
+  "ALU SLICE": [
+    {
+      ins: [1, 1, 1, 3],
+      outs: [1, 1],
+      size: [6, 8],
+      cases: [
+        [
+          [1, 1, 0, 0],
+          [0, 1],
+        ],
+      ],
+    },
+  ],
+  ALU: [
+    {
+      ins: [8, 8, 3],
+      outs: [8, 1],
+      size: [6, 6],
+      cases: [
+        [
+          [3, 5, 1],
+          [254, 0],
+        ],
+      ],
+    },
+  ],
 };
 
 describe("every kind the game uses", () => {
