@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { newGame, pinPosition, placeNode, setInput, wire, type Game, type Pin } from "./circuit";
+import { newGame, pinPosition, placeNode, setInput, tick, wire, type Game, type Pin } from "./circuit";
 import {
   checkLevel,
   floorAbove,
+  hasClock,
   LAYERS,
   layerLevels,
   layerState,
@@ -11,11 +12,13 @@ import {
   matches,
   partsBin,
   PARTS,
+  testTable,
   truthTable,
   wiring,
   type Level,
 } from "./level";
-import { kindOf } from "./kind";
+import { kindOf, partsFrom } from "./kind";
+import { loadBoard, saveBoard } from "./save";
 import type { Label, NodeID, NodeType } from "./node";
 
 const out = (node: NodeID, index = 0): Pin => ({ node, side: "out", index });
@@ -563,5 +566,90 @@ describe("the stack", () => {
     expect(floorAbove(2, levels)).toBeNull();
     expect(floorAbove(0)?.number).toBe(2);
     expect(floorAbove(LEVELS.length - 1)).toBeNull();
+  });
+});
+
+// A memory level as L5 will have one: a D flip-flop takes in D when CLK
+// turns on. Its part keeps the clock it last saw in bit 1 of its state.
+const FLIP_FLOP: Level = {
+  gate: "DFF",
+  goal: "Q takes D's value when the clock turns on, and keeps it until the next tick.",
+  layer: 5,
+  inputs: ["D", "CLK"],
+  outputs: ["Q"],
+  memory: {
+    next: ([d = 0, clk = 0], state) => (clk && !(state >> 1) ? d : state & 1) | (clk << 1),
+    outputs: (state) => [state & 1],
+  },
+  steps: [
+    { inputs: [1, 0], expected: [0] },
+    { inputs: [1, 0], tick: true, expected: [1] },
+    { inputs: [0, 0], expected: [1] },
+    { inputs: [0, 0], tick: true, expected: [0] },
+  ],
+  prebuilt: true,
+};
+
+describe("a memory level", () => {
+  const levels = [...LEVELS, FLIP_FLOP];
+  const index = levels.length - 1;
+  const parts = partsFrom(levels);
+
+  test("has a clock and shows its timing table", () => {
+    expect(hasClock(FLIP_FLOP)).toBe(true);
+    expect(hasClock(LEVELS[1]!)).toBe(false);
+    expect(testTable(FLIP_FLOP)).toEqual(FLIP_FLOP.steps);
+    expect(truthTable(FLIP_FLOP)).toEqual([]);
+  });
+
+  test("its timing table passes a correct board", () => {
+    const result = checkLevel(loadLevel(FLIP_FLOP, parts), index, levels);
+    expect(result.rows.map((row) => row.actual)).toEqual([[0], [1], [1], [0]]);
+    expect(result.passed).toBe(true);
+  });
+
+  test("a wrong board fails at the step where it goes wrong", () => {
+    // D straight to Q matches until D changes without a tick.
+    const game = loadLevel({ ...FLIP_FLOP, prebuilt: false }, parts);
+    wire(game, out(terminal(game, "INPUT", "D")), inp(terminal(game, "OUTPUT", "Q")));
+    const result = checkLevel(game, index, levels);
+    expect(result.passed).toBe(false);
+    expect(result.rows.findIndex((row) => !matches(row.actual, row.expected))).toBe(0);
+    expect(result.rows.map((row) => matches(row.actual, row.expected))).toEqual([false, true, false, true]);
+  });
+
+  test("every memory part starts at 0 on every test run, even after a run left it at 1", () => {
+    const game = loadLevel(FLIP_FLOP, parts);
+    const d = terminal(game, "INPUT", "D");
+    const ff = [...game.nodes.values()].find((node) => node.type === "DFF")!;
+    setInput(game, d, 1);
+    tick(game, terminal(game, "INPUT", "CLK"));
+    expect(ff.state & 1).toBe(1);
+    const first = checkLevel(game, index, levels);
+    const second = checkLevel(game, index, levels);
+    expect(first.passed).toBe(true);
+    expect(second).toEqual(first);
+  });
+
+  test("its state is 0 once the board loads from a save", () => {
+    const game = loadLevel(FLIP_FLOP, parts);
+    setInput(game, terminal(game, "INPUT", "D"), 1);
+    tick(game, terminal(game, "INPUT", "CLK"));
+    const loaded = loadBoard(saveBoard(game), parts);
+    expect([...loaded.nodes.values()].find((node) => node.type === "DFF")!.state).toBe(0);
+    expect(loaded.nodes.get(terminal(loaded, "OUTPUT", "Q"))!.isHigh).toBe(false);
+  });
+});
+
+describe("an unstable board", () => {
+  test("fails its test run with unstable set, whatever its outputs", () => {
+    const game = loadLevel(LEVELS[1]!);
+    const not = gate(game, "NAND");
+    wire(game, out(terminal(game, "INPUT", "A")), inp(not, 0));
+    wire(game, out(not), inp(not, 1));
+    wire(game, out(not), inp(terminal(game, "OUTPUT", "OUT")));
+    const result = checkLevel(game, 1);
+    expect(result.unstable).toBe(true);
+    expect(result.passed).toBe(false);
   });
 });

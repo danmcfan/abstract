@@ -1,6 +1,6 @@
 import { newGame, nodeKind, placeNode, setInputs, simulate, wire, type Game } from "./circuit";
 import { DEFAULT_GRID, type Size } from "./grid";
-import { partsFrom, type Parts, type Spec } from "./kind";
+import { partsFrom, type Combinational, type Memory, type Parts, type Pins, type Spec } from "./kind";
 import { mask, type Label, type Node, type NodeID, type NodeType, type Value } from "./node";
 
 // A level asks the player to build one gate out of the gates they have
@@ -8,8 +8,27 @@ import { mask, type Label, type Node, type NodeID, type NodeType, type Value } f
 // A prebuilt level comes already wired: the player only tests it, to see
 // what the gate does. The level names its terminals, and its target gives
 // one value per output, in order; the part it adds to the bin computes the
-// same (ADR 6), with bus pins as wide as the level's bus terminals.
-export interface Level extends Spec {
+// same (ADR 6), with bus pins as wide as the level's bus terminals. A
+// memory level gives a rule for its part's state instead of a target, and
+// is tested by a timing table.
+export type Level = TruthTableLevel | (LevelInfo & Pins & MemoryLevel);
+
+// A level of combinational parts, tested by a truth table.
+export type TruthTableLevel = LevelInfo & Pins & TruthLevel;
+
+interface TruthLevel extends Combinational {
+  steps?: never;
+}
+
+interface MemoryLevel {
+  memory: Memory;
+  target?: never;
+  // The timing table, played in order from a board whose memory parts are
+  // all at 0.
+  steps: Row[];
+}
+
+interface LevelInfo {
   gate: NodeType;
   goal: string;
   // The number of the layer the level belongs to.
@@ -245,7 +264,7 @@ export const LEVELS: Level[] = [
 
 // An ALU on buses width signals wide. Subtract is add with B flipped and a
 // carry in, which wraps 1 - 2 round to 3 at 2 bits, or 3 - 5 to 254 at 8.
-function aluTarget(width: number): Level["target"] {
+function aluTarget(width: number): Combinational["target"] {
   return ([a = 0, b = 0, op = 0]) => [operate(op, a, b, op === 1 ? 1 : 0, width)[0] ?? 0, a === 0 ? 1 : 0];
 }
 
@@ -377,11 +396,22 @@ function placed(node: Node | null): Node {
   return node;
 }
 
+// A row of a truth table, or a step of a timing table.
 export interface Row {
   // One value per input, in the level's order.
   inputs: Value[];
   // One value per output, in the level's order.
   expected: Value[];
+  // Whether a step ticks the clock once its inputs are set. The outputs
+  // are read after the tick.
+  tick?: boolean;
+}
+
+// The input terminal a level with a clock has.
+export const CLOCK: Label = "CLK";
+
+export function hasClock(level: Level): boolean {
+  return level.inputs.includes(CLOCK);
 }
 
 interface CheckedRow extends Row {
@@ -389,7 +419,7 @@ interface CheckedRow extends Row {
   actual: Value[];
 }
 
-function expectedFor(level: Level, inputs: Value[]): Value[] {
+function expectedFor(level: TruthTableLevel, inputs: Value[]): Value[] {
   return level.target(inputs).map((value, i) => {
     const label = level.outputs[i];
     return mask(value, label === undefined ? 1 : terminalWidth(level, label));
@@ -404,7 +434,7 @@ export function rowCount(level: Level): number {
 
 // The nth row of the whole truth table, counting up in binary with A as the
 // high bits.
-function rowAt(level: Level, n: number): Row {
+function rowAt(level: TruthTableLevel, n: number): Row {
   const inputs: Value[] = [];
   let rest = n;
   for (let i = level.inputs.length - 1; i >= 0; i--) {
@@ -423,9 +453,16 @@ function rowNumber(level: Level, inputs: Value[]): number {
   return level.inputs.reduce((n, label, i) => n * 2 ** terminalWidth(level, label) + (inputs[i] ?? 0), 0);
 }
 
-// The rows the level panel shows: the level's cases if it has them, or else
-// every combination of inputs.
+// The rows the level panel shows: the timing table on a memory level, or
+// else the truth table.
+export function testTable(level: Level): Row[] {
+  return level.steps ?? truthTable(level);
+}
+
+// The rows of the truth table the level panel shows: the level's cases if it
+// has them, or else every combination of inputs. A memory level has none.
 export function truthTable(level: Level): Row[] {
+  if (level.steps !== undefined) return [];
   if (level.cases !== undefined) return level.cases.map((inputs) => ({ inputs, expected: expectedFor(level, inputs) }));
   return Array.from({ length: rowCount(level) }, (_, n) => rowAt(level, n));
 }
@@ -463,12 +500,15 @@ export interface CheckResult {
   hidden: { checked: number; failed: CheckedRow[] };
   // Gate types on the board that this level's parts bin doesn't offer.
   forbidden: NodeType[];
+  // Whether the board failed to settle on some row, whatever its outputs.
+  unstable: boolean;
   passed: boolean;
 }
 
-// Runs the truth table without touching the player's board (or its input
-// switches): the shown rows, then, if the level only shows a few cases,
-// every other row out of sight.
+// Runs the truth table or timing table without touching the player's board
+// (or its input switches): the shown rows, then, if the level only shows a
+// few cases, every other row out of sight. The run starts where restart
+// would leave the board, so every memory part starts at 0.
 export function checkLevel(board: Game, levelIndex: number, levels = LEVELS): CheckResult {
   const level = levelAt(levelIndex, levels);
   const allowed = new Set<NodeType>([...partsBin(levelIndex, levels), ...wiring(level).map((w) => w.type)]);
@@ -481,16 +521,49 @@ export function checkLevel(board: Game, levelIndex: number, levels = LEVELS): Ch
     (label: Label): NodeID =>
       [...board.nodes.values()].find((node) => nodeKind(board, node).terminal === side && node.label === label)?.id ??
       -1;
-  const run = simulate(board, level.inputs.map(terminal("input")), level.outputs.map(terminal("output")));
-  const rows = truthTable(level).map((row): CheckedRow => Object.assign(row, { actual: run(row.inputs) }));
-  const hidden = level.cases === undefined ? { checked: 0, failed: [] } : checkHidden(level, level.cases, run);
+  const simulated = simulate(board, level.inputs.map(terminal("input")), level.outputs.map(terminal("output")));
+  const settled = { always: true };
+  const run = (values: Value[]): Value[] => {
+    const { outputs, stable } = simulated(values);
+    if (!stable) settled.always = false;
+    return outputs;
+  };
+  let rows: CheckedRow[];
+  let hidden: CheckResult["hidden"] = { checked: 0, failed: [] };
+  if (level.steps === undefined) {
+    rows = truthTable(level).map((row): CheckedRow => Object.assign(row, { actual: run(row.inputs) }));
+    // An unstable board has already failed, and settling it again on every
+    // row out of sight would take a long time.
+    if (level.cases !== undefined) hidden = checkHidden(level, level.cases, run, () => !settled.always);
+  } else {
+    rows = level.steps.map((step): CheckedRow => Object.assign({ actual: playStep(level, step, run) }, step));
+  }
+  const unstable = !settled.always;
 
   const passed =
-    forbidden.length === 0 && hidden.failed.length === 0 && rows.every((row) => matches(row.actual, row.expected));
-  return { rows, hidden, forbidden, passed };
+    forbidden.length === 0 &&
+    !unstable &&
+    hidden.failed.length === 0 &&
+    rows.every((row) => matches(row.actual, row.expected));
+  return { rows, hidden, forbidden, unstable, passed };
 }
 
-function checkHidden(level: Level, cases: Value[][], run: (values: Value[]) => Value[]): CheckResult["hidden"] {
+// Sets a step's inputs and, if it ticks, turns the clock on and off, giving
+// the outputs at the end.
+function playStep(level: Level, step: Row, run: (values: Value[]) => Value[]): Value[] {
+  const actual = run(step.inputs);
+  const clock = level.inputs.indexOf(CLOCK);
+  if (step.tick !== true || clock < 0) return actual;
+  run(Object.assign([...step.inputs], { [clock]: 1 }));
+  return run(Object.assign([...step.inputs], { [clock]: 0 }));
+}
+
+function checkHidden(
+  level: TruthTableLevel,
+  cases: Value[][],
+  run: (values: Value[]) => Value[],
+  unstable: () => boolean,
+): CheckResult["hidden"] {
   const shown = new Set(cases.map((inputs) => rowNumber(level, inputs)));
   const count = rowCount(level);
   const failed: CheckedRow[] = [];
@@ -502,11 +575,12 @@ function checkHidden(level: Level, cases: Value[][], run: (values: Value[]) => V
     const actual = run(row.inputs);
     if (!matches(actual, row.expected)) failed.push({ ...row, actual });
   };
+  const going = (): boolean => failed.length < MAX_HIDDEN_FAILURES && !unstable();
   if (count <= FULL_CHECK_LIMIT) {
-    for (let n = 0; n < count && failed.length < MAX_HIDDEN_FAILURES; n++) check(n);
+    for (let n = 0; n < count && going(); n++) check(n);
   } else {
     const random = seeded(SAMPLE_SEED);
-    for (let i = 0; i < SAMPLE_SIZE && failed.length < MAX_HIDDEN_FAILURES; i++) check(Math.floor(random() * count));
+    for (let i = 0; i < SAMPLE_SIZE && going(); i++) check(Math.floor(random() * count));
   }
   return { checked, failed };
 }

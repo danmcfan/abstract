@@ -16,8 +16,12 @@ export interface NodeKind {
   pinWidth: (side: "in" | "out", index: number, width: number) => number;
   size: (width: number) => Size;
   // One value per output pin. Terminals have no logic of their own: the
-  // board sets an input's signals and lights an output from its wire.
-  evaluate: (inputs: Value[], width: number) => Value[];
+  // board sets an input's signals and lights an output from its wire. A
+  // memory part's outputs come from its state alone.
+  evaluate: (inputs: Value[], width: number, state?: Value) => Value[];
+  // A memory part's next state, from its inputs and its state. Other kinds
+  // keep no state.
+  next?: (inputs: Value[], state: Value) => Value;
   // One end of the level's truth table: an input the board sets, or an
   // output it reads.
   terminal?: "input" | "output";
@@ -43,14 +47,30 @@ export type Look =
   | { shape: "box"; inputs: Label[]; outputs: Label[]; flare: number };
 
 // What a part computes, as its level says (ADR 6): its pin names in order,
-// and one output value per output pin.
-export interface Spec {
+// and either one output value per output pin from its inputs, or, for a
+// memory part, a rule for its state.
+export type Spec = Pins & (Combinational | { memory: Memory; target?: never });
+
+export interface Pins {
   inputs: Label[];
   outputs: Label[];
   // The width of each bus pin, by name. A pin that isn't listed carries one
   // signal.
   widths?: Partial<Record<Label, number>>;
+}
+
+export interface Combinational {
   target: (inputs: Value[]) => Value[];
+  memory?: never;
+}
+
+// A memory part keeps a state on its node, 0 when a board loads. Its
+// outputs come from its state, and its inputs change the state, so the
+// level decides when it takes in a value: a flip-flop keeps the clock it
+// last saw in its state, to tell when the clock turns on.
+export interface Memory {
+  next: (inputs: Value[], state: Value) => Value;
+  outputs: (state: Value) => Value[];
 }
 
 // The parts a board can hold, by name.
@@ -154,11 +174,12 @@ function partKind(type: NodeType, spec: Spec): NodeKind {
     outputCount: () => spec.outputs.length,
     pinWidth: (side, index) => widthOf((side === "in" ? spec.inputs : spec.outputs)[index]),
     size: () => size,
-    evaluate: (inputs) => {
-      const values = spec.target(inputs);
+    evaluate: (inputs, _width, state = 0) => {
+      const values = spec.memory ? spec.memory.outputs(state) : spec.target(inputs);
       for (let i = 0; i < values.length; i++) values[i] = mask(values[i] ?? 0, outputWidths[i] ?? 1);
       return values;
     },
+    ...(spec.memory && { next: spec.memory.next }),
     clickable: false,
     removable: true,
     look: symbol ?? { shape: "box", inputs: spec.inputs, outputs: spec.outputs, flare: FLARES[type] ?? 0 },

@@ -6,13 +6,18 @@ import {
   pinPosition,
   placeNode,
   removeNode,
+  restart,
   setInput,
+  setInputs,
+  simulate,
+  tick,
   unwire,
   wire,
   type Game,
   type Pin,
 } from "./circuit";
 import { DEFAULT_GRID, overlaps } from "./grid";
+import { partsFrom } from "./kind";
 import { PARTS } from "./level";
 import type { NodeID, NodeType } from "./node";
 
@@ -73,14 +78,14 @@ describe("wire", () => {
     expect(edgeInto(game, o, 0)!.from).toBe(b);
   });
 
-  test("refuses loops and self wires", () => {
+  test("accepts a wire that forms a loop", () => {
     const game = newGame(PARTS);
     const x = add(game, "NAND", 10, 10);
     const y = add(game, "NAND", 20, 10);
     expect(wire(game, out(x), inp(y))).not.toBeNull();
-    expect(wire(game, out(y), inp(x))).toBeNull();
-    expect(wire(game, out(x), inp(x))).toBeNull();
-    expect(game.edges.size).toBe(1);
+    expect(wire(game, out(y), inp(x))).not.toBeNull();
+    expect(game.edges.size).toBe(2);
+    expect(game.stable).toBe(true);
   });
 
   test("refuses out-to-out and in-to-in", () => {
@@ -170,5 +175,130 @@ describe("a three-input part", () => {
     expect(high(game, o)).toBe(false);
     setInput(game, sel, 1);
     expect(high(game, o)).toBe(true);
+  });
+});
+
+// S and R are active low: turning S off sets Q, turning R off resets it,
+// and with both on the latch holds whatever it last had.
+function srLatch(game: Game): { s: NodeID; r: NodeID; q: NodeID; nq: NodeID } {
+  const s = add(game, "INPUT", 4, 10);
+  const r = add(game, "INPUT", 4, 30);
+  const top = add(game, "NAND", 20, 10);
+  const bottom = add(game, "NAND", 20, 30);
+  const q = add(game, "OUTPUT", 40, 10);
+  const nq = add(game, "OUTPUT", 40, 30);
+  wire(game, out(s), inp(top, 0));
+  wire(game, out(bottom), inp(top, 1));
+  wire(game, out(r), inp(bottom, 1));
+  wire(game, out(top), inp(bottom, 0));
+  wire(game, out(top), inp(q));
+  wire(game, out(bottom), inp(nq));
+  setInputs(
+    game,
+    new Map([
+      [s, 1],
+      [r, 1],
+    ]),
+  );
+  return { s, r, q, nq };
+}
+
+describe("loops", () => {
+  test("a NOT gate wired to itself is unstable, and unwiring it settles", () => {
+    const game = newGame(PARTS);
+    const not = add(game, "NOT", 10, 10);
+    expect(wire(game, out(not), inp(not))).not.toBeNull();
+    expect(game.stable).toBe(false);
+    unwire(game, inp(not));
+    expect(game.stable).toBe(true);
+  });
+
+  test("a NOT wired to itself through a second gate is unstable, and unwiring it settles", () => {
+    const game = newGame(PARTS);
+    const x = add(game, "NOT", 10, 10);
+    const y = add(game, "AND", 20, 10);
+    const one = add(game, "INPUT", 4, 20);
+    setInput(game, one, 1);
+    wire(game, out(x), inp(y, 0));
+    wire(game, out(one), inp(y, 1));
+    wire(game, out(y), inp(x));
+    expect(game.stable).toBe(false);
+    unwire(game, inp(x));
+    expect(game.stable).toBe(true);
+  });
+
+  test("two cross-coupled NANDs set, hold and reset", () => {
+    const game = newGame(PARTS);
+    const { s, r, q, nq } = srLatch(game);
+    setInput(game, s, 0);
+    expect([high(game, q), high(game, nq)]).toEqual([true, false]);
+    setInput(game, s, 1);
+    expect([high(game, q), high(game, nq)]).toEqual([true, false]);
+    setInput(game, r, 0);
+    expect([high(game, q), high(game, nq)]).toEqual([false, true]);
+    setInput(game, r, 1);
+    expect([high(game, q), high(game, nq)]).toEqual([false, true]);
+    setInput(game, s, 0);
+    expect([high(game, q), high(game, nq)]).toEqual([true, false]);
+    expect(game.stable).toBe(true);
+  });
+
+  test("simulate holds a latch's value from one set of inputs to the next", () => {
+    const game = newGame(PARTS);
+    const { s, r, q } = srLatch(game);
+    const run = simulate(game, [s, r], [q]);
+    expect(run([0, 1])).toEqual({ outputs: [1], stable: true });
+    expect(run([1, 1])).toEqual({ outputs: [1], stable: true });
+    expect(run([1, 0])).toEqual({ outputs: [0], stable: true });
+    expect(run([1, 1])).toEqual({ outputs: [0], stable: true });
+  });
+});
+
+// A part that keeps its own state: D is taken in when CLK turns on.
+const FLIP_FLOP = partsFrom([
+  {
+    gate: "DFF",
+    inputs: ["D", "CLK"],
+    outputs: ["Q"],
+    memory: {
+      next: ([d = 0, clk = 0], state): number => (clk && !(state >> 1) ? d : state & 1) | (clk << 1),
+      outputs: (state): number[] => [state & 1],
+    },
+  },
+]);
+
+function flipFlop(): { game: Game; d: NodeID; clk: NodeID; ff: NodeID; q: NodeID } {
+  const game = newGame(FLIP_FLOP);
+  const d = add(game, "INPUT", 4, 10);
+  const clk = add(game, "INPUT", 4, 30);
+  const ff = add(game, "DFF", 20, 20);
+  const q = add(game, "OUTPUT", 40, 20);
+  wire(game, out(d), inp(ff, 0));
+  wire(game, out(clk), inp(ff, 1));
+  wire(game, out(ff), inp(q));
+  return { game, d, clk, ff, q };
+}
+
+describe("memory parts", () => {
+  test("take in a value only when the clock turns on", () => {
+    const { game, d, clk, q } = flipFlop();
+    setInput(game, d, 1);
+    expect(high(game, q)).toBe(false);
+    tick(game, clk);
+    expect(high(game, q)).toBe(true);
+    setInput(game, d, 0);
+    expect(high(game, q)).toBe(true);
+    setInput(game, clk, 1);
+    expect(high(game, q)).toBe(false);
+  });
+
+  test("restart puts every memory part's state back to 0", () => {
+    const { game, d, clk, ff, q } = flipFlop();
+    setInput(game, d, 1);
+    tick(game, clk);
+    expect(high(game, q)).toBe(true);
+    restart(game);
+    expect(game.nodes.get(ff)!.state).toBe(0);
+    expect(high(game, q)).toBe(false);
   });
 });

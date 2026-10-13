@@ -107,6 +107,17 @@ const CUES: Record<Cue, (now: number, pitch: number) => void> = {
     tone(t, 0.02, 0.12, 2600, "square");
     burst(t + 0.028, 0.015, 0.4, "highpass", 1400);
   },
+  clock: (t) => {
+    burst(t, 0.016, 0.7, "highpass", 1100);
+    tone(t, 0.03, 0.14, 1300, "square");
+    burst(t + 0.035, 0.02, 0.45, "highpass", 900);
+  },
+  unstable: (t) => {
+    // A short circuit's buzz, then the pop as something gives.
+    tone(t, 0.32, 0.12, 120, "sawtooth");
+    tone(t, 0.32, 0.06, 181, "sawtooth");
+    burst(t + 0.3, 0.06, 0.8, "lowpass", 1200);
+  },
   carriage: (t) => {
     // A ratchet speeding up, then the carriage hitting its stop.
     let at = t;

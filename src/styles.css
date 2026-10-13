@@ -257,6 +257,22 @@ body {
   stroke: rgba(47, 111, 196, 0.24);
   stroke-width: 0.05;
 }
+/* An unstable board's plate flickers red, like something shorting. */
+#board.unstable .plate {
+  stroke: var(--color-fail);
+  animation: flicker 0.4s steps(2) infinite;
+}
+#board .unstable-note {
+  font-size: 0.9px;
+  text-anchor: start;
+  font-weight: bold;
+  fill: var(--color-fail);
+}
+@keyframes flicker {
+  50% {
+    stroke-opacity: 0.4;
+  }
+}
 #board .work-area {
   fill: none;
   stroke: var(--color-ink);

@@ -1,5 +1,6 @@
 import { For, Show, createEffect, createSignal, on, type JSX } from "solid-js";
 import {
+  CLOCK,
   floorAbove,
   layerOf,
   LEVELS,
@@ -17,17 +18,21 @@ import { SoundButton } from "./SoundButton";
 import * as script from "./script";
 import {
   clearBoard,
+  clocked,
   currentRow,
   level,
   levelIndex,
   placePart,
   result,
   rowResults,
+  running,
   runTest,
   stamped,
   startLevel,
   tableRows,
   testing,
+  tickClock,
+  toggleClock,
 } from "./state";
 
 const pad = (n: number): string => String(n).padStart(2, "0");
@@ -43,6 +48,8 @@ const widths = (): number[] => labels().map((label) => terminalWidth(level(), la
 // A row's outputs as the test column writes them: single signals run
 // together as bits, bus values are numbers apart.
 const written = (values: Value[]): string => values.join(widths().some((width) => width > 1) ? " " : "");
+// A timing table numbers its steps, and marks the steps that tick the clock.
+const timed = (): boolean => level().steps !== undefined;
 const layer = (): Layer => layerOf(levelIndex());
 const above = (): Layer | null => floorAbove(levelIndex());
 
@@ -52,6 +59,7 @@ function status(): { text: string; tone: string } | null {
   if (!r) return null;
   if (r.forbidden.length > 0)
     return { text: `${r.forbidden.join(", ")} isn't in this level's parts bin.`, tone: "text-fail" };
+  if (r.unstable) return { text: "Unstable: a loop on the board never settles.", tone: "text-fail" };
   if (!r.passed) return { text: "Not quite. Some rows don't match.", tone: "text-fail" };
   const hasNext = levelIndex() + 1 < LEVELS.length;
   return {
@@ -94,6 +102,9 @@ export function Hud(props: { onMenu: () => void; onStack: (arrive?: number) => v
             <table class="w-full border-collapse text-center text-note tabular-nums">
               <thead>
                 <tr class="text-ink">
+                  <Show when={timed()}>
+                    <th class="border-hair border-ink px-1 py-0.5 text-xs font-normal text-pencil">step</th>
+                  </Show>
                   <For each={labels()}>{(label) => <th class="border-hair border-ink px-2 py-0.5">{label}</th>}</For>
                   <th class="w-12 border-hair border-ink px-1 py-0.5 text-xs font-normal text-pencil">test</th>
                 </tr>
@@ -109,15 +120,21 @@ export function Hud(props: { onMenu: () => void; onStack: (arrive?: number) => v
                     };
                     return (
                       <tr class={currentRow() === i() ? "bg-wash font-bold" : ""}>
+                        <Show when={timed()}>
+                          <td class="border-hair border-ink px-1 py-0.5 text-pencil">{i() + 1}</td>
+                        </Show>
                         <For each={[...row.inputs, ...row.expected]}>
                           {(value, column) => {
                             const width = (): number => widths()[column()] ?? 1;
+                            const ticks = (): boolean => row.tick === true && labels()[column()] === CLOCK;
                             return (
                               <td
                                 class="border-hair border-ink px-2 py-0.5"
                                 title={width() > 1 ? binary(value, width()) : undefined}
                               >
-                                {value}
+                                <Show when={ticks()} fallback={value}>
+                                  tick
+                                </Show>
                               </td>
                             );
                           }}
@@ -155,6 +172,14 @@ export function Hud(props: { onMenu: () => void; onStack: (arrive?: number) => v
             >
               Run test
             </button>
+            <Show when={clocked()}>
+              <button id="tick" class="btn btn-sm" disabled={testing()} onClick={tickClock}>
+                Tick
+              </button>
+              <button id="run-clock" class="btn btn-sm" disabled={testing()} onClick={toggleClock}>
+                {running() ? "Pause" : "Run"}
+              </button>
+            </Show>
             <button
               id="clear"
               class="btn btn-sm btn-ghost"
