@@ -4,9 +4,9 @@ import { respond } from "./respond";
 import * as script from "./script";
 
 const NOT = LEVELS[1]!;
-const passed: CheckResult = { rows: [], forbidden: [], passed: true };
-const failed: CheckResult = { rows: [], forbidden: [], passed: false };
-const forbidden: CheckResult = { rows: [], forbidden: ["NOT"], passed: false };
+const passed: CheckResult = { rows: [], forbidden: [], hidden: { checked: 0, failed: [] }, passed: true };
+const failed: CheckResult = { rows: [], forbidden: [], hidden: { checked: 0, failed: [] }, passed: false };
+const forbidden: CheckResult = { rows: [], forbidden: ["NOT"], hidden: { checked: 0, failed: [] }, passed: false };
 
 // Responds to a run of results in order, keeping story flags the way the
 // tutorial does.

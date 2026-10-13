@@ -1,6 +1,6 @@
 import { pinPosition, type EdgeID, type Game, type Pin } from "./circuit";
+import type { Size } from "./grid";
 import { inputCount, outputCount } from "./node";
-import { GRID_HEIGHT, GRID_WIDTH } from "./grid";
 
 // Wires run along grid lines between lattice points. A wire leaves its output
 // pin heading right and enters its input pin heading right.
@@ -63,10 +63,27 @@ const axisOf = (dir: number) => (dir % 2 === 0 ? "h" : "v");
 
 type Usage = "h" | "v" | "bend";
 
-const key = (x: number, y: number) => y * (GRID_WIDTH + 1) + x;
+// Lattice points of a board, numbered row by row, and back.
+interface Lattice {
+  key(x: number, y: number): number;
+  point(k: number): Point;
+  inside(x: number, y: number): boolean;
+}
+
+function lattice(grid: Size): Lattice {
+  const stride = grid.width + 1;
+  return {
+    key: (x, y) => y * stride + x,
+    point: (k) => ({ x: k % stride, y: Math.floor(k / stride) }),
+    inside: (x, y) => x >= 0 && y >= 0 && x <= grid.width && y <= grid.height,
+  };
+}
+
 const edgeKey = (a: number, b: number) => (a < b ? `${a}-${b}` : `${b}-${a}`);
 
 export function routeWires(game: Game): Routing {
+  const grid = lattice(game.grid);
+  const key = grid.key;
   const blocked = new Set<number>();
   for (const node of game.nodes.values()) {
     const { x, y, width, height } = node.rect;
@@ -79,11 +96,11 @@ export function routeWires(game: Game): Routing {
   // other wire can squeeze past and look connected.
   const reserved = new Map<number, string>();
   for (const node of game.nodes.values()) {
-    for (let i = 0; i < outputCount(node.type); i++) {
+    for (let i = 0; i < outputCount(node.type, node.width); i++) {
       const p = pinPosition(node, "out", i);
       reserved.set(key(p.x + 1, p.y), `${node.id}:${i}`);
     }
-    for (let i = 0; i < inputCount(node.type); i++) {
+    for (let i = 0; i < inputCount(node.type, node.width); i++) {
       const p = pinPosition(node, "in", i);
       reserved.set(key(p.x - 1, p.y), "none");
     }
@@ -112,7 +129,7 @@ export function routeWires(game: Game): Routing {
   for (const { edge, a, b } of edges) {
     const net = `${edge.from}:${edge.fromIndex}`;
     sources.set(net, { node: edge.from, side: "out", index: edge.fromIndex });
-    const path = search(net, { x: a.x + 1, y: a.y }, { x: b.x - 1, y: b.y }, blocked, reserved, pointUse, edgeUse);
+    const path = search(grid, net, { x: a.x + 1, y: a.y }, { x: b.x - 1, y: b.y }, blocked, reserved, pointUse, edgeUse);
     if (!path) {
       const midX = (a.x + b.x) / 2;
       routes.set(edge.id, { points: simplify([a, { x: midX, y: a.y }, { x: midX, y: b.y }, b]), hops: [], routed: false });
@@ -160,7 +177,7 @@ export function routeWires(game: Game): Routing {
       for (const end of e.split("-").map(Number)) degree.set(end, (degree.get(end) ?? 0) + 1);
     }
     for (const [k, d] of degree) {
-      if (d >= 3) junctions.push({ point: { x: k % (GRID_WIDTH + 1), y: Math.floor(k / (GRID_WIDTH + 1)) }, source: sources.get(net)! });
+      if (d >= 3) junctions.push({ point: grid.point(k), source: sources.get(net)! });
     }
   }
 
@@ -170,6 +187,7 @@ export function routeWires(game: Game): Routing {
 // A* over (point, heading) from start to goal, both of which are pin stubs.
 // Returns the lattice points from start to goal, or null.
 function search(
+  grid: Lattice,
   net: string,
   start: Point,
   goal: Point,
@@ -178,8 +196,9 @@ function search(
   pointUse: Map<number, Map<string, Usage>>,
   edgeUse: Map<string, string>,
 ): Point[] | null {
+  const key = grid.key;
   const passable = (x: number, y: number) => {
-    if (x < 0 || y < 0 || x > GRID_WIDTH || y > GRID_HEIGHT) return false;
+    if (!grid.inside(x, y)) return false;
     const k = key(x, y);
     if (blocked.has(k)) return false;
     const owner = reserved.get(k);
@@ -202,10 +221,9 @@ function search(
     const s = heap.pop();
     const dir = s % 4;
     const k = Math.floor(s / 4);
-    const x = k % (GRID_WIDTH + 1);
-    const y = Math.floor(k / (GRID_WIDTH + 1));
+    const { x, y } = grid.point(k);
     // Arriving heading left would need a U-turn into the input pin.
-    if (x === goal.x && y === goal.y && dir !== 2) return unwind(s, parent);
+    if (x === goal.x && y === goal.y && dir !== 2) return unwind(grid, s, parent);
     const here = others(k);
 
     for (let d = 0; d < 4; d++) {
@@ -231,8 +249,7 @@ function search(
 
       const sideX = DY[d]!;
       const sideY = DX[d]!;
-      const beside = (bx: number, by: number) =>
-        bx >= 0 && by >= 0 && bx <= GRID_WIDTH && by <= GRID_HEIGHT && others(key(bx, by)).length > 0;
+      const beside = (bx: number, by: number) => grid.inside(bx, by) && others(key(bx, by)).length > 0;
       if (beside(nx + sideX, ny + sideY) || beside(nx - sideX, ny - sideY)) step += BESIDE_COST;
 
       const ns = state(nk, d);
@@ -247,12 +264,9 @@ function search(
   return null;
 }
 
-function unwind(s: number, parent: Map<number, number>): Point[] {
+function unwind(grid: Lattice, s: number, parent: Map<number, number>): Point[] {
   const points: Point[] = [];
-  for (let at: number | undefined = s; at !== undefined; at = parent.get(at)) {
-    const k = Math.floor(at / 4);
-    points.push({ x: k % (GRID_WIDTH + 1), y: Math.floor(k / (GRID_WIDTH + 1)) });
-  }
+  for (let at: number | undefined = s; at !== undefined; at = parent.get(at)) points.push(grid.point(Math.floor(at / 4)));
   return points.reverse();
 }
 
