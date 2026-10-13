@@ -30,7 +30,8 @@ for (const file of firstLoad) {
 const assets = join(DIST, "assets");
 for (const file of readdirSync(assets).filter((f) => f.endsWith(".js"))) {
   const size = statSync(join(assets, file)).size;
-  if (size > CHUNK_LIMIT) failures.push(`${file} is ${Math.round(size / 1024)} kB, over the ${CHUNK_LIMIT / 1024} kB limit`);
+  if (size > CHUNK_LIMIT)
+    failures.push(`${file} is ${Math.round(size / 1024)} kB, over the ${CHUNK_LIMIT / 1024} kB limit`);
 }
 
 if (failures.length > 0) {

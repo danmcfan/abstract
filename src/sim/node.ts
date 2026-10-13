@@ -1,6 +1,7 @@
 import type { Rect } from "./grid";
 
-export type NodeType = "INPUT" | "OUTPUT" | "SPLIT" | "JOIN" | "NOT" | "OR" | "NOR" | "AND" | "NAND" | "XOR" | "XNOR" | "MUX" | "DEMUX";
+export type NodeType =
+  "INPUT" | "OUTPUT" | "SPLIT" | "JOIN" | "NOT" | "OR" | "NOR" | "AND" | "NAND" | "XOR" | "XNOR" | "MUX" | "DEMUX";
 
 // A terminal's or a pin's short name, such as A, SEL, SUM or OUT. Each level
 // names its own; gates and other unnamed nodes have "".

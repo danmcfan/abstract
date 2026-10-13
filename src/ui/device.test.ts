@@ -18,7 +18,11 @@ function fakeMedia(initial: boolean) {
 
 function fakeStorage() {
   const items = new Map<string, string>();
-  return { getItem: (key: string) => items.get(key) ?? null, setItem: (key: string, value: string) => void items.set(key, value), items };
+  return {
+    getItem: (key: string) => items.get(key) ?? null,
+    setItem: (key: string, value: string) => void items.set(key, value),
+    items,
+  };
 }
 
 test("small touch needs a narrow window, a coarse pointer and no hover", () => {

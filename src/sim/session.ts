@@ -1,6 +1,17 @@
 import type { Game } from "./circuit";
 import { placeNode } from "./circuit";
-import { applyInputs, checkLevel, LEVELS, loadLevel, matches, playableCount, truthTable, type CheckResult, type Level, type Row } from "./level";
+import {
+  applyInputs,
+  checkLevel,
+  LEVELS,
+  loadLevel,
+  matches,
+  playableCount,
+  truthTable,
+  type CheckResult,
+  type Level,
+  type Row,
+} from "./level";
 import type { NodeType, Value } from "./node";
 import { loadBoard, saveBoard, type Boards, type SaveStore } from "./save";
 import { silent, type Sound } from "./sound";

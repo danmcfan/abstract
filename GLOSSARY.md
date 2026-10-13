@@ -188,7 +188,6 @@ The number the door wants: the sum of the ASCII codes of the letters of TURING, 
 A pencil note about Alan Turing's life in the margin of the last sheet of each of L1 to L6, shown once that level is solved. The six clues together point to the name the door code comes from.
 _Avoid_: hint (Bitbox gives hints), easter egg
 
-
 ## Bitbox
 
 **Bitbox**:

@@ -26,7 +26,7 @@ export function Title(props: { onContinue: () => void; onStack: () => void; onNe
 
   return (
     <main class="fixed inset-0 grid place-items-center overflow-y-auto p-4 text-ink-deep">
-      <div class="sheet pop relative w-full max-w-[760px] border-[3px]! border-double!">
+      <div class="pop relative w-full max-w-[760px] border-[3px]! border-double! sheet">
         <SoundButton class="absolute top-3 right-3" />
         <div class="grid items-center gap-2 p-6 pb-2 sm:grid-cols-[auto_1fr] sm:p-8 sm:pb-2">
           <div>
@@ -41,7 +41,13 @@ export function Title(props: { onContinue: () => void; onStack: () => void; onNe
               <Show
                 when={hasSave()}
                 fallback={
-                  <button id="start" class="btn px-8 text-lg" onMouseEnter={wake} onFocus={wake} onClick={() => props.onNew()}>
+                  <button
+                    id="start"
+                    class="btn px-8 text-lg"
+                    onMouseEnter={wake}
+                    onFocus={wake}
+                    onClick={() => props.onNew()}
+                  >
                     Start
                   </button>
                 }
@@ -49,26 +55,42 @@ export function Title(props: { onContinue: () => void; onStack: () => void; onNe
                 <Show
                   when={!confirming()}
                   fallback={
-                    <div class="border-2 border-dashed border-fail p-3" role="alertdialog" aria-label="Start a new game?">
+                    <div
+                      class="border-2 border-dashed border-fail p-3"
+                      role="alertdialog"
+                      aria-label="Start a new game?"
+                    >
                       <p class="mb-3 text-[13px]">Start over? Your saved game will be erased.</p>
                       <div class="flex flex-wrap gap-3">
-                        <button id="erase" class="btn btn-sm border-fail bg-fail" onClick={() => props.onNew()}>
+                        <button id="erase" class="btn border-fail bg-fail btn-sm" onClick={() => props.onNew()}>
                           Erase and start
                         </button>
-                        <button id="keep" class="btn btn-ghost btn-sm" onClick={keep}>
+                        <button id="keep" class="btn btn-sm btn-ghost" onClick={keep}>
                           Keep it
                         </button>
                       </div>
                     </div>
                   }
                 >
-                  <button id="continue" class="btn px-6 text-left text-lg" onMouseEnter={wake} onFocus={wake} onClick={() => props.onContinue()}>
+                  <button
+                    id="continue"
+                    class="btn px-6 text-left text-lg"
+                    onMouseEnter={wake}
+                    onFocus={wake}
+                    onClick={() => props.onContinue()}
+                  >
                     Continue
                     <small class="block text-xs font-normal opacity-80">
                       {saved().prebuilt ? "Meet" : "Build"} {saved().gate}, level {savedLevel() + 1} of {LEVELS.length}
                     </small>
                   </button>
-                  <button id="title-stack" class="btn btn-ghost" onMouseEnter={wake} onFocus={wake} onClick={() => props.onStack()}>
+                  <button
+                    id="title-stack"
+                    class="btn btn-ghost"
+                    onMouseEnter={wake}
+                    onFocus={wake}
+                    onClick={() => props.onStack()}
+                  >
                     The stack
                   </button>
                   <button id="new-game" class="btn btn-ghost" onClick={askToErase}>

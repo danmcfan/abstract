@@ -60,7 +60,13 @@ export function newGame(grid: Size = DEFAULT_GRID): Game {
 // Adds a node at the free spot nearest center, searching outward ring by
 // ring. The width sets how many signals a terminal, split or join carries.
 // Returns null when the board has no room or the width is out of range.
-export function placeNode(game: Game, type: NodeType, center: { x: number; y: number }, label: Label = "", width = 1): Node | null {
+export function placeNode(
+  game: Game,
+  type: NodeType,
+  center: { x: number; y: number },
+  label: Label = "",
+  width = 1,
+): Node | null {
   if (!Number.isInteger(width) || width < 1 || width > MAX_WIDTH) return null;
   const rect = freeRect(game, nodeSize(type, width), center);
   if (!rect) return null;
@@ -105,7 +111,14 @@ export function wire(game: Game, a: Pin, b: Pin): Edge | null {
 
   const old = edgeInto(game, to.node, to.index);
   if (old) game.edges.delete(old.id);
-  const edge: Edge = { id: game.nextEdgeID++, from: from.node, fromIndex: from.index, to: to.node, toIndex: to.index, value: 0 };
+  const edge: Edge = {
+    id: game.nextEdgeID++,
+    from: from.node,
+    fromIndex: from.index,
+    to: to.node,
+    toIndex: to.index,
+    value: 0,
+  };
   game.edges.set(edge.id, edge);
   settle(game);
   return edge;
@@ -189,7 +202,11 @@ export function pinAt(game: Game, x: number, y: number, radius = 1): Pin | null 
 
 // Internals
 
-function freeRect(game: Game, { width, height }: { width: number; height: number }, center: { x: number; y: number }): Rect | null {
+function freeRect(
+  game: Game,
+  { width, height }: { width: number; height: number },
+  center: { x: number; y: number },
+): Rect | null {
   for (let ring = 0; ring < game.grid.width + game.grid.height; ring++) {
     for (let dx = -ring; dx <= ring; dx++) {
       for (let dy = -ring; dy <= ring; dy++) {

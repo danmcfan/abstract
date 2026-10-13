@@ -132,7 +132,9 @@ describe("buses", () => {
     const split = placeNode(game, "SPLIT", { x: 18, y: 20 }, "", 8)!;
     const join = placeNode(game, "JOIN", { x: 28, y: 20 }, "", 8)!;
     const lamp = placeNode(game, "OUTPUT", { x: 40, y: 20 }, "OUT", 8)!.id;
-    expect([widthOf(split, inp(0)), widthOf(split, out(0)), widthOf(join, inp(0)), widthOf(join, out(0))]).toEqual([8, 1, 1, 8]);
+    expect([widthOf(split, inp(0)), widthOf(split, out(0)), widthOf(join, inp(0)), widthOf(join, out(0))]).toEqual([
+      8, 1, 1, 8,
+    ]);
     wire(game, out(a), inp(split.id));
     for (let i = 0; i < 8; i++) expect(wire(game, out(split.id, i), inp(join.id, i))).not.toBeNull();
     wire(game, out(join.id), inp(lamp));

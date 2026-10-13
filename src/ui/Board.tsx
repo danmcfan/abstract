@@ -35,7 +35,9 @@ function toBoard(clientX: number, clientY: number): { x: number; y: number } {
 }
 
 export function Board() {
-  const grid = createMemo(() => current().grid, undefined, { equals: (a, b) => a.width === b.width && a.height === b.height });
+  const grid = createMemo(() => current().grid, undefined, {
+    equals: (a, b) => a.width === b.width && a.height === b.height,
+  });
   const [resized, setResized] = createSignal(0);
   const viewBox = createMemo(() => (resized(), fitViewBox(grid())));
   const onResize = () => setResized((n) => n + 1);
@@ -135,7 +137,14 @@ export function Board() {
         {/* A cyan glow under live wires and lit lamps. In user space, so
             perfectly straight wires (a zero-height bounding box) aren't
             clipped away. */}
-        <filter id="glow" filterUnits="userSpaceOnUse" x="-5" y="-5" width={grid().width + 10} height={grid().height + 10}>
+        <filter
+          id="glow"
+          filterUnits="userSpaceOnUse"
+          x="-5"
+          y="-5"
+          width={grid().width + 10}
+          height={grid().height + 10}
+        >
           <feGaussianBlur in="SourceAlpha" stdDeviation="0.22" result="blur" />
           <feFlood flood-color="#7FD0FF" flood-opacity="0.9" />
           <feComposite in2="blur" operator="in" result="glow" />
@@ -169,7 +178,12 @@ export function Board() {
           {(wire) => (
             <g
               class="wire"
-              classList={{ high: isEdgeHigh(wire.id), unrouted: !wire.route.routed, bus: wire.width > 1, inking: inking().has(wire.id) }}
+              classList={{
+                high: isEdgeHigh(wire.id),
+                unrouted: !wire.route.routed,
+                bus: wire.width > 1,
+                inking: inking().has(wire.id),
+              }}
               data-edge={wire.id}
             >
               <Show when={inking().has(wire.id)}>

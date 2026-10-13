@@ -1,6 +1,18 @@
 import { describe, expect, test } from "bun:test";
 import { newGame, pinPosition, placeNode, setInput, wire, type Game, type Pin } from "./circuit";
-import { checkLevel, floorAbove, LAYERS, layerLevels, layerState, LEVELS, loadLevel, matches, partsBin, truthTable, type Level } from "./level";
+import {
+  checkLevel,
+  floorAbove,
+  LAYERS,
+  layerLevels,
+  layerState,
+  LEVELS,
+  loadLevel,
+  matches,
+  partsBin,
+  truthTable,
+  type Level,
+} from "./level";
 import { definePart, outputCount, partSpec, type Label, type NodeID, type NodeType } from "./node";
 
 const out = (node: NodeID, index = 0): Pin => ({ node, side: "out", index });
@@ -135,7 +147,16 @@ describe("the MUX level", () => {
 
   test("its truth table has 8 rows: A when SEL is off, B when SEL is on", () => {
     const rows = truthTable(LEVELS[index]!);
-    expect(rows.map((row) => row.inputs.map(Number).join(""))).toEqual(["000", "001", "010", "011", "100", "101", "110", "111"]);
+    expect(rows.map((row) => row.inputs.map(Number).join(""))).toEqual([
+      "000",
+      "001",
+      "010",
+      "011",
+      "100",
+      "101",
+      "110",
+      "111",
+    ]);
     expect(rows.map((row) => row.expected[0])).toEqual([0, 0, 0, 1, 1, 0, 1, 1]);
   });
 
@@ -163,7 +184,8 @@ describe("the DEMUX level", () => {
 
   test("has inputs D and SEL and outputs Y0 and Y1", () => {
     const game = loadLevel(LEVELS[index]!);
-    const labels = (type: NodeType) => [...game.nodes.values()].filter((node) => node.type === type).map((node) => node.label);
+    const labels = (type: NodeType) =>
+      [...game.nodes.values()].filter((node) => node.type === type).map((node) => node.label);
     expect(labels("INPUT")).toEqual(["D", "SEL"]);
     expect(labels("OUTPUT")).toEqual(["Y0", "Y1"]);
   });

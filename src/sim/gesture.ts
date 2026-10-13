@@ -52,10 +52,18 @@ export function createGestures(host: GestureHost): Gestures {
   };
 
   return {
-    get hoveredPin() { return hoveredPin; },
-    get hoveredNode() { return hoveredNode; },
-    get preview() { return preview; },
-    get dragging() { return drag !== null; },
+    get hoveredPin() {
+      return hoveredPin;
+    },
+    get hoveredNode() {
+      return hoveredNode;
+    },
+    get preview() {
+      return preview;
+    },
+    get dragging() {
+      return drag !== null;
+    },
 
     down(p, button) {
       hover(p);

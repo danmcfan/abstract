@@ -69,7 +69,9 @@ function Gate(props: { node: Node }) {
   return (
     <>
       <For each={g.inLeads}>{(d, i) => <path class="lead in" classList={{ bus: bus("in", i()) }} d={d} />}</For>
-      <For each={g.outLeads}>{(d, i) => <path class="lead out" classList={{ high: signal(i()), bus: bus("out", i()) }} d={d} />}</For>
+      <For each={g.outLeads}>
+        {(d, i) => <path class="lead out" classList={{ high: signal(i()), bus: bus("out", i()) }} d={d} />}
+      </For>
       <Show when={g.back}>{(d) => <path class="body-line" d={d()} />}</Show>
       <path class="body" d={g.body} />
       <Show when={g.bubble}>{(b) => <circle class="bubble" cx={b().cx} cy={b().cy} r={b().r} />}</Show>
@@ -147,13 +149,25 @@ function BitRow(props: { node: Node }) {
       <text class="terminal-label small" x={1 + bits / 2} y={height - 0.72}>
         {props.node.label}
       </text>
-      <path class={`lead bus ${isInput ? "out" : "in"}`} classList={{ high: value() !== 0 }} d={isInput ? `M ${width - 1} ${y} H ${width}` : `M 0 ${y} H 1`} />
+      <path
+        class={`lead bus ${isInput ? "out" : "in"}`}
+        classList={{ high: value() !== 0 }}
+        d={isInput ? `M ${width - 1} ${y} H ${width}` : `M 0 ${y} H 1`}
+      />
       <For each={Array.from({ length: bits }, (_, i) => bits - 1 - i)}>
         {(bit) => {
           const on = () => ((value() >> bit) & 1) === 1;
           const x = bitCell(bits, bit) + 0.5;
           return isInput ? (
-            <rect class="bit switch" classList={{ high: on() }} x={x - 0.36} y={y - 0.36} width={0.72} height={0.72} rx={0.12} />
+            <rect
+              class="bit switch"
+              classList={{ high: on() }}
+              x={x - 0.36}
+              y={y - 0.36}
+              width={0.72}
+              height={0.72}
+              rx={0.12}
+            />
           ) : (
             <circle class="bit lamp" classList={{ high: on() }} cx={x} cy={y} r={0.36} />
           );

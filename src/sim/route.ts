@@ -129,10 +129,23 @@ export function routeWires(game: Game): Routing {
   for (const { edge, a, b } of edges) {
     const net = `${edge.from}:${edge.fromIndex}`;
     sources.set(net, { node: edge.from, side: "out", index: edge.fromIndex });
-    const path = search(grid, net, { x: a.x + 1, y: a.y }, { x: b.x - 1, y: b.y }, blocked, reserved, pointUse, edgeUse);
+    const path = search(
+      grid,
+      net,
+      { x: a.x + 1, y: a.y },
+      { x: b.x - 1, y: b.y },
+      blocked,
+      reserved,
+      pointUse,
+      edgeUse,
+    );
     if (!path) {
       const midX = (a.x + b.x) / 2;
-      routes.set(edge.id, { points: simplify([a, { x: midX, y: a.y }, { x: midX, y: b.y }, b]), hops: [], routed: false });
+      routes.set(edge.id, {
+        points: simplify([a, { x: midX, y: a.y }, { x: midX, y: b.y }, b]),
+        hops: [],
+        routed: false,
+      });
       continue;
     }
     const full = [a, ...path, b];
@@ -266,7 +279,8 @@ function search(
 
 function unwind(grid: Lattice, s: number, parent: Map<number, number>): Point[] {
   const points: Point[] = [];
-  for (let at: number | undefined = s; at !== undefined; at = parent.get(at)) points.push(grid.point(Math.floor(at / 4)));
+  for (let at: number | undefined = s; at !== undefined; at = parent.get(at))
+    points.push(grid.point(Math.floor(at / 4)));
   return points.reverse();
 }
 

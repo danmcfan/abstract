@@ -113,7 +113,10 @@ export function loadBoard(board: SavedBoard): Game {
 }
 
 const isBoard = (board: unknown): board is SavedBoard =>
-  typeof board === "object" && board !== null && Array.isArray((board as SavedBoard).nodes) && Array.isArray((board as SavedBoard).edges);
+  typeof board === "object" &&
+  board !== null &&
+  Array.isArray((board as SavedBoard).nodes) &&
+  Array.isArray((board as SavedBoard).edges);
 
 // Anything that doesn't look like a save reads as no save, and a board that
 // doesn't look like a board is dropped. Saves from before each level kept

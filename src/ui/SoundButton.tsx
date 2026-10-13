@@ -4,7 +4,12 @@ import { soundOn, toggleSound } from "./sound";
 // apart from the save.
 export function SoundButton(props: { class?: string }) {
   return (
-    <button id="sound" class={`btn btn-ghost btn-sm ${props.class ?? ""}`} aria-pressed={soundOn()} onClick={toggleSound}>
+    <button
+      id="sound"
+      class={`btn btn-sm btn-ghost ${props.class ?? ""}`}
+      aria-pressed={soundOn()}
+      onClick={toggleSound}
+    >
       {soundOn() ? "Sound on" : "Sound off"}
     </button>
   );

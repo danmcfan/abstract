@@ -15,7 +15,9 @@ const TEST_STEP_MS = 600;
 const session = new Session(localSave(), sound);
 const [version, setVersion] = createSignal(0);
 const touch = () => setVersion((v) => v + 1);
-const read = <T,>(get: () => T) => () => (version(), get());
+const read =
+  <T>(get: () => T) =>
+  () => (version(), get());
 
 export function current(): Game {
   version();

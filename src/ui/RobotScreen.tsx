@@ -41,7 +41,16 @@ export function RobotScreen(props: { expression: Expression; talking?: boolean; 
 // Concept B, the crate, as drawn on the vision board.
 function Sketch() {
   return (
-    <svg viewBox="20 0 160 240" class="absolute inset-0 m-auto h-[88%]" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <svg
+      viewBox="20 0 160 240"
+      class="absolute inset-0 m-auto h-[88%]"
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="3"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    >
       <g class="text-ink" fill="var(--color-surface)">
         <rect x="48" y="196" width="104" height="30" rx="15" />
         <circle cx="66" cy="211" r="8" />

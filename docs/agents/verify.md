@@ -2,13 +2,13 @@
 
 Every change ships through a pull request: CI runs `bun run verify` on it, and merging to `main` deploys the live site. Before opening the PR, run the checks for what you changed, then review the diff with `/code-review main`.
 
-| You changed | Run | Done when |
-|---|---|---|
-| Anything | `bun run check` | Tests, typecheck, build and bundle check pass. |
-| Anything the player sees or does | `bun run playthrough` | It prints "Tested!" for every level and exits 0. Then look at `playthrough/level*.png`. |
-| Bitbox (`src/robot/`) | `bun run shots` | `shots/sheet.png` shows every expression the way you intended. |
-| Before opening the PR | `bun run verify` | `check` plus `playthrough`, the same as CI. |
-| Anything the player sees or hears | Capture it and attach it to the PR ([Evidence on the PR](#evidence-on-the-pr)) | The PR body shows a screenshot of each change, and a video of any motion. |
+| You changed                       | Run                                                                            | Done when                                                                               |
+| --------------------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------- |
+| Anything                          | `bun run check`                                                                | Tests, typecheck, build and bundle check pass.                                          |
+| Anything the player sees or does  | `bun run playthrough`                                                          | It prints "Tested!" for every level and exits 0. Then look at `playthrough/level*.png`. |
+| Bitbox (`src/robot/`)             | `bun run shots`                                                                | `shots/sheet.png` shows every expression the way you intended.                          |
+| Before opening the PR             | `bun run verify`                                                               | `check` plus `playthrough`, the same as CI.                                             |
+| Anything the player sees or hears | Capture it and attach it to the PR ([Evidence on the PR](#evidence-on-the-pr)) | The PR body shows a screenshot of each change, and a video of any motion.               |
 
 `playthrough` and `shots` start their own dev server on a free port, with hot reload off and their own browser session, and stop both afterwards. They never collide with a `bun run dev` already running or with another agent.
 
@@ -58,4 +58,5 @@ A PR that changes what a player sees or hears shows it in its body: a screenshot
    ```
 
    gh uploads them and rewrites the links. A file attached but not referenced is appended to the end of the body instead.
+
 4. **Check**: `scripts/check-evidence.sh <pr>` passes. To add or replace files later, `gh pr edit <pr> --body-file body.md --attach ...` (each run uploads again, so attach each file once). If some uploads fail, gh still creates the PR and exits non-zero: rerun `gh pr edit` with only the failed files.

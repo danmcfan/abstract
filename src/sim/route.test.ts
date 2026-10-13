@@ -27,7 +27,7 @@ function unitSteps(a: Point, b: Point): [Point, Point][] {
   const steps: [Point, Point][] = [];
   const dx = Math.sign(b.x - a.x);
   const dy = Math.sign(b.y - a.y);
-  for (let p = a; p.x !== b.x || p.y !== b.y; ) {
+  for (let p = a; p.x !== b.x || p.y !== b.y;) {
     const q = { x: p.x + dx, y: p.y + dy };
     steps.push([p, q]);
     p = q;

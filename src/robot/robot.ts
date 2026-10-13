@@ -51,7 +51,11 @@ export function createRobot(): Robot {
   // onto the surface. Screws get a slot, each at its own angle.
   let screws = 0;
   const fastener = (radius: number, screw = false) => {
-    const head = inked(facing(new THREE.SphereGeometry(radius, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2)), steel, FINE * 0.8);
+    const head = inked(
+      facing(new THREE.SphereGeometry(radius, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2)),
+      steel,
+      FINE * 0.8,
+    );
     if (screw) {
       const cut = new THREE.Mesh(new THREE.BoxGeometry(radius * 1.5, radius * 0.32, radius * 0.5), inkFlat);
       cut.position.z = radius * 0.8;
@@ -72,7 +76,15 @@ export function createRobot(): Robot {
   // The belt: a stadium-shaped band, with cleats that run round it as it rolls.
   const beltShape = stadium(AXLE, BELT_RADIUS);
   beltShape.holes.push(stadium(AXLE, BELT_RADIUS - 0.035));
-  const band = inked(new THREE.ExtrudeGeometry(beltShape, { depth: 0.46, bevelEnabled: false, curveSegments: 16 }).translate(0, 0, -0.23), belt, LINE);
+  const band = inked(
+    new THREE.ExtrudeGeometry(beltShape, { depth: 0.46, bevelEnabled: false, curveSegments: 16 }).translate(
+      0,
+      0,
+      -0.23,
+    ),
+    belt,
+    LINE,
+  );
   band.position.y = treadY;
   base.add(band);
   const cleatGeometry = box(0.05, 0.03, 0.47, 0.008, 1);
@@ -83,7 +95,15 @@ export function createRobot(): Robot {
   });
 
   // Inside the belt: a white chassis with road wheels on both faces.
-  const chassis = inked(new THREE.ExtrudeGeometry(stadium(AXLE, BELT_RADIUS - 0.04), { depth: 0.4, bevelEnabled: false, curveSegments: 16 }).translate(0, 0, -0.2), white, FINE);
+  const chassis = inked(
+    new THREE.ExtrudeGeometry(stadium(AXLE, BELT_RADIUS - 0.04), {
+      depth: 0.4,
+      bevelEnabled: false,
+      curveSegments: 16,
+    }).translate(0, 0, -0.2),
+    white,
+    FINE,
+  );
   chassis.position.y = treadY;
   base.add(chassis);
   const wheels: THREE.Object3D[] = [];
@@ -156,7 +176,10 @@ export function createRobot(): Robot {
     g.textBaseline = "middle";
     g.fillText("74HC00", 128, 48);
   });
-  const label = new THREE.Mesh(new THREE.PlaneGeometry(0.29, 0.1), new THREE.MeshBasicMaterial({ map: stencil.texture, transparent: true }));
+  const label = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.29, 0.1),
+    new THREE.MeshBasicMaterial({ map: stencil.texture, transparent: true }),
+  );
   label.position.set(0, 0.24, PLATE + 0.012);
   torso.add(label);
 
@@ -255,7 +278,10 @@ export function createRobot(): Robot {
   // Its edges are drawn on as flat ink: an outline hull would cross the glass.
   const frame = roundedRect(0.7, 0.5, 0.09);
   frame.holes.push(roundedRect(0.6, 0.4, 0.06));
-  const bezel = new THREE.Mesh(new THREE.ExtrudeGeometry(frame, { depth: 0.035, bevelEnabled: false, curveSegments: 10 }), wash);
+  const bezel = new THREE.Mesh(
+    new THREE.ExtrudeGeometry(frame, { depth: 0.035, bevelEnabled: false, curveSegments: 10 }),
+    wash,
+  );
   bezel.castShadow = bezel.receiveShadow = true;
   bezel.position.set(0, 0.3, FACE - 0.005);
   head.add(bezel);
@@ -265,7 +291,10 @@ export function createRobot(): Robot {
     head.add(line);
   }
   const screen = canvasTexture(FACE_SIZE.width, FACE_SIZE.height, () => {});
-  const glass = new THREE.Mesh(bulge(0.61, 0.41, 0.024), new THREE.MeshBasicMaterial({ map: screen.texture, toneMapped: false }));
+  const glass = new THREE.Mesh(
+    bulge(0.61, 0.41, 0.024),
+    new THREE.MeshBasicMaterial({ map: screen.texture, toneMapped: false }),
+  );
   glass.position.set(0, 0.3, FACE + 0.003);
   head.add(glass);
   const faceContext = (screen.texture.image as HTMLCanvasElement).getContext("2d")!;
@@ -460,17 +489,17 @@ function beltPoint(s: number, out: THREE.Vector2): number {
   const straight = 2 * AXLE;
   const arc = Math.PI * CLEAT_RADIUS;
   if (s < 0) s += BELT_PERIMETER;
-  if (s < straight) return out.set(-AXLE + s, CLEAT_RADIUS), 0;
+  if (s < straight) return (out.set(-AXLE + s, CLEAT_RADIUS), 0);
   s -= straight;
   if (s < arc) {
     const a = s / CLEAT_RADIUS;
-    return out.set(AXLE + Math.sin(a) * CLEAT_RADIUS, Math.cos(a) * CLEAT_RADIUS), -a;
+    return (out.set(AXLE + Math.sin(a) * CLEAT_RADIUS, Math.cos(a) * CLEAT_RADIUS), -a);
   }
   s -= arc;
-  if (s < straight) return out.set(AXLE - s, -CLEAT_RADIUS), -Math.PI;
+  if (s < straight) return (out.set(AXLE - s, -CLEAT_RADIUS), -Math.PI);
   s -= straight;
   const a = s / CLEAT_RADIUS;
-  return out.set(-AXLE - Math.sin(a) * CLEAT_RADIUS, -Math.cos(a) * CLEAT_RADIUS), -Math.PI - a;
+  return (out.set(-AXLE - Math.sin(a) * CLEAT_RADIUS, -Math.cos(a) * CLEAT_RADIUS), -Math.PI - a);
 }
 
 // A rounded rectangle centred on the origin.

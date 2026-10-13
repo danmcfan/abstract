@@ -59,7 +59,7 @@ export function Dialogue() {
       <section
         id="dialogue"
         aria-label="Bitbox"
-        class="sheet pop fixed right-3 bottom-[84px] z-40 text-ink-deep min-[900px]:right-5"
+        class="pop fixed right-3 bottom-[84px] z-40 text-ink-deep sheet min-[900px]:right-5"
         classList={{ "left-3 sm:left-auto sm:w-[460px]": !!speech() }}
       >
         <header class="flex items-center justify-between bg-ink py-1 pr-1 pl-3 text-[11px] tracking-[0.14em] text-paper uppercase">
@@ -74,7 +74,9 @@ export function Dialogue() {
         <div class="flex gap-3 p-3">
           <div class="relative size-[124px] shrink-0 border-2 border-ink bg-paper sm:size-[140px]" style={GRID_PAPER}>
             <RobotScreen expression={face()} talking={typing()} shot="close" class="size-full" />
-            <span class="pointer-events-none absolute top-0.5 left-1.5 text-[9px] tracking-widest text-pencil">CAM 01</span>
+            <span class="pointer-events-none absolute top-0.5 left-1.5 text-[9px] tracking-widest text-pencil">
+              CAM 01
+            </span>
           </div>
           <Show when={speech()}>
             {(s) => (

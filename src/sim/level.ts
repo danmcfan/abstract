@@ -38,7 +38,12 @@ export const LAYERS: Layer[] = [
   { number: 3, name: "Arithmetic", floor: "adder assembly", parts: "Half adder, full adder, 8-bit adder" },
   { number: 4, name: "ALU", floor: "the calculation shop", parts: "Add, subtract, and, or, xor, not; a zero test" },
   { number: 5, name: "Memory", floor: "the filing vault", parts: "Latch, flip-flop, register, register file, RAM" },
-  { number: 6, name: "Control", floor: "the clock tower", parts: "Constants, program counter, decoder, sequencer, clock speed" },
+  {
+    number: 6,
+    name: "Control",
+    floor: "the clock tower",
+    parts: "Constants, program counter, decoder, sequencer, clock speed",
+  },
   { number: 7, name: "Assembly", floor: "the typing pool", parts: "Name and number your own instruction set" },
   { number: 8, name: "CPU", floor: "the control room", parts: "Fetch, decode, execute, in your instruction set" },
   { number: 9, name: "The door program", floor: "the exit hall", parts: "Write it, run it, walk out" },
@@ -54,10 +59,38 @@ export const LEVELS: Level[] = [
     layer: 1,
     prebuilt: true,
   },
-  { gate: "NOT", goal: "Output is on when A is off.", layer: 2, inputs: ["A"], outputs: ["OUT"], target: ([a = 0]) => [1 - a] },
-  { gate: "AND", goal: "Output is on when A and B are both on.", layer: 2, inputs: ["A", "B"], outputs: ["OUT"], target: ([a = 0, b = 0]) => [a & b] },
-  { gate: "OR", goal: "Output is on when A or B is on.", layer: 2, inputs: ["A", "B"], outputs: ["OUT"], target: ([a = 0, b = 0]) => [a | b] },
-  { gate: "XOR", goal: "Output is on when exactly one of A and B is on.", layer: 2, inputs: ["A", "B"], outputs: ["OUT"], target: ([a = 0, b = 0]) => [a ^ b] },
+  {
+    gate: "NOT",
+    goal: "Output is on when A is off.",
+    layer: 2,
+    inputs: ["A"],
+    outputs: ["OUT"],
+    target: ([a = 0]) => [1 - a],
+  },
+  {
+    gate: "AND",
+    goal: "Output is on when A and B are both on.",
+    layer: 2,
+    inputs: ["A", "B"],
+    outputs: ["OUT"],
+    target: ([a = 0, b = 0]) => [a & b],
+  },
+  {
+    gate: "OR",
+    goal: "Output is on when A or B is on.",
+    layer: 2,
+    inputs: ["A", "B"],
+    outputs: ["OUT"],
+    target: ([a = 0, b = 0]) => [a | b],
+  },
+  {
+    gate: "XOR",
+    goal: "Output is on when exactly one of A and B is on.",
+    layer: 2,
+    inputs: ["A", "B"],
+    outputs: ["OUT"],
+    target: ([a = 0, b = 0]) => [a ^ b],
+  },
   {
     gate: "MUX",
     goal: "Output is A when SEL is off, and B when SEL is on.",
@@ -149,8 +182,12 @@ export function loadLevel(level: Level): Game {
   const outputs = place("OUTPUT", level.outputs, grid.width - 4);
   if (level.prebuilt) {
     const gate = placeNode(game, level.gate, { x: grid.width / 2, y: grid.height / 2 })!;
-    inputs.forEach((input, i) => wire(game, { node: input.id, side: "out", index: 0 }, { node: gate.id, side: "in", index: i }));
-    outputs.forEach((output, i) => wire(game, { node: gate.id, side: "out", index: i }, { node: output.id, side: "in", index: 0 }));
+    inputs.forEach((input, i) =>
+      wire(game, { node: input.id, side: "out", index: 0 }, { node: gate.id, side: "in", index: i }),
+    );
+    outputs.forEach((output, i) =>
+      wire(game, { node: gate.id, side: "out", index: i }, { node: output.id, side: "in", index: 0 }),
+    );
   }
   return game;
 }
@@ -242,9 +279,16 @@ export interface CheckResult {
 // every other row out of sight.
 export function checkLevel(board: Game, levelIndex: number, levels = LEVELS): CheckResult {
   const level = levels[levelIndex]!;
-  const allowed = new Set<NodeType>(["INPUT", "OUTPUT", ...partsBin(levelIndex, levels), ...wiring(level).map((w) => w.type)]);
+  const allowed = new Set<NodeType>([
+    "INPUT",
+    "OUTPUT",
+    ...partsBin(levelIndex, levels),
+    ...wiring(level).map((w) => w.type),
+  ]);
   if (level.prebuilt) allowed.add(level.gate);
-  const forbidden = [...new Set([...board.nodes.values()].map((node) => node.type))].filter((type) => !allowed.has(type));
+  const forbidden = [...new Set([...board.nodes.values()].map((node) => node.type))].filter(
+    (type) => !allowed.has(type),
+  );
 
   const terminal = (type: NodeType) => (label: Label) =>
     [...board.nodes.values()].find((node) => node.type === type && node.label === label)?.id ?? -1;
@@ -252,7 +296,8 @@ export function checkLevel(board: Game, levelIndex: number, levels = LEVELS): Ch
   const rows = truthTable(level).map((row) => ({ ...row, actual: run(row.inputs) }));
   const hidden = level.cases ? checkHidden(level, run) : { checked: 0, failed: [] };
 
-  const passed = forbidden.length === 0 && hidden.failed.length === 0 && rows.every((row) => matches(row.actual, row.expected));
+  const passed =
+    forbidden.length === 0 && hidden.failed.length === 0 && rows.every((row) => matches(row.actual, row.expected));
   return { rows, hidden, forbidden, passed };
 }
 

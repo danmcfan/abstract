@@ -61,7 +61,14 @@ function burst(at: number, length: number, gain: number, type: BiquadFilterType,
 }
 
 // A tone that strikes and dies away.
-function tone(at: number, length: number, gain: number, frequency: number, type: OscillatorType = "sine", endFrequency = frequency): void {
+function tone(
+  at: number,
+  length: number,
+  gain: number,
+  frequency: number,
+  type: OscillatorType = "sine",
+  endFrequency = frequency,
+): void {
   const osc = ctx!.createOscillator();
   osc.type = type;
   osc.frequency.setValueAtTime(frequency, at);

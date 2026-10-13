@@ -16,7 +16,16 @@ const LIGHTS: Record<string, Lighting> = {
   noon: { ...gameLighting(), fill: 1.8, sun: 1.6, azimuth: 10, elevation: 85 },
   backlit: { ...gameLighting(), fill: 1.6, sun: 0.8, azimuth: 150, elevation: 35, rim: 2.5, rimColor: "#7fd0ff" },
   under: { ...gameLighting(), fill: 1.2, sun: 2, azimuth: 10, elevation: -40 },
-  night: { fill: 0.9, fillColor: "#3a5a99", sun: 0.9, sunColor: "#7fd0ff", azimuth: -40, elevation: 30, rim: 1.4, rimColor: "#7fd0ff" },
+  night: {
+    fill: 0.9,
+    fillColor: "#3a5a99",
+    sun: 0.9,
+    sunColor: "#7fd0ff",
+    azimuth: -40,
+    elevation: 30,
+    rim: 1.4,
+    rimColor: "#7fd0ff",
+  },
 };
 
 // Backgrounds behind the canvas, and the solid colour each one snapshots on.
@@ -141,7 +150,8 @@ function ModelSheet() {
     setHeld(p);
   };
   const release = () => setHeld(null);
-  const copyPose = () => navigator.clipboard.writeText(JSON.stringify(shown(), (_k, v) => (typeof v === "number" ? +v.toFixed(3) : v), 2));
+  const copyPose = () =>
+    navigator.clipboard.writeText(JSON.stringify(shown(), (_k, v) => (typeof v === "number" ? +v.toFixed(3) : v), 2));
 
   const snapshot = () => {
     const a = document.createElement("a");
@@ -167,7 +177,10 @@ function ModelSheet() {
     <div class="fixed inset-0 grid grid-rows-[minmax(300px,1fr)_minmax(0,45%)] text-ink-deep md:grid-cols-[1fr_380px] md:grid-rows-1">
       <div class="relative min-h-0" style={BACKDROPS[backdrop()]!.style}>
         <div ref={host} id="stage" class="absolute inset-0" />
-        <div class="pointer-events-none absolute top-3 left-4 text-xs" classList={{ "text-paper": ["blueprint", "void", "black"].includes(backdrop()) }}>
+        <div
+          class="pointer-events-none absolute top-3 left-4 text-xs"
+          classList={{ "text-paper": ["blueprint", "void", "black"].includes(backdrop()) }}
+        >
           <p class="font-bold tracking-[0.14em] uppercase">Dwg LOA-B01 · Bitbox model sheet</p>
           <p class="mt-1 opacity-70">Drag to orbit · scroll to zoom · right-drag to pan</p>
           <p class="opacity-70">1–8 expression · space pause · T talk · R restart</p>
@@ -186,10 +199,10 @@ function ModelSheet() {
             </For>
           </div>
           <div class="mt-3 flex flex-wrap items-center gap-2">
-            <button class="btn btn-sm w-20" onClick={() => setPlaying((p) => !p)}>
+            <button class="w-20 btn btn-sm" onClick={() => setPlaying((p) => !p)}>
               {playing() ? "Pause" : "Play"}
             </button>
-            <button class="btn btn-ghost btn-sm" onClick={() => viewer?.restart()}>
+            <button class="btn btn-sm btn-ghost" onClick={() => viewer?.restart()}>
               Restart
             </button>
             <Toggle label="Talking" value={talking()} onChange={setTalking} />
@@ -207,7 +220,15 @@ function ModelSheet() {
               setTime(t);
             }}
           />
-          <Slider label="Speed" min={0.1} max={2} step={0.05} value={rate()} format={(r) => `${r.toFixed(2)}×`} onInput={setRate} />
+          <Slider
+            label="Speed"
+            min={0.1}
+            max={2}
+            step={0.05}
+            value={rate()}
+            format={(r) => `${r.toFixed(2)}×`}
+            onInput={setRate}
+          />
         </Section>
 
         <Section title="Camera">
@@ -220,8 +241,16 @@ function ModelSheet() {
               )}
             </For>
           </div>
-          <Slider label="Turntable" min={-120} max={120} step={5} value={spin()} format={(d) => `${d}°/s`} onInput={setSpin} />
-          <button class="btn btn-ghost btn-sm" onClick={() => (setSpin(0), viewer?.unspin())}>
+          <Slider
+            label="Turntable"
+            min={-120}
+            max={120}
+            step={5}
+            value={spin()}
+            format={(d) => `${d}°/s`}
+            onInput={setSpin}
+          />
+          <button class="btn btn-sm btn-ghost" onClick={() => (setSpin(0), viewer?.unspin())}>
             Face front
           </button>
         </Section>
@@ -236,10 +265,33 @@ function ModelSheet() {
               )}
             </For>
           </div>
-          <Slider label="Fill" min={0} max={4} step={0.05} value={lighting().fill} onInput={(fill) => tweak({ fill })} />
+          <Slider
+            label="Fill"
+            min={0}
+            max={4}
+            step={0.05}
+            value={lighting().fill}
+            onInput={(fill) => tweak({ fill })}
+          />
           <Slider label="Sun" min={0} max={4} step={0.05} value={lighting().sun} onInput={(sun) => tweak({ sun })} />
-          <Slider label="Sun around" min={-180} max={180} step={1} value={lighting().azimuth} format={(d) => `${d}°`} onInput={(azimuth) => tweak({ azimuth })} />
-          <Slider label="Sun height" min={-60} max={90} step={1} value={lighting().elevation} format={(d) => `${d}°`} onInput={(elevation) => tweak({ elevation })} />
+          <Slider
+            label="Sun around"
+            min={-180}
+            max={180}
+            step={1}
+            value={lighting().azimuth}
+            format={(d) => `${d}°`}
+            onInput={(azimuth) => tweak({ azimuth })}
+          />
+          <Slider
+            label="Sun height"
+            min={-60}
+            max={90}
+            step={1}
+            value={lighting().elevation}
+            format={(d) => `${d}°`}
+            onInput={(elevation) => tweak({ elevation })}
+          />
           <Slider label="Rim" min={0} max={4} step={0.05} value={lighting().rim} onInput={(rim) => tweak({ rim })} />
           <div class="mt-2 grid grid-cols-3 gap-1.5 text-[11px]">
             <Swatch label="Fill" value={lighting().fillColor} onInput={(fillColor) => tweak({ fillColor })} />
@@ -253,7 +305,10 @@ function ModelSheet() {
             <For each={Object.keys(BACKDROPS)}>
               {(name) => (
                 <Choice on={backdrop() === name} onClick={() => setBackdrop(name)}>
-                  <span class="mr-1 inline-block size-2.5 border border-ink align-[-1px]" style={{ background: BACKDROPS[name]!.color }} />
+                  <span
+                    class="mr-1 inline-block size-2.5 border border-ink align-[-1px]"
+                    style={{ background: BACKDROPS[name]!.color }}
+                  />
                   {name}
                 </Choice>
               )}
@@ -264,7 +319,7 @@ function ModelSheet() {
             <Toggle label="Shadows" value={shadows()} onChange={setShadows} />
             <Toggle label="Floor grid" value={grid()} onChange={setGrid} />
           </div>
-          <button class="btn btn-sm mt-3" onClick={snapshot}>
+          <button class="mt-3 btn btn-sm" onClick={snapshot}>
             Save PNG
           </button>
         </Section>
@@ -283,7 +338,7 @@ function ModelSheet() {
             <button class="btn btn-sm" disabled={!held()} onClick={release}>
               Back to clip
             </button>
-            <button class="btn btn-ghost btn-sm" onClick={copyPose}>
+            <button class="btn btn-sm btn-ghost" onClick={copyPose}>
               Copy JSON
             </button>
           </div>
@@ -292,16 +347,32 @@ function ModelSheet() {
               <>
                 <For each={BODY}>
                   {([key, [min, max]]) => (
-                    <Slider label={key} min={min} max={max} step={0.005} value={p()[key] as number} onInput={(v) => edit((q) => ((q[key] as number) = v))} />
+                    <Slider
+                      label={key}
+                      min={min}
+                      max={max}
+                      step={0.005}
+                      value={p()[key] as number}
+                      onInput={(v) => edit((q) => ((q[key] as number) = v))}
+                    />
                   )}
                 </For>
                 <For each={["leftArm", "rightArm"] as const}>
                   {(side) => (
                     <>
-                      <p class="mt-3 text-[11px] font-bold tracking-wider text-pencil uppercase">{side === "leftArm" ? "Left arm (mitt)" : "Right arm (claw)"}</p>
+                      <p class="mt-3 text-[11px] font-bold tracking-wider text-pencil uppercase">
+                        {side === "leftArm" ? "Left arm (mitt)" : "Right arm (claw)"}
+                      </p>
                       <For each={ARM}>
                         {([key, [min, max]]) => (
-                          <Slider label={key} min={min} max={max} step={0.005} value={p()[side][key]} onInput={(v) => edit((q) => (q[side][key] = v))} />
+                          <Slider
+                            label={key}
+                            min={min}
+                            max={max}
+                            step={0.005}
+                            value={p()[side][key]}
+                            onInput={(v) => edit((q) => (q[side][key] = v))}
+                          />
                         )}
                       </For>
                     </>
@@ -337,7 +408,15 @@ function Choice(props: { on: boolean; onClick: () => void; children: JSX.Element
   );
 }
 
-function Slider(props: { label: string; min: number; max: number; step: number; value: number; format?: (v: number) => string; onInput: (v: number) => void }) {
+function Slider(props: {
+  label: string;
+  min: number;
+  max: number;
+  step: number;
+  value: number;
+  format?: (v: number) => string;
+  onInput: (v: number) => void;
+}) {
   return (
     <label class="mt-1.5 grid grid-cols-[88px_1fr_56px] items-center gap-2 text-xs">
       <span class="truncate">{props.label}</span>
@@ -350,7 +429,9 @@ function Slider(props: { label: string; min: number; max: number; step: number; 
         value={props.value}
         onInput={(e) => props.onInput(e.currentTarget.valueAsNumber)}
       />
-      <span class="text-right tabular-nums text-pencil">{props.format ? props.format(props.value) : props.value.toFixed(2)}</span>
+      <span class="text-right text-pencil tabular-nums">
+        {props.format ? props.format(props.value) : props.value.toFixed(2)}
+      </span>
     </label>
   );
 }
@@ -358,7 +439,12 @@ function Slider(props: { label: string; min: number; max: number; step: number; 
 function Toggle(props: { label: string; value: boolean; onChange: (on: boolean) => void }) {
   return (
     <label class="flex cursor-pointer items-center gap-1.5 text-xs">
-      <input type="checkbox" class="accent-ink" checked={props.value} onChange={(e) => props.onChange(e.currentTarget.checked)} />
+      <input
+        type="checkbox"
+        class="accent-ink"
+        checked={props.value}
+        onChange={(e) => props.onChange(e.currentTarget.checked)}
+      />
       {props.label}
     </label>
   );
@@ -367,7 +453,12 @@ function Toggle(props: { label: string; value: boolean; onChange: (on: boolean) 
 function Swatch(props: { label: string; value: string; onInput: (v: string) => void }) {
   return (
     <label class="flex flex-col items-center gap-0.5">
-      <input type="color" class="h-6 w-full cursor-pointer border-[1.5px] border-ink" value={props.value} onInput={(e) => props.onInput(e.currentTarget.value)} />
+      <input
+        type="color"
+        class="h-6 w-full cursor-pointer border-[1.5px] border-ink"
+        value={props.value}
+        onInput={(e) => props.onInput(e.currentTarget.value)}
+      />
       {props.label}
     </label>
   );

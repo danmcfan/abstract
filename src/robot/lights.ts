@@ -32,7 +32,10 @@ export function createLights(scene: THREE.Scene): Lights {
   sun.shadow.normalBias = 0.03;
   scene.add(sun);
 
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(8, 8), new THREE.ShadowMaterial({ color: PALETTE.inkDeep, opacity: 0.2 }));
+  const floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(8, 8),
+    new THREE.ShadowMaterial({ color: PALETTE.inkDeep, opacity: 0.2 }),
+  );
   floor.rotation.x = -Math.PI / 2;
   floor.receiveShadow = true;
   scene.add(floor);

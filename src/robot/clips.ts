@@ -47,7 +47,6 @@ export const REST: Pose = {
   wheels: 0,
 };
 
-
 // How the robot holds itself for each expression, as a function of the time
 // since the clip began. Clips loop forever; the stage blends from one to the
 // next. Plain math, so they're cheap to sample and easy to test.
@@ -181,7 +180,11 @@ export function pose(expression: Expression, time: number): Pose {
 
 // Partway from one pose to another, for the blend between clips.
 export function blend(a: Pose, b: Pose, t: number): Pose {
-  const arms = (x: Arm, y: Arm): Arm => ({ raise: mix(x.raise, y.raise, t), reach: mix(x.reach, y.reach, t), bend: mix(x.bend, y.bend, t) });
+  const arms = (x: Arm, y: Arm): Arm => ({
+    raise: mix(x.raise, y.raise, t),
+    reach: mix(x.reach, y.reach, t),
+    bend: mix(x.bend, y.bend, t),
+  });
   const out = { ...b, leftArm: arms(a.leftArm, b.leftArm), rightArm: arms(a.rightArm, b.rightArm) };
   for (const key of Object.keys(b) as (keyof Pose)[]) {
     const from = a[key];

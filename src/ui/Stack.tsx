@@ -51,19 +51,22 @@ export function Stack(props: { arrive?: number | undefined; onPick: (index: numb
 
   return (
     <main id="stack" class="fixed inset-0 z-30 overflow-y-auto bg-paper/95 p-4 text-ink-deep">
-      <div class="sheet pop mx-auto my-4 w-full max-w-[760px]">
+      <div class="pop mx-auto my-4 w-full max-w-[760px] sheet">
         <header class="flex items-center justify-between gap-4 border-b-2 border-ink px-5 py-3">
           <div>
             <p class="text-xs text-pencil">Dwg LOA-001: each layer is built from the ones below it.</p>
             <h1 class="text-2xl font-bold text-ink">The stack</h1>
           </div>
-          <button id="stack-close" class="btn btn-ghost btn-sm" onClick={() => props.onClose()}>
+          <button id="stack-close" class="btn btn-sm btn-ghost" onClick={() => props.onClose()}>
             Back
           </button>
         </header>
 
         <div class="relative px-5 py-4 pl-14">
-          <div class="absolute top-4 bottom-4 left-5 w-6 border-x-2 border-dashed border-pencil/50" aria-hidden="true" />
+          <div
+            class="absolute top-4 bottom-4 left-5 w-6 border-x-2 border-dashed border-pencil/50"
+            aria-hidden="true"
+          />
           <div
             id="elevator"
             class="absolute left-5 flex w-6 items-center justify-center border-2 border-ink bg-glow/40 transition-[top,height] duration-700 ease-in-out"
@@ -80,7 +83,11 @@ export function Stack(props: { arrive?: number | undefined; onPick: (index: numb
                 const locked = () => state() === "locked";
                 const isOpen = () => open() === layer.number && !locked();
                 return (
-                  <li ref={(el) => rows.set(layer.number, el)} class={`-mt-0.5 border-2 ${ROW[state()]}`} data-state={state()}>
+                  <li
+                    ref={(el) => rows.set(layer.number, el)}
+                    class={`-mt-0.5 border-2 ${ROW[state()]}`}
+                    data-state={state()}
+                  >
                     <button
                       class="grid w-full grid-cols-[2.6rem_1fr_auto] items-center gap-x-3 px-3.5 py-1.5 text-left enabled:cursor-pointer enabled:hover:bg-wash/60"
                       data-layer={layer.number}
@@ -90,11 +97,17 @@ export function Stack(props: { arrive?: number | undefined; onPick: (index: numb
                     >
                       <span class={`text-xs ${locked() ? "text-pencil" : "font-bold text-ink"}`}>L{layer.number}</span>
                       <span>
-                        <span class={`block text-[15px] leading-snug font-bold ${locked() ? "text-pencil" : "text-ink"}`}>{layer.name}</span>
+                        <span
+                          class={`block text-[15px] leading-snug font-bold ${locked() ? "text-pencil" : "text-ink"}`}
+                        >
+                          {layer.name}
+                        </span>
                         <span class="block text-[13px] leading-snug text-pencil">{layer.parts}</span>
                         <span class="block font-hand text-[15px] leading-snug text-ink">Floor: {layer.floor}</span>
                       </span>
-                      <span class={`border-[1.5px] px-2 py-0.5 text-xs whitespace-nowrap ${BADGE[state()]}`}>{state()}</span>
+                      <span class={`border-[1.5px] px-2 py-0.5 text-xs whitespace-nowrap ${BADGE[state()]}`}>
+                        {state()}
+                      </span>
                     </button>
                     <Show when={isOpen()}>
                       <div class="flex flex-wrap gap-2.5 px-3.5 pb-3.5 pl-[calc(2.6rem+1.6rem)]">

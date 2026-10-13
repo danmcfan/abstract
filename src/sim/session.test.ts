@@ -268,7 +268,9 @@ describe("saved games", () => {
   });
 
   test("a board that doesn't look like a board is dropped, keeping the rest of the save", () => {
-    const session = new Session(memorySave({ solved: 2, levelIndex: 1, boards: { NOT: 7, AND: { nodes: "x" } }, flags: [] }));
+    const session = new Session(
+      memorySave({ solved: 2, levelIndex: 1, boards: { NOT: 7, AND: { nodes: "x" } }, flags: [] }),
+    );
     session.resume();
     expect(session.levelIndex).toBe(1);
     expect(session.solved).toBe(2);

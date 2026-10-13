@@ -109,7 +109,9 @@ const BAR = { left: 1.2, right: 1.8, inset: 0.4 };
 
 function bundle(type: "SPLIT" | "JOIN", busWidth: number, width: number, height: number): Glyph {
   const bus = height / 2;
-  const bits = Array.from({ length: busWidth }, (_, i) => pinOffset(type, type === "SPLIT" ? "out" : "in", i, busWidth));
+  const bits = Array.from({ length: busWidth }, (_, i) =>
+    pinOffset(type, type === "SPLIT" ? "out" : "in", i, busWidth),
+  );
   const busLead = type === "SPLIT" ? `M 0 ${bus} H ${BAR.left}` : `M ${BAR.right} ${bus} H ${width}`;
   const bitLeads = bits.map((y) => (type === "SPLIT" ? `M ${BAR.right} ${y} H ${width}` : `M 0 ${y} H ${BAR.left}`));
   return {

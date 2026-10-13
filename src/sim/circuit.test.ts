@@ -1,5 +1,17 @@
 import { describe, expect, test } from "bun:test";
-import { edgeInto, moveNode, newGame, pinPosition, placeNode, removeNode, setInput, unwire, wire, type Game, type Pin } from "./circuit";
+import {
+  edgeInto,
+  moveNode,
+  newGame,
+  pinPosition,
+  placeNode,
+  removeNode,
+  setInput,
+  unwire,
+  wire,
+  type Game,
+  type Pin,
+} from "./circuit";
 import { DEFAULT_GRID, overlaps } from "./grid";
 // Defines the parts levels give, such as MUX.
 import "./level";

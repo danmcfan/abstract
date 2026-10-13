@@ -55,7 +55,11 @@ export const ink = new THREE.MeshBasicMaterial({ color: PALETTE.ink, side: THREE
 // A mesh with an inked outline: a copy fattened along its normals by
 // outline units, drawn inside out. Small parts take thinner lines. Normals
 // are welded first so hard edges don't split the outline.
-export function inked(geometry: THREE.BufferGeometry, material: THREE.Material | THREE.Material[], outline = 0.02): THREE.Mesh {
+export function inked(
+  geometry: THREE.BufferGeometry,
+  material: THREE.Material | THREE.Material[],
+  outline = 0.02,
+): THREE.Mesh {
   const mesh = new THREE.Mesh(geometry, material);
   mesh.castShadow = true;
   mesh.receiveShadow = true;

@@ -40,6 +40,9 @@ describe("Bitbox's response to a test run", () => {
   });
 
   test("a forbidden part gets its line every time", () => {
-    expect(play([forbidden, forbidden])).toEqual([{ say: script.forbidden(["NOT"]) }, { say: script.forbidden(["NOT"]) }]);
+    expect(play([forbidden, forbidden])).toEqual([
+      { say: script.forbidden(["NOT"]) },
+      { say: script.forbidden(["NOT"]) },
+    ]);
   });
 });

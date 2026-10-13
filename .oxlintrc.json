@@ -1,16 +1,7 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": [
-    "typescript",
-    "unicorn",
-    "oxc",
-    "import",
-    "promise",
-    "jsx-a11y"
-  ],
-  "jsPlugins": [
-    "eslint-plugin-solid"
-  ],
+  "plugins": ["typescript", "unicorn", "oxc", "import", "promise", "jsx-a11y"],
+  "jsPlugins": ["eslint-plugin-solid"],
   "categories": {
     "correctness": "error",
     "suspicious": "error",
@@ -23,10 +14,7 @@
     "reportUnusedDisableDirectives": "error"
   },
   "rules": {
-    "eqeqeq": [
-      "error",
-      "always"
-    ],
+    "eqeqeq": ["error", "always"],
     "no-console": "error",
     "no-param-reassign": "error",
     "no-var": "error",
@@ -90,9 +78,7 @@
   },
   "overrides": [
     {
-      "files": [
-        "**/*.test.ts"
-      ],
+      "files": ["**/*.test.ts"],
       "rules": {
         "typescript/consistent-type-assertions": [
           "error",
@@ -106,11 +92,5 @@
       }
     }
   ],
-  "ignorePatterns": [
-    "dist",
-    "playthrough",
-    "shots",
-    "evidence",
-    "public"
-  ]
+  "ignorePatterns": ["dist", "playthrough", "shots", "evidence", "public"]
 }

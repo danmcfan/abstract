@@ -157,7 +157,10 @@ export function createViewer(container: HTMLElement, onFrame?: (time: number) =>
     const a = THREE.MathUtils.degToRad(azimuth);
     const e = THREE.MathUtils.degToRad(elevation);
     controls.target.copy(target);
-    camera.position.set(Math.sin(a) * Math.cos(e), Math.sin(e), Math.cos(a) * Math.cos(e)).multiplyScalar(distance).add(target);
+    camera.position
+      .set(Math.sin(a) * Math.cos(e), Math.sin(e), Math.cos(a) * Math.cos(e))
+      .multiplyScalar(distance)
+      .add(target);
   };
 
   return {
@@ -206,7 +209,10 @@ export function createViewer(container: HTMLElement, onFrame?: (time: number) =>
       sun.color.set(l.sunColor);
       const a = THREE.MathUtils.degToRad(l.azimuth);
       const e = THREE.MathUtils.degToRad(l.elevation);
-      sun.position.set(Math.sin(a) * Math.cos(e), Math.sin(e), Math.cos(a) * Math.cos(e)).multiplyScalar(7).add(TARGET);
+      sun.position
+        .set(Math.sin(a) * Math.cos(e), Math.sin(e), Math.cos(a) * Math.cos(e))
+        .multiplyScalar(7)
+        .add(TARGET);
       rim.intensity = l.rim;
       rim.color.set(l.rimColor);
     },
