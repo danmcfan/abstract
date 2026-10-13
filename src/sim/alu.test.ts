@@ -35,7 +35,7 @@ describe("the L4 parts", () => {
   test("open L4 after the 2-bit adder, in order, with the ALU last", () => {
     const first = levelIndex("2-BIT ADDER") + 1;
     expect(layerLevels(4)).toEqual([first, first + 1, first + 2, first + 3]);
-    expect(layerLevels(4).map((i) => LEVELS[i]!.gate)).toEqual(["MUX8", "ZERO TEST", "ALU SLICE", "ALU"]);
+    expect(layerLevels(4).map((i) => LEVELS[i]!.gate)).toEqual(["2-BIT MUX", "ZERO TEST", "ALU SLICE", "2-BIT ALU"]);
   });
 
   test("MUX8 gives A when SEL is off and B when it's on", () => {
@@ -81,23 +81,23 @@ describe("the L4 parts", () => {
     expect(op(5, 5, 1)).toEqual([0, 0]);
   });
 
-  test("each L4 level adds its own part once solved", () => {
+  test("once solved, the 2-bit levels give the 8-bit parts, and the others their own", () => {
     const last = layerLevels(4).at(-1)!;
     expect(partsBin(last + 1).slice(-4)).toEqual(["MUX8", "ZERO TEST", "ALU SLICE", "ALU"]);
   });
 });
 
-// MUX8's intended solution: split A and B, a MUX for each signal with SEL
-// on every one, and join the outputs.
-function buildMux8(game: Game): void {
+// The 2-bit MUX's intended solution: split A and B, a MUX for each signal
+// with SEL on both, and join the outputs.
+function buildMux2(game: Game): void {
   const place = placer(game);
-  const splitA = place("SPLIT", 14, 16, 8);
-  const splitB = place("SPLIT", 14, 46, 8);
-  const join = place("JOIN", 40, 31, 8);
+  const splitA = place("SPLIT", 12, 9, 2);
+  const splitB = place("SPLIT", 12, 22, 2);
+  const join = place("JOIN", 34, 18, 2);
   wire(game, terminal(game, "INPUT", "A"), inp(splitA));
   wire(game, terminal(game, "INPUT", "B"), inp(splitB));
-  for (let pin = 0; pin < 8; pin++) {
-    const mux = place("MUX", 28, 6 + pin * 7);
+  for (let pin = 0; pin < 2; pin++) {
+    const mux = place("MUX", 24, 12 + pin * 12);
     wire(game, out(splitA, pin), inp(mux, 0));
     wire(game, out(splitB, pin), inp(mux, 1));
     wire(game, terminal(game, "INPUT", "SEL"), inp(mux, 2));
@@ -106,21 +106,21 @@ function buildMux8(game: Game): void {
   wire(game, out(join), terminal(game, "OUTPUT", "OUT"));
 }
 
-describe("the MUX8 level", () => {
-  const index = levelIndex("MUX8");
+describe("the 2-bit MUX level", () => {
+  const index = levelIndex("2-BIT MUX");
   const level = LEVELS[index]!;
 
-  test("chooses between 8-signal buses with one SEL, using an 8-bit split and join", () => {
-    expect(level.widths).toEqual({ A: 8, B: 8, OUT: 8 });
+  test("chooses between 2-signal buses with one SEL, using a 2-bit split and join", () => {
+    expect(level.widths).toEqual({ A: 2, B: 2, OUT: 2 });
     expect(wiring(level)).toEqual([
-      { type: "SPLIT", width: 8 },
-      { type: "JOIN", width: 8 },
+      { type: "SPLIT", width: 2 },
+      { type: "JOIN", width: 2 },
     ]);
   });
 
-  test("eight MUXes between a split and a join pass", () => {
+  test("two MUXes between a split and a join pass", () => {
     const game = loadLevel(level);
-    buildMux8(game);
+    buildMux2(game);
     const result = checkLevel(game, index);
     expect(result.forbidden).toEqual([]);
     expect(result.hidden.failed).toEqual([]);
@@ -253,23 +253,24 @@ describe("the ALU slice level", () => {
   });
 });
 
-// The ALU's intended solution: eight ALU slices in a chain, the ones place
-// at the bottom, each COUT into the next CIN. The first CIN is OP's ones
-// signal, so it's on for subtract (and only matters for add and subtract).
-// A zero test on A gives ZERO.
+// The 2-bit ALU's intended solution: two ALU slices in a chain, the ones
+// place at the bottom, the low COUT into the high CIN. The first CIN is OP's
+// ones signal, so it's on for subtract (and only matters for add and
+// subtract). ZERO is NOT (A's two signals ORed), the zero test at 2 bits.
 function buildAlu(game: Game, missingSubtractCarry = false): void {
   const place = placer(game);
-  const splitA = place("SPLIT", 14, 20, 8);
-  const splitB = place("SPLIT", 14, 42, 8);
-  const splitOp = place("SPLIT", 14, 66, 3);
-  const join = place("JOIN", 40, 38, 8);
-  wire(game, terminal(game, "INPUT", "A"), inp(splitA));
+  const a = terminal(game, "INPUT", "A");
+  const splitA = place("SPLIT", 13, 8, 2);
+  const splitB = place("SPLIT", 13, 22, 2);
+  const splitOp = place("SPLIT", 13, 36, 3);
+  const join = place("JOIN", 34, 16, 2);
+  wire(game, a, inp(splitA));
   wire(game, terminal(game, "INPUT", "B"), inp(splitB));
   wire(game, terminal(game, "INPUT", "OP"), inp(splitOp));
   let carry: Pin | null = missingSubtractCarry ? null : out(splitOp, 2);
-  for (let bit = 0; bit < 8; bit++) {
-    const pin = 7 - bit;
-    const slice = place("ALU SLICE", 28, 6 + pin * 9);
+  for (let bit = 0; bit < 2; bit++) {
+    const pin = 1 - bit;
+    const slice = place("ALU SLICE", 24, 10 + pin * 12);
     wire(game, out(splitA, pin), inp(slice, 0));
     wire(game, out(splitB, pin), inp(slice, 1));
     if (carry !== null) wire(game, carry, inp(slice, 2));
@@ -278,13 +279,16 @@ function buildAlu(game: Game, missingSubtractCarry = false): void {
     carry = out(slice, 1);
   }
   wire(game, out(join), terminal(game, "OUTPUT", "OUT"));
-  const zero = place("ZERO TEST", 40, 70);
-  wire(game, terminal(game, "INPUT", "A"), inp(zero));
-  wire(game, out(zero), terminal(game, "OUTPUT", "ZERO"));
+  const any = place("OR", 24, 3);
+  const none = place("NOT", 33, 3);
+  wire(game, out(splitA, 0), inp(any, 0));
+  wire(game, out(splitA, 1), inp(any, 1));
+  wire(game, out(any), inp(none));
+  wire(game, out(none), terminal(game, "OUTPUT", "ZERO"));
 }
 
-describe("the ALU level", () => {
-  const index = levelIndex("ALU");
+describe("the 2-bit ALU level", () => {
+  const index = levelIndex("2-BIT ALU");
   const level = LEVELS[index]!;
 
   test("is the last level of L4", () => {
@@ -293,12 +297,13 @@ describe("the ALU level", () => {
 
   test("shows a case for each operation, with overflow and borrow", () => {
     const rows = truthTable(level).map((row) => row.inputs.concat(row.expected));
-    expect(rows).toContainEqual([200, 100, 0, 44, 0]);
-    expect(rows).toContainEqual([3, 5, 1, 254, 0]);
-    for (const op of [0, 1, 2, 3, 4, 5]) expect(rows.some((row) => row[2] === op)).toBe(true);
+    expect(rows).toContainEqual([3, 1, 0, 0, 0]);
+    expect(rows).toContainEqual([1, 2, 1, 3, 0]);
+    expect(rows).toContainEqual([0, 2, 0, 2, 1]);
+    for (const op of [0, 1, 2, 3, 4, 5, 6, 7]) expect(rows.some((row) => row[2] === op)).toBe(true);
   });
 
-  test("eight ALU slices in a chain and a zero test on A pass", () => {
+  test("two ALU slices in a chain, with ZERO from an OR and a NOT, pass", () => {
     const game = loadLevel(level);
     buildAlu(game);
     const result = checkLevel(game, index);
@@ -313,8 +318,9 @@ describe("the ALU level", () => {
     const result = checkLevel(game, index);
     expect(result.passed).toBe(false);
     const wrong = result.rows.filter((row) => !matches(row.actual, row.expected));
-    expect(wrong.length).toBeGreaterThan(0);
-    for (const row of wrong) expect(row.inputs[2]).toBe(1);
-    expect(wrong).toContainEqual({ inputs: [3, 5, 1], expected: [254, 0], actual: [253, 0] });
+    expect(wrong).toEqual([
+      { inputs: [3, 1, 1], expected: [2, 0], actual: [1, 0] },
+      { inputs: [1, 2, 1], expected: [3, 0], actual: [2, 0] },
+    ]);
   });
 });

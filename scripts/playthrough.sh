@@ -192,18 +192,18 @@ expect "document.querySelector('[data-layer=\"3\"]').parentElement.dataset.state
 expect "document.querySelector('[data-layer=\"4\"]').parentElement.dataset.state === 'in progress'" "L4 is in progress"
 sheet 11
 
-# Level 11: MUX8 is a MUX per signal. Split A and B, give each pair of
-# signals a MUX with SEL on all eight, and join the outputs in order.
+# Level 11: a 2-bit MUX is a MUX per signal. Split A and B, give each pair
+# of signals a MUX with SEL on both, and join the outputs in order.
 A=$(terminal INPUT A); B=$(terminal INPUT B); SEL=$(terminal INPUT SEL); O=$(terminal OUTPUT OUT)
-SA=$(add SPLIT 16 15); SB=$(add SPLIT 24 45); J=$(add JOIN 48 30)
+SA=$(add SPLIT 12 9); SB=$(add SPLIT 12 31); J=$(add JOIN 34 20)
 wire "$A" "$SA"; wire "$B" "$SB"
-for pin in 0 1 2 3 4 5 6 7; do
-  M=$(add MUX 36 $((6 + pin * 7)))
+for pin in 0 1; do
+  M=$(add MUX 23 $((14 + pin * 14)))
   wire "$SA" "$M" 0 "$pin"; wire "$SB" "$M" 1 "$pin"; wire "$SEL" "$M" 2
   wire "$M" "$J" "$pin"
 done
 wire "$J" "$O"
-check 5 11
+check 3 11
 
 # Level 12: the zero test ORs A's signals together in pairs, down to one
 # wire that's on when A isn't zero, and NOTs it.
@@ -248,27 +248,29 @@ wire "$F" "$CO" 0 1; wire "$NONE" "$CO" 1
 wire "$RES" "$O"; wire "$CO" "$C"
 check 7 13
 
-# Level 14: the ALU is eight slices in a chain, the ones place at the
-# bottom, each COUT into the next CIN. The bottom CIN is OP's ones place:
-# on for subtract, off for add. A zero test on A gives ZERO.
+# Level 14: a 2-bit ALU is two slices in a chain, the ones place at the
+# bottom, the low COUT into the high CIN. The bottom CIN is OP's ones place:
+# on for subtract, off for add. ZERO ORs A's two signals and NOTs them, up
+# by A.
 ab click "#next"; sleep 0.5; hush
 A=$(terminal INPUT A); B=$(terminal INPUT B); OP=$(terminal INPUT OP)
 O=$(terminal OUTPUT OUT); Z=$(terminal OUTPUT ZERO)
-SA=$(add SPLIT 17 22); SB=$(add SPLIT 25 44); SO=$(add SPLIT 33 82 3)
-J=$(add JOIN 56 40); ZT=$(add "ZERO TEST" 56 66)
+SA=$(add SPLIT 12 8 2); SB=$(add SPLIT 12 20 2); SO=$(add SPLIT 12 34 3)
+J=$(add JOIN 34 19 2); ANY=$(add OR 23 3); NONE=$(add NOT 32 3)
 wire "$A" "$SA"; wire "$B" "$SB"; wire "$OP" "$SO"
 CARRY=$SO; CARRY_PIN=2
-for bit in 0 1 2 3 4 5 6 7; do
-  pin=$((7 - bit))
-  S=$(add "ALU SLICE" 44 $((6 + pin * 10)))
+for bit in 0 1; do
+  pin=$((1 - bit))
+  S=$(add "ALU SLICE" 23 $((12 + pin * 14)))
   wire "$SA" "$S" 0 "$pin"; wire "$SB" "$S" 1 "$pin"; wire "$CARRY" "$S" 2 "$CARRY_PIN"; wire "$OP" "$S" 3
   wire "$S" "$J" "$pin" 0
   CARRY=$S; CARRY_PIN=1
 done
-wire "$J" "$O"; wire "$A" "$ZT"; wire "$ZT" "$Z"
-check 9 14
+wire "$SA" "$ANY" 0 0; wire "$SA" "$ANY" 1 1; wire "$ANY" "$NONE"
+wire "$J" "$O"; wire "$NONE" "$Z"
+check 7 14
 
-# The ALU ends L4, and L5 has no levels yet, so there's no way up.
+# The 2-bit ALU ends L4, and L5 has no levels yet, so there's no way up.
 expect "!document.querySelector('#up') && !document.querySelector('#next')" "no way up from the last level"
 
 # The HUD button opens the stack on the current layer, and each level keeps

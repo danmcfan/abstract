@@ -177,19 +177,22 @@ const LEVELS: Partial<Record<NodeType, LevelScript>> = {
       { face: "happy", text: "Our gates can count now. Next, we teach them some new tricks." },
     ],
   },
-  MUX8: {
+  "2-BIT MUX": {
     intro: [
       { face: "idle", text: "Remember MUX? It picks A or B, one signal at a time." },
-      { face: "thinking", text: "Up here everything is 8 signals wide. We need a MUX for whole buses." },
-      { face: "idle", text: "One SEL picks all eight at once." },
+      { face: "thinking", text: "Now A and B are buses. We need a MUX that picks a whole bus." },
+      { face: "idle", text: "One SEL picks both signals at once." },
     ],
     hint: [
       { face: "thinking", text: "Split A and split B. Give each pair of signals its own MUX." },
-      { face: "thinking", text: "SEL goes to every MUX. One wire can feed them all." },
-      { face: "thinking", text: "Join the eight outputs, in order, into OUT." },
+      { face: "thinking", text: "SEL goes to both MUXes. One wire can feed them all." },
+      { face: "thinking", text: "Join the two outputs, in order, into OUT." },
       CONTROLS,
     ],
-    solved: [{ face: "happy", text: "MUX8, done! Later on, lots of parts pick between buses with this." }],
+    solved: [
+      { face: "happy", text: "2-bit MUX, done! For 8 signals, it's the same MUX six more times." },
+      { face: "happy", text: "So I built that one too. There's a MUX8 in your parts bin!" },
+    ],
   },
   "ZERO TEST": {
     intro: [
@@ -220,23 +223,25 @@ const LEVELS: Partial<Record<NodeType, LevelScript>> = {
     ],
     solved: [{ face: "happy", text: "ALU slice, done! Eight of these in a chain make the real thing." }],
   },
-  ALU: {
+  "2-BIT ALU": {
     intro: [
-      { face: "happy", text: "Time to build the ALU. Eight slices, one for each signal." },
+      { face: "happy", text: "Time to build an ALU. One slice for each signal." },
+      { face: "idle", text: "We'll start with 2 signals, like the adder." },
       { face: "idle", text: "ZERO tests A, not OUT. Later, the CPU uses it to decide where to jump." },
     ],
     hint: [
       { face: "thinking", text: "Split A and B. Each slice gets one signal of each, and all of OP." },
-      { face: "thinking", text: "Chain them like the adder: each COUT into the next CIN." },
+      { face: "thinking", text: "Chain them like the adder: the low COUT into the high CIN." },
       {
         face: "thinking",
         text: "Subtract needs a carry in at the bottom, and add needs none. OP's ones place tells them apart.",
       },
-      { face: "thinking", text: "Don't forget ZERO. You built a part for that." },
+      { face: "thinking", text: "For ZERO, do what the zero test does, on A's two signals: OR them, then NOT." },
       CONTROLS,
     ],
     solved: [
       { face: "amazed", text: "The ALU works! Add, subtract, and, or, xor, not. All on whole numbers." },
+      { face: "happy", text: "I chained eight slices the same way. There's an 8-bit ALU in your parts bin!" },
       { face: "happy", text: "That's the last level on the calculation shop." },
       { face: "idle", text: "But it forgets every answer the moment the switches change." },
       { face: "thinking", text: "Next floor up, we teach our parts to remember." },

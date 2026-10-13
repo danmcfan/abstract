@@ -125,6 +125,20 @@ const EXPECTED: Record<NodeType, Expected[]> = {
       ],
     },
   ],
+  "2-BIT MUX": [{ ins: [2, 2, 1], outs: [2], size: [6, 6], cases: [[[1, 2, 1], [2]]] }],
+  "2-BIT ALU": [
+    {
+      ins: [2, 2, 3],
+      outs: [2, 1],
+      size: [6, 6],
+      cases: [
+        [
+          [1, 2, 1],
+          [3, 0],
+        ],
+      ],
+    },
+  ],
   MUX8: [
     {
       ins: [8, 8, 1],
