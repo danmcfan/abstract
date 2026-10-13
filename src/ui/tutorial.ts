@@ -30,7 +30,7 @@ export function useTutorial(): void {
         react(response.react);
         return;
       }
-      if (response.flag) setFlag(response.flag);
+      if (response.flag !== undefined) setFlag(response.flag);
       say(response.say);
     }),
   );

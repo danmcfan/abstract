@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { newGame, pinPosition, placeNode, wire, type Game, type Pin } from "./circuit";
-import { createGestures } from "./gesture";
+import { createGestures, type Gestures } from "./gesture";
 import type { NodeID, NodeType } from "./node";
 import { localSave, memorySave } from "./save";
 import { Session } from "./session";
@@ -8,14 +8,22 @@ import { localSetting, memorySetting, recordingSound, switchedSound, typeLetter 
 
 const out = (node: NodeID): Pin => ({ node, side: "out", index: 0 });
 const inp = (node: NodeID, index = 0): Pin => ({ node, side: "in", index });
-const at = (game: Game, pin: Pin) => pinPosition(game.nodes.get(pin.node)!, pin.side, pin.index);
-const centre = (game: Game, id: NodeID) => {
+const at = (game: Game, pin: Pin): { x: number; y: number } =>
+  pinPosition(game.nodes.get(pin.node)!, pin.side, pin.index);
+const centre = (game: Game, id: NodeID): { x: number; y: number } => {
   const r = game.nodes.get(id)!.rect;
   return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
 };
-const find = (game: Game, type: NodeType) => [...game.nodes.values()].find((n) => n.type === type)!.id;
+const find = (game: Game, type: NodeType): NodeID => [...game.nodes.values()].find((n) => n.type === type)!.id;
 
-function board() {
+type Recording = ReturnType<typeof recordingSound>;
+
+function board(): {
+  game: Game;
+  g: Gestures;
+  add: (type: NodeType, x: number, y: number) => NodeID;
+  sound: Recording;
+} {
   const game = newGame();
   const sound = recordingSound();
   const g = createGestures({
@@ -26,19 +34,19 @@ function board() {
     locked: () => false,
     sound,
   });
-  const add = (type: NodeType, x: number, y: number) => placeNode(game, type, { x, y })!.id;
+  const add = (type: NodeType, x: number, y: number): NodeID => placeNode(game, type, { x, y })!.id;
   return { game, g, add, sound };
 }
 
 // A session on the NOT level, with the NAND level already solved.
-function notLevel() {
+function notLevel(): { session: Session; sound: Recording } {
   const sound = recordingSound();
   const session = new Session(memorySave({ solved: 1, levelIndex: 1, board: null, flags: [] }), sound);
   session.start(1);
   return { session, sound };
 }
 
-function buildNot(game: Game) {
+function buildNot(game: Game): void {
   const g = placeNode(game, "NAND", { x: 20, y: 10 })!.id;
   wire(game, out(find(game, "INPUT")), inp(g, 0));
   wire(game, out(find(game, "INPUT")), inp(g, 1));

@@ -46,16 +46,17 @@ export function listenForFirstGesture(): void {
 
 // A burst of filtered noise: clicks, thuds, scratches.
 function burst(at: number, length: number, gain: number, type: BiquadFilterType, frequency: number, q = 1): void {
-  const source = ctx!.createBufferSource();
+  if (ctx === null || master === null) return;
+  const source = ctx.createBufferSource();
   source.buffer = noise;
-  const filter = ctx!.createBiquadFilter();
+  const filter = ctx.createBiquadFilter();
   filter.type = type;
   filter.frequency.value = frequency;
   filter.Q.value = q;
-  const env = ctx!.createGain();
+  const env = ctx.createGain();
   env.gain.setValueAtTime(gain, at);
   env.gain.exponentialRampToValueAtTime(0.0001, at + length);
-  source.connect(filter).connect(env).connect(master!);
+  source.connect(filter).connect(env).connect(master);
   source.start(at, Math.random() * 0.5);
   source.stop(at + length + 0.02);
 }
@@ -69,15 +70,16 @@ function tone(
   type: OscillatorType = "sine",
   endFrequency = frequency,
 ): void {
-  const osc = ctx!.createOscillator();
+  if (ctx === null || master === null) return;
+  const osc = ctx.createOscillator();
   osc.type = type;
   osc.frequency.setValueAtTime(frequency, at);
   if (endFrequency !== frequency) osc.frequency.exponentialRampToValueAtTime(endFrequency, at + length);
-  const env = ctx!.createGain();
+  const env = ctx.createGain();
   env.gain.setValueAtTime(0.0001, at);
   env.gain.exponentialRampToValueAtTime(gain, at + 0.004);
   env.gain.exponentialRampToValueAtTime(0.0001, at + length);
-  osc.connect(env).connect(master!);
+  osc.connect(env).connect(master);
   osc.start(at);
   osc.stop(at + length + 0.02);
 }

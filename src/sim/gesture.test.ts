@@ -1,25 +1,40 @@
 import { describe, expect, test } from "bun:test";
 import { edgeInto, newGame, pinPosition, placeNode, wire, type Game, type Pin } from "./circuit";
-import { createGestures } from "./gesture";
+import { createGestures, type Gestures } from "./gesture";
 import type { NodeID, NodeType } from "./node";
 
-function setup() {
+interface Setup {
+  game: Game;
+  g: Gestures;
+  add: (type: NodeType, x: number, y: number) => NodeID;
+  lock: () => void;
+  edits: () => number;
+}
+
+function setup(): Setup {
   const game = newGame();
   let locked = false;
   let edits = 0;
   const g = createGestures({
     game: () => game,
-    edit: (change) => (edits++, change(game)),
+    edit: (change) => {
+      edits++;
+      change(game);
+    },
     locked: () => locked,
   });
-  const add = (type: NodeType, x: number, y: number) => placeNode(game, type, { x, y })!.id;
-  return { game, g, add, lock: () => (locked = true), edits: () => edits };
+  const add = (type: NodeType, x: number, y: number): NodeID => placeNode(game, type, { x, y })!.id;
+  const lock = (): void => {
+    locked = true;
+  };
+  return { game, g, add, lock, edits: () => edits };
 }
 
 const out = (node: NodeID): Pin => ({ node, side: "out", index: 0 });
 const inp = (node: NodeID, index = 0): Pin => ({ node, side: "in", index });
-const at = (game: Game, pin: Pin) => pinPosition(game.nodes.get(pin.node)!, pin.side, pin.index);
-const centre = (game: Game, id: NodeID) => {
+const at = (game: Game, pin: Pin): { x: number; y: number } =>
+  pinPosition(game.nodes.get(pin.node)!, pin.side, pin.index);
+const centre = (game: Game, id: NodeID): { x: number; y: number } => {
   const r = game.nodes.get(id)!.rect;
   return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
 };

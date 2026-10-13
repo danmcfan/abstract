@@ -62,7 +62,7 @@ export function drawFace(g: CanvasRenderingContext2D, expression: Expression, ti
 
 // The curved glass over the picture: dark at the corners, a sheen across the
 // top, and a crack in one corner from wherever the robot was salvaged.
-function glass(g: CanvasRenderingContext2D, width: number, height: number) {
+function glass(g: CanvasRenderingContext2D, width: number, height: number): void {
   const vignette = g.createRadialGradient(width / 2, height / 2, height * 0.38, width / 2, height / 2, width * 0.66);
   vignette.addColorStop(0, "rgba(4, 14, 36, 0)");
   vignette.addColorStop(1, "rgba(4, 14, 36, 0.6)");
@@ -70,7 +70,7 @@ function glass(g: CanvasRenderingContext2D, width: number, height: number) {
   g.fillRect(0, 0, width, height);
 
   // Two diagonal streaks of reflection across the top-left corner.
-  const streak = (from: number, to: number, alpha: number) => {
+  const streak = (from: number, to: number, alpha: number): void => {
     g.fillStyle = `rgba(220, 238, 255, ${alpha})`;
     g.beginPath();
     g.moveTo(width * from, 0);
@@ -112,17 +112,17 @@ function openness(time: number, every = 3.7): number {
   return phase < 0.14 ? Math.max(0.08, Math.abs(phase - 0.07) / 0.07) : 1;
 }
 
-function squareEye(g: CanvasRenderingContext2D, x: number, y: number, size: number, open = 1) {
+function squareEye(g: CanvasRenderingContext2D, x: number, y: number, size: number, open = 1): void {
   const h = Math.max(4, size * open);
   g.beginPath();
   g.roundRect(x - size / 2, y - h / 2, size, h, Math.min(8, h / 2));
   g.fill();
 }
 
-function stroke(g: CanvasRenderingContext2D, width: number, path: (g: CanvasRenderingContext2D) => void) {
+function stroke(g: CanvasRenderingContext2D, width: number, path: () => void): void {
   g.lineWidth = width;
   g.beginPath();
-  path(g);
+  path();
   g.stroke();
 }
 
@@ -136,7 +136,7 @@ const FACES: Record<Expression, Draw> = {
   happy(g, t, x, y) {
     const lift = Math.abs(Math.sin(t * 6)) * 4;
     for (const side of [-1, 1]) {
-      stroke(g, 11, (g) => {
+      stroke(g, 11, () => {
         const cx = x + side * EYE_GAP;
         g.moveTo(cx - 20, y + 10 - lift);
         g.lineTo(cx, y - 12 - lift);
@@ -150,7 +150,7 @@ const FACES: Record<Expression, Draw> = {
       const cx = x + side * EYE_GAP + shake;
       squareEye(g, cx, y + 8, 30, openness(t, 2.3));
       // Brows, raised at the inner ends.
-      stroke(g, 6, (g) => {
+      stroke(g, 6, () => {
         g.moveTo(cx + side * 20, y - 14);
         g.lineTo(cx - side * 14, y - 26);
       });
@@ -158,7 +158,7 @@ const FACES: Record<Expression, Draw> = {
   },
   thinking(g, t, x, y) {
     squareEye(g, x - EYE_GAP + 6, y - 10, EYE, openness(t, 4.4));
-    stroke(g, 8, (g) => {
+    stroke(g, 8, () => {
       g.moveTo(x + EYE_GAP - 16, y + 2);
       g.lineTo(x + EYE_GAP + 22, y - 2);
     });
@@ -174,7 +174,7 @@ const FACES: Record<Expression, Draw> = {
     const jolt = Math.sin(t * 50) > 0.7 ? 6 : 0;
     for (const side of [-1, 1]) {
       const cx = x + side * EYE_GAP + jolt;
-      stroke(g, 10, (g) => {
+      stroke(g, 10, () => {
         g.moveTo(cx - 16, y - 16);
         g.lineTo(cx + 16, y + 16);
         g.moveTo(cx + 16, y - 16);
@@ -184,7 +184,7 @@ const FACES: Record<Expression, Draw> = {
   },
   sleepy(g, t, x, y) {
     for (const side of [-1, 1]) {
-      stroke(g, 8, (g) => {
+      stroke(g, 8, () => {
         const cx = x + side * EYE_GAP;
         g.moveTo(cx - 20, y + 4);
         g.quadraticCurveTo(cx, y + 18, cx + 20, y + 4);
@@ -228,7 +228,7 @@ const FACES: Record<Expression, Draw> = {
 };
 
 // A talking mouth: a bar that opens and shuts with the syllables.
-function mouth(g: CanvasRenderingContext2D, x: number, y: number, t: number) {
+function mouth(g: CanvasRenderingContext2D, x: number, y: number, t: number): void {
   const open = Math.abs(Math.sin(t * 15) * Math.sin(t * 6.3 + 1));
   const h = 5 + open * 18;
   g.beginPath();
@@ -238,27 +238,38 @@ function mouth(g: CanvasRenderingContext2D, x: number, y: number, t: number) {
 
 const REST_MOUTHS: Partial<Record<Expression, Draw>> = {
   idle: (g, _t, x, y) => {
-    stroke(g, 6, (g) => (g.moveTo(x - 14, y), g.lineTo(x + 14, y)));
+    stroke(g, 6, () => {
+      g.moveTo(x - 14, y);
+      g.lineTo(x + 14, y);
+    });
   },
   happy: (g, _t, x, y) => {
-    stroke(g, 7, (g) => (g.moveTo(x - 26, y - 8), g.quadraticCurveTo(x, y + 14, x + 26, y - 8)));
+    stroke(g, 7, () => {
+      g.moveTo(x - 26, y - 8);
+      g.quadraticCurveTo(x, y + 14, x + 26, y - 8);
+    });
   },
   worried: (g, t, x, y) => {
-    stroke(g, 5, (g) => {
+    stroke(g, 5, () => {
       g.moveTo(x - 24, y);
       for (let i = 1; i <= 6; i++) g.lineTo(x - 24 + i * 8, y + (i % 2 ? -5 : 5) + Math.sin(t * 30) * 1.5);
     });
   },
   thinking: (g, _t, x, y) => {
-    stroke(g, 6, (g) => (g.moveTo(x + 2, y), g.lineTo(x + 24, y - 4)));
+    stroke(g, 6, () => {
+      g.moveTo(x + 2, y);
+      g.lineTo(x + 24, y - 4);
+    });
   },
   error: (g, _t, x, y) => {
-    stroke(g, 5, (g) => {
+    stroke(g, 5, () => {
       g.moveTo(x - 26, y);
       for (let i = 1; i <= 5; i++) g.lineTo(x - 26 + i * 10.4, y + (i % 2 ? -7 : 7));
     });
   },
   amazed: (g, _t, x, y) => {
-    stroke(g, 6, (g) => g.arc(x, y, 9, 0, Math.PI * 2));
+    stroke(g, 6, () => {
+      g.arc(x, y, 9, 0, Math.PI * 2);
+    });
   },
 };

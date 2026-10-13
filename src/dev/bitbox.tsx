@@ -1,9 +1,8 @@
-import { For, Show, batch, createEffect, createSignal, onCleanup, onMount, type JSX } from "solid-js";
+import { For, Show, batch, createEffect, createSignal, onCleanup, onMount, untrack, type JSX } from "solid-js";
 import { render } from "solid-js/web";
 import type { Arm, Pose } from "../robot/clips";
 import { EXPRESSIONS, type Expression } from "../robot/expression";
 import { createViewer, gameLighting, type Lighting, type View, type Viewer } from "../robot/viewer";
-import "../styles.css";
 
 // Bitbox's model sheet, a dev-only page at /bitbox.html: the robot under
 // lights you can move, from any side, in any expression, or posed by hand.
@@ -50,7 +49,9 @@ const VIEWS: View[] = ["game", "close", "front", "side", "back", "top", "low"];
 
 type Range = [min: number, max: number];
 const HALF = Math.PI / 2;
-const BODY: [keyof Pose, Range][] = [
+// Every pose field but the arms is a single number.
+type BodyKey = Exclude<keyof Pose, "leftArm" | "rightArm">;
+const BODY: [BodyKey, Range][] = [
   ["slide", [-0.5, 0.5]],
   ["hop", [-0.1, 0.3]],
   ["squash", [-0.2, 0.2]],
@@ -73,13 +74,23 @@ const ARM: [keyof Arm, Range][] = [
 
 const params = new URLSearchParams(location.search);
 const pick = <T extends string>(key: string, options: readonly T[], fallback: T): T => {
-  const value = params.get(key) as T;
-  return options.includes(value) ? value : fallback;
+  const value = params.get(key);
+  return options.find((option) => option === value) ?? fallback;
+};
+const lightingFor = (name: string): Lighting => {
+  const lighting = LIGHTS[name];
+  if (lighting === undefined) throw new Error(`no lighting preset named ${name}`);
+  return lighting;
+};
+const backdropFor = (name: string): { style: JSX.CSSProperties; color: string } => {
+  const backdrop = BACKDROPS[name];
+  if (backdrop === undefined) throw new Error(`no backdrop named ${name}`);
+  return backdrop;
 };
 
-function ModelSheet() {
-  let host!: HTMLDivElement;
-  let faceSlot!: HTMLDivElement;
+function ModelSheet(): JSX.Element {
+  let host: HTMLDivElement | undefined;
+  let faceSlot: HTMLDivElement | undefined;
   let viewer: Viewer | undefined;
 
   const [expression, setExpression] = createSignal<Expression>(pick("e", EXPRESSIONS, "idle"));
@@ -90,7 +101,7 @@ function ModelSheet() {
   const [view, setView] = createSignal<View>(pick("view", VIEWS, "game"));
   const [spin, setSpin] = createSignal(0);
   const [preset, setPreset] = createSignal(pick("light", Object.keys(LIGHTS), "game"));
-  const [lighting, setLighting] = createSignal<Lighting>(LIGHTS[preset()]!);
+  const [lighting, setLighting] = createSignal<Lighting>(lightingFor(untrack(preset)));
   const [backdrop, setBackdrop] = createSignal(pick("bg", Object.keys(BACKDROPS), "paper"));
   const [outlines, setOutlines] = createSignal(true);
   const [shadows, setShadows] = createSignal(true);
@@ -99,6 +110,7 @@ function ModelSheet() {
   const [live, setLive] = createSignal<Pose>();
 
   onMount(() => {
+    if (host === undefined || faceSlot === undefined) throw new Error("model sheet mounted without its stage");
     let lastTick = 0;
     viewer = createViewer(host, (t) => {
       const now = performance.now();
@@ -131,13 +143,13 @@ function ModelSheet() {
     history.replaceState(null, "", `?${q}`);
   });
 
-  const choosePreset = (name: string) => {
+  const choosePreset = (name: string): void => {
     batch(() => {
       setPreset(name);
-      setLighting(LIGHTS[name]!);
+      setLighting(lightingFor(name));
     });
   };
-  const tweak = (change: Partial<Lighting>) => {
+  const tweak = (change: Partial<Lighting>): void => {
     batch(() => {
       setPreset("custom");
       setLighting((l) => ({ ...l, ...change }));
@@ -145,27 +157,36 @@ function ModelSheet() {
   };
 
   // Touching a pose slider freezes the robot in its current pose and edits that.
-  const shown = () => held() ?? live();
-  const edit = (change: (p: Pose) => void) => {
-    const p = structuredClone(held() ?? viewer!.pose());
+  const shown = (): Pose | undefined => held() ?? live();
+  const edit = (change: (p: Pose) => void): void => {
+    const current = held() ?? viewer?.pose();
+    if (current === undefined) return;
+    const p = structuredClone(current);
     change(p);
     setHeld(p);
   };
-  const release = () => setHeld(null);
-  const copyPose = async () =>
-    navigator.clipboard.writeText(JSON.stringify(shown(), (_k, v) => (typeof v === "number" ? +v.toFixed(3) : v), 2));
+  const release = (): void => {
+    setHeld(null);
+  };
+  const copyPose = async (): Promise<void> => {
+    await navigator.clipboard.writeText(
+      JSON.stringify(shown(), (_k: string, v: unknown): unknown => (typeof v === "number" ? +v.toFixed(3) : v), 2),
+    );
+  };
 
-  const snapshot = () => {
+  const snapshot = (): void => {
+    if (viewer === undefined) return;
     const a = document.createElement("a");
-    a.href = viewer!.snapshot(BACKDROPS[backdrop()]!.color);
+    a.href = viewer.snapshot(backdropFor(backdrop()).color);
     a.download = `bitbox-${expression()}-${preset()}-${view()}.png`;
     a.click();
   };
 
-  const onKey = (event: KeyboardEvent) => {
+  const onKey = (event: KeyboardEvent): void => {
     if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) return;
     const n = Number(event.key);
-    if (n >= 1 && n <= EXPRESSIONS.length) setExpression(EXPRESSIONS[n - 1]!);
+    const chosen = n >= 1 ? EXPRESSIONS[n - 1] : undefined;
+    if (chosen !== undefined) setExpression(chosen);
     else if (event.key === " ") setPlaying((p) => !p);
     else if (event.key === "t") setTalking((t) => !t);
     else if (event.key === "r") viewer?.restart();
@@ -179,8 +200,14 @@ function ModelSheet() {
 
   return (
     <div class="fixed inset-0 grid grid-rows-[minmax(300px,1fr)_minmax(0,45%)] text-ink-deep md:grid-cols-[1fr_380px] md:grid-rows-1">
-      <div class="relative min-h-0" style={BACKDROPS[backdrop()]!.style}>
-        <div ref={host} id="stage" class="absolute inset-0" />
+      <div class="relative min-h-0" style={backdropFor(backdrop()).style}>
+        <div
+          ref={(el) => {
+            host = el;
+          }}
+          id="stage"
+          class="absolute inset-0"
+        />
         <div
           class="pointer-events-none absolute top-3 left-4 text-xs"
           classList={{ "text-paper": ["blueprint", "void", "black"].includes(backdrop()) }}
@@ -196,20 +223,41 @@ function ModelSheet() {
           <div class="grid grid-cols-4 gap-1.5">
             <For each={EXPRESSIONS}>
               {(e, i) => (
-                <Choice on={expression() === e} onClick={() => setExpression(e)}>
+                <Choice
+                  on={expression() === e}
+                  onClick={() => {
+                    setExpression(e);
+                  }}
+                >
                   <span class="opacity-50">{i() + 1}</span> {e}
                 </Choice>
               )}
             </For>
           </div>
           <div class="mt-3 flex flex-wrap items-center gap-2">
-            <button class="w-20 btn btn-sm" onClick={() => setPlaying((p) => !p)}>
+            <button
+              class="w-20 btn btn-sm"
+              onClick={() => {
+                setPlaying((p) => !p);
+              }}
+            >
               {playing() ? "Pause" : "Play"}
             </button>
-            <button class="btn btn-sm btn-ghost" onClick={() => viewer?.restart()}>
+            <button
+              class="btn btn-sm btn-ghost"
+              onClick={() => {
+                viewer?.restart();
+              }}
+            >
               Restart
             </button>
-            <Toggle label="Talking" value={talking()} onChange={setTalking} />
+            <Toggle
+              label="Talking"
+              value={talking()}
+              onChange={(on) => {
+                setTalking(on);
+              }}
+            />
           </div>
           <Slider
             label="Time"
@@ -231,7 +279,9 @@ function ModelSheet() {
             step={0.05}
             value={rate()}
             format={(r) => `${r.toFixed(2)}×`}
-            onInput={setRate}
+            onInput={(r) => {
+              setRate(r);
+            }}
           />
         </Section>
 
@@ -239,7 +289,13 @@ function ModelSheet() {
           <div class="grid grid-cols-4 gap-1.5">
             <For each={VIEWS}>
               {(v) => (
-                <Choice on={view() === v} onClick={() => (setView(v), viewer?.view(v))}>
+                <Choice
+                  on={view() === v}
+                  onClick={() => {
+                    setView(v);
+                    viewer?.view(v);
+                  }}
+                >
                   {v}
                 </Choice>
               )}
@@ -252,9 +308,17 @@ function ModelSheet() {
             step={5}
             value={spin()}
             format={(d) => `${d}°/s`}
-            onInput={setSpin}
+            onInput={(d) => {
+              setSpin(d);
+            }}
           />
-          <button class="btn btn-sm btn-ghost" onClick={() => (setSpin(0), viewer?.unspin())}>
+          <button
+            class="btn btn-sm btn-ghost"
+            onClick={() => {
+              setSpin(0);
+              viewer?.unspin();
+            }}
+          >
             Face front
           </button>
         </Section>
@@ -355,10 +419,15 @@ function ModelSheet() {
           <div class="grid grid-cols-3 gap-1.5">
             <For each={Object.keys(BACKDROPS)}>
               {(name) => (
-                <Choice on={backdrop() === name} onClick={() => setBackdrop(name)}>
+                <Choice
+                  on={backdrop() === name}
+                  onClick={() => {
+                    setBackdrop(name);
+                  }}
+                >
                   <span
                     class="mr-1 inline-block size-2.5 border border-ink align-[-1px]"
-                    style={{ background: BACKDROPS[name]!.color }}
+                    style={{ background: backdropFor(name).color }}
                   />
                   {name}
                 </Choice>
@@ -366,9 +435,27 @@ function ModelSheet() {
             </For>
           </div>
           <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1">
-            <Toggle label="Outlines" value={outlines()} onChange={setOutlines} />
-            <Toggle label="Shadows" value={shadows()} onChange={setShadows} />
-            <Toggle label="Floor grid" value={grid()} onChange={setGrid} />
+            <Toggle
+              label="Outlines"
+              value={outlines()}
+              onChange={(on) => {
+                setOutlines(on);
+              }}
+            />
+            <Toggle
+              label="Shadows"
+              value={shadows()}
+              onChange={(on) => {
+                setShadows(on);
+              }}
+            />
+            <Toggle
+              label="Floor grid"
+              value={grid()}
+              onChange={(on) => {
+                setGrid(on);
+              }}
+            />
           </div>
           <button class="mt-3 btn btn-sm" onClick={snapshot}>
             Save PNG
@@ -376,7 +463,11 @@ function ModelSheet() {
         </Section>
 
         <Section title="Screen">
-          <div ref={faceSlot} />
+          <div
+            ref={(el) => {
+              faceSlot = el;
+            }}
+          />
         </Section>
 
         <Section title="Pose">
@@ -389,7 +480,12 @@ function ModelSheet() {
             <button class="btn btn-sm" disabled={!held()} onClick={release}>
               Back to clip
             </button>
-            <button class="btn btn-sm btn-ghost" onClick={copyPose}>
+            <button
+              class="btn btn-sm btn-ghost"
+              onClick={() => {
+                void copyPose();
+              }}
+            >
               Copy JSON
             </button>
           </div>
@@ -403,9 +499,11 @@ function ModelSheet() {
                       min={min}
                       max={max}
                       step={0.005}
-                      value={p()[key] as number}
+                      value={p()[key]}
                       onInput={(v) => {
-                        edit((q) => ((q[key] as number) = v));
+                        edit((q) => {
+                          q[key] = v;
+                        });
                       }}
                     />
                   )}
@@ -425,7 +523,9 @@ function ModelSheet() {
                             step={0.005}
                             value={p()[side][key]}
                             onInput={(v) => {
-                              edit((q) => (q[side][key] = v));
+                              edit((q) => {
+                                q[side][key] = v;
+                              });
                             }}
                           />
                         )}
@@ -442,7 +542,7 @@ function ModelSheet() {
   );
 }
 
-function Section(props: { title: string; children: JSX.Element }) {
+function Section(props: { title: string; children: JSX.Element }): JSX.Element {
   return (
     <section class="border-b-[1.5px] border-ink px-4 py-3">
       <h2 class="mb-2 text-[11px] font-bold tracking-[0.14em] text-pencil uppercase">{props.title}</h2>
@@ -451,12 +551,14 @@ function Section(props: { title: string; children: JSX.Element }) {
   );
 }
 
-function Choice(props: { on: boolean; onClick: () => void; children: JSX.Element }) {
+function Choice(props: { on: boolean; onClick: () => void; children: JSX.Element }): JSX.Element {
   return (
     <button
       class="truncate border-[1.5px] border-ink px-1.5 py-1 text-left text-[11px]"
       classList={{ "bg-ink text-paper": props.on, "bg-surface text-ink hover:bg-wash": !props.on }}
-      onClick={props.onClick}
+      onClick={() => {
+        props.onClick();
+      }}
     >
       {props.children}
     </button>
@@ -471,7 +573,7 @@ function Slider(props: {
   value: number;
   format?: (v: number) => string;
   onInput: (v: number) => void;
-}) {
+}): JSX.Element {
   return (
     <label class="mt-1.5 grid grid-cols-[88px_1fr_56px] items-center gap-2 text-xs">
       <span class="truncate">{props.label}</span>
@@ -493,7 +595,7 @@ function Slider(props: {
   );
 }
 
-function Toggle(props: { label: string; value: boolean; onChange: (on: boolean) => void }) {
+function Toggle(props: { label: string; value: boolean; onChange: (on: boolean) => void }): JSX.Element {
   return (
     <label class="flex cursor-pointer items-center gap-1.5 text-xs">
       <input
@@ -509,7 +611,7 @@ function Toggle(props: { label: string; value: boolean; onChange: (on: boolean) 
   );
 }
 
-function Swatch(props: { label: string; value: string; onInput: (v: string) => void }) {
+function Swatch(props: { label: string; value: string; onInput: (v: string) => void }): JSX.Element {
   return (
     <label class="flex flex-col items-center gap-0.5">
       <input

@@ -14,13 +14,17 @@ import { progress, smoothstep } from "./timeline";
 // the same robot, clips and face as the game's stage.
 
 export interface Lighting {
-  fill: number; // flat fill for the shade side
+  // Flat fill for the shade side.
+  fill: number;
   fillColor: string;
   sun: number;
   sunColor: string;
-  azimuth: number; // degrees round from the front, toward +x
-  elevation: number; // degrees up from the floor
-  rim: number; // back light, for silhouettes
+  // Degrees round from the front, toward +x.
+  azimuth: number;
+  // Degrees up from the floor.
+  elevation: number;
+  // Back light, for silhouettes.
+  rim: number;
   rimColor: string;
 }
 
@@ -120,7 +124,7 @@ export function createViewer(container: HTMLElement, onFrame?: (time: number) =>
   let then = performance.now();
   let frame = 0;
 
-  const resize = () => {
+  const resize = (): void => {
     const { width, height } = container.getBoundingClientRect();
     if (width === 0 || height === 0) return;
     renderer.setSize(width, height, false);
@@ -132,7 +136,7 @@ export function createViewer(container: HTMLElement, onFrame?: (time: number) =>
   observer.observe(container);
   resize();
 
-  const render = () => {
+  const render = (): void => {
     const target = pose(expression, clock);
     last = held ?? blend(from, target, smoothstep(progress(clock, 0, BLEND_SECONDS)));
     robot.apply({ ...last, turn: last.turn + spun });
@@ -141,7 +145,7 @@ export function createViewer(container: HTMLElement, onFrame?: (time: number) =>
     renderer.render(scene, camera);
   };
 
-  const loop = (now: number) => {
+  const loop = (now: number): void => {
     const dt = Math.min((now - then) / 1000, 0.1);
     then = now;
     if (playing) clock += dt * rate;
@@ -153,7 +157,7 @@ export function createViewer(container: HTMLElement, onFrame?: (time: number) =>
   };
   frame = requestAnimationFrame(loop);
 
-  const orbit = (azimuth: number, elevation: number, distance = DISTANCE, target = TARGET) => {
+  const orbit = (azimuth: number, elevation: number, distance = DISTANCE, target = TARGET): void => {
     const a = THREE.MathUtils.degToRad(azimuth);
     const e = THREE.MathUtils.degToRad(elevation);
     controls.target.copy(target);

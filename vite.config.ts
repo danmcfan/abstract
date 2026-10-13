@@ -17,8 +17,8 @@ export default defineConfig({
         // Vite's 500 kB warning.
         codeSplitting: {
           groups: [
-            { name: "three-core", test: /node_modules[\\/]three[\\/]build[\\/]three\.core\.js$/ },
-            { name: "three", test: /node_modules[\\/]three[\\/]/ },
+            { name: "three-core", test: /node_modules[\\/]three[\\/]build[\\/]three\.core\.js$/u },
+            { name: "three", test: /node_modules[\\/]three[\\/]/u },
           ],
         },
       },

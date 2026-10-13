@@ -55,6 +55,13 @@ export function newGame(grid: Size = DEFAULT_GRID): Game {
   return { nodes: new Map(), edges: new Map(), nextNodeID: 0, nextEdgeID: 0, grid: { ...grid } };
 }
 
+// The node a wire names. Every wire's nodes exist, so a missing one is a bug.
+export function wiredNode(game: Game, id: NodeID): Node {
+  const node = game.nodes.get(id);
+  if (node === undefined) throw new Error(`Wire names node ${id}, which isn't on the board`);
+  return node;
+}
+
 // Commands
 
 // Adds a node at the free spot nearest center, searching outward ring by
@@ -230,8 +237,7 @@ function collides(game: Game, rect: Rect, except?: NodeID): boolean {
 function reaches(game: Game, start: NodeID, target: NodeID): boolean {
   const seen = new Set<NodeID>();
   const stack = [start];
-  while (stack.length > 0) {
-    const id = stack.pop()!;
+  for (let id = stack.pop(); id !== undefined; id = stack.pop()) {
     if (id === target) return true;
     if (seen.has(id)) continue;
     seen.add(id);
@@ -264,7 +270,7 @@ function plan(game: Game): Step[] {
     if (seen !== undefined) return seen;
     const inputs = Array.from({ length: inputCount(node.type, node.width) }, (_, i) => {
       const edge = into.get(node.id)?.[i];
-      return edge ? { edge, from: visit(game.nodes.get(edge.from)!) } : null;
+      return edge ? { edge, from: visit(wiredNode(game, edge.from)) } : null;
     });
     position.set(node.id, steps.length);
     steps.push({ node, inputs });
@@ -283,7 +289,7 @@ function pass(steps: Step[], source: (node: Node) => Value): { signals: Value[][
   const inputs: Value[][] = [];
   for (const { node, inputs: wires } of steps) {
     const values: Value[] = [];
-    for (const w of wires) values.push(w ? (signals[w.from]![w.edge.fromIndex] ?? 0) : 0);
+    for (const w of wires) values.push(w ? (signals[w.from]?.[w.edge.fromIndex] ?? 0) : 0);
     inputs.push(values);
     signals.push(node.type === "INPUT" ? [mask(source(node), node.width)] : evaluate(node.type, values, node.width));
   }
@@ -294,12 +300,14 @@ function pass(steps: Step[], source: (node: Node) => Value): { signals: Value[][
 function settle(game: Game): void {
   const steps = plan(game);
   const { signals, inputs } = pass(steps, (node) => node.signals[0] ?? 0);
+  // pass gives one entry per step and one value per wired pin.
   steps.forEach(({ node, inputs: wires }, i) => {
-    node.signals = signals[i]!;
+    node.signals = signals[i] ?? [];
+    const into = inputs[i] ?? [];
     wires.forEach((w, pin) => {
-      if (w) w.edge.value = inputs[i]![pin]!;
+      if (w) w.edge.value = into[pin] ?? 0;
     });
-    node.isHigh = (node.type === "OUTPUT" ? inputs[i]! : node.signals).some((value) => value !== 0);
+    node.isHigh = (node.type === "OUTPUT" ? into : node.signals).some((value) => value !== 0);
   });
 }
 
@@ -313,6 +321,6 @@ export function simulate(game: Game, inputs: NodeID[], outputs: NodeID[]): (valu
   const lamps = outputs.map((id) => steps.findIndex((step) => step.node.id === id));
   return (values) => {
     const { inputs: into } = pass(steps, (node) => values[slot.get(node.id) ?? -1] ?? 0);
-    return lamps.map((i) => (i >= 0 ? (into[i]![0] ?? 0) : 0));
+    return lamps.map((i) => into[i]?.[0] ?? 0);
   };
 }

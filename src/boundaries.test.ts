@@ -9,8 +9,8 @@ const sources = [...new Glob("src/**/*.{ts,tsx}").scanSync({ cwd: root })].filte
 const contents = new Map(
   await Promise.all(sources.map(async (file) => [file, await Bun.file(join(root, file)).text()] as const)),
 );
-const imports = (file: string) =>
-  [...contents.get(file)!.matchAll(/(?:from|import)\s*\(?\s*"([^"]+)"/g)].map((m) => m[1]!);
+const imports = (file: string): string[] =>
+  [...contents.get(file)!.matchAll(/(?:from|import)\s*\(?\s*"([^"]+)"/gu)].map((m) => m[1]!);
 
 test("only src/robot/ imports Three.js", () => {
   const offenders = sources.filter(

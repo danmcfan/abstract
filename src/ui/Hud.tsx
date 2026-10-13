@@ -1,5 +1,5 @@
-import { For, Show, createEffect, createSignal, on } from "solid-js";
-import { floorAbove, layerOf, LEVELS, matches, partsBin, terminalWidth, wiring } from "../sim/level";
+import { For, Show, createEffect, createSignal, on, type JSX } from "solid-js";
+import { floorAbove, layerOf, LEVELS, type Layer, matches, partsBin, terminalWidth, wiring } from "../sim/level";
 import type { Value } from "../sim/node";
 import { say } from "./speech";
 import { GateIcon } from "./GateIcon";
@@ -20,38 +20,43 @@ import {
   testing,
 } from "./state";
 
-const pad = (n: number) => String(n).padStart(2, "0");
+const pad = (n: number): string => String(n).padStart(2, "0");
 // A bus value's signals, high bit first, for hovering over its number.
-const binary = (value: Value, width: number) => value.toString(2).padStart(width, "0");
+const binary = (value: Value, width: number): string => value.toString(2).padStart(width, "0");
 
 // The overlay, drawn like sheets pinned to the drafting board: the level's
 // title block and truth table, the parts bin, and the button that opens the
 // stack. Passing a layer's last level leads up to the next floor, through
 // the stack.
-export function Hud(props: { onMenu: () => void; onStack: (arrive?: number) => void }) {
-  const labels = () => [...level().inputs, ...level().outputs];
-  const widths = () => labels().map((label) => terminalWidth(level(), label));
-  // A row's outputs as the test column writes them: single signals run
-  // together as bits, bus values are numbers apart.
-  const written = (values: Value[]) => values.join(widths().some((width) => width > 1) ? " " : "");
-  const layer = () => layerOf(levelIndex());
-  const above = () => floorAbove(levelIndex());
-  const [clearing, setClearing] = createSignal(false);
-  createEffect(on(levelIndex, () => setClearing(false)));
+const labels = (): string[] => [...level().inputs, ...level().outputs];
+const widths = (): number[] => labels().map((label) => terminalWidth(level(), label));
+// A row's outputs as the test column writes them: single signals run
+// together as bits, bus values are numbers apart.
+const written = (values: Value[]): string => values.join(widths().some((width) => width > 1) ? " " : "");
+const layer = (): Layer => layerOf(levelIndex());
+const above = (): Layer | null => floorAbove(levelIndex());
 
-  const status = () => {
-    if (testing()) return { text: "Testing…", tone: "text-pencil" };
-    const r = result();
-    if (!r) return null;
-    if (r.forbidden.length > 0)
-      return { text: `${r.forbidden.join(", ")} isn't in this level's parts bin.`, tone: "text-fail" };
-    if (!r.passed) return { text: "Not quite. Some rows don't match.", tone: "text-fail" };
-    const hasNext = levelIndex() + 1 < LEVELS.length;
-    return {
-      text: hasNext ? `Tested! ${level().gate} is in your parts bin.` : "Tested! That's every level so far.",
-      tone: "text-pass",
-    };
+function status(): { text: string; tone: string } | null {
+  if (testing()) return { text: "Testing…", tone: "text-pencil" };
+  const r = result();
+  if (!r) return null;
+  if (r.forbidden.length > 0)
+    return { text: `${r.forbidden.join(", ")} isn't in this level's parts bin.`, tone: "text-fail" };
+  if (!r.passed) return { text: "Not quite. Some rows don't match.", tone: "text-fail" };
+  const hasNext = levelIndex() + 1 < LEVELS.length;
+  return {
+    text: hasNext ? `Tested! ${level().gate} is in your parts bin.` : "Tested! That's every level so far.",
+    tone: "text-pass",
   };
+}
+
+export function Hud(props: { onMenu: () => void; onStack: (arrive?: number) => void }): JSX.Element {
+  const [clearing, setClearing] = createSignal(false);
+  createEffect(
+    on(levelIndex, (): void => {
+      setClearing(false);
+    }),
+  );
 
   return (
     <div class="text-sm leading-normal text-ink-deep">
@@ -65,7 +70,7 @@ export function Hud(props: { onMenu: () => void; onStack: (arrive?: number) => v
             SH {pad(levelIndex() + 1)}
           </span>
           <h1 class="px-2.5 py-0.5 text-lg font-bold text-ink">
-            {level().prebuilt ? "Meet" : "Build"} {level().gate}
+            {level().prebuilt === true ? "Meet" : "Build"} {level().gate}
           </h1>
         </div>
 
@@ -86,28 +91,34 @@ export function Hud(props: { onMenu: () => void; onStack: (arrive?: number) => v
               <tbody>
                 <For each={tableRows()}>
                   {(row, i) => {
-                    const actual = () => rowResults()[i()];
-                    const ok = () => matches(actual() ?? [], row.expected);
+                    const actual = (): Value[] | undefined => rowResults()[i()];
+                    const ok = (): boolean => matches(actual() ?? [], row.expected);
+                    const got = (): string | undefined => {
+                      const values = actual();
+                      return values === undefined || ok() ? undefined : `got ${written(values)}`;
+                    };
                     return (
                       <tr class={currentRow() === i() ? "bg-wash font-bold" : ""}>
                         <For each={[...row.inputs, ...row.expected]}>
-                          {(value, column) => (
-                            <td
-                              class="border-[1.5px] border-ink px-2 py-0.5"
-                              title={widths()[column()]! > 1 ? binary(value, widths()[column()]!) : undefined}
-                            >
-                              {value}
-                            </td>
-                          )}
+                          {(value, column) => {
+                            const width = (): number => widths()[column()] ?? 1;
+                            return (
+                              <td
+                                class="border-[1.5px] border-ink px-2 py-0.5"
+                                title={width() > 1 ? binary(value, width()) : undefined}
+                              >
+                                {value}
+                              </td>
+                            );
+                          }}
                         </For>
-                        <td
-                          class="border-[1.5px] border-ink px-1 py-0.5"
-                          title={actual() === undefined || ok() ? undefined : `got ${written(actual()!)}`}
-                        >
-                          <Show when={actual() !== undefined} fallback={<span class="text-pencil/50">·</span>}>
-                            <span class={ok() ? "text-pass" : "text-fail"}>
-                              {ok() ? "✓" : `✗${written(actual()!)}`}
-                            </span>
+                        <td class="border-[1.5px] border-ink px-1 py-0.5" title={got()}>
+                          <Show when={actual()} fallback={<span class="text-pencil/50">·</span>}>
+                            {(values) => (
+                              <span class={ok() ? "text-pass" : "text-fail"}>
+                                {ok() ? "✓" : `✗${written(values())}`}
+                              </span>
+                            )}
                           </Show>
                         </td>
                       </tr>
@@ -124,10 +135,24 @@ export function Hud(props: { onMenu: () => void; onStack: (arrive?: number) => v
           </div>
 
           <div class="flex shrink-0 flex-col items-start gap-2 min-[900px]:mt-3.5 min-[900px]:flex-row min-[900px]:items-center min-[900px]:gap-3">
-            <button id="test" class="btn" disabled={testing()} onClick={() => void runTest()}>
+            <button
+              id="test"
+              class="btn"
+              disabled={testing()}
+              onClick={() => {
+                void runTest();
+              }}
+            >
               Run test
             </button>
-            <button id="clear" class="btn btn-sm btn-ghost" disabled={clearing()} onClick={() => setClearing(true)}>
+            <button
+              id="clear"
+              class="btn btn-sm btn-ghost"
+              disabled={clearing()}
+              onClick={() => {
+                setClearing(true);
+              }}
+            >
               Clear
             </button>
           </div>
@@ -147,7 +172,13 @@ export function Hud(props: { onMenu: () => void; onStack: (arrive?: number) => v
               >
                 Clear
               </button>
-              <button id="clear-keep" class="btn btn-sm btn-ghost" onClick={() => setClearing(false)}>
+              <button
+                id="clear-keep"
+                class="btn btn-sm btn-ghost"
+                onClick={() => {
+                  setClearing(false);
+                }}
+              >
                 Keep it
               </button>
             </div>
@@ -161,7 +192,7 @@ export function Hud(props: { onMenu: () => void; onStack: (arrive?: number) => v
             </p>
           )}
         </Show>
-        <Show when={result()?.passed && levelIndex() + 1 < LEVELS.length}>
+        <Show when={result()?.passed === true && levelIndex() + 1 < LEVELS.length}>
           <Show
             when={above()}
             fallback={
@@ -278,7 +309,7 @@ export function Hud(props: { onMenu: () => void; onStack: (arrive?: number) => v
 
 // Roughens the stamp's edges and leaves gaps in its ink, the way a rubber
 // stamp prints.
-function RoughInk() {
+function RoughInk(): JSX.Element {
   return (
     <svg class="absolute size-0" aria-hidden="true">
       <filter id="rough-ink" x="-10%" y="-20%" width="120%" height="140%">

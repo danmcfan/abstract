@@ -28,7 +28,7 @@ function gate(game: Game, type: NodeType): NodeID {
   return placeNode(game, type, { x: 10 + (spot % 4) * 7, y: 5 + Math.floor(spot / 4) * 6 })!.id;
 }
 
-function levelGame(index: number) {
+function levelGame(index: number): { game: Game; a: NodeID; b: NodeID; sel: NodeID; o: NodeID } {
   const game = loadLevel(LEVELS[index]!);
   return {
     game,
@@ -39,7 +39,7 @@ function levelGame(index: number) {
   };
 }
 
-const levelIndex = (type: NodeType) => LEVELS.findIndex((level) => level.gate === type);
+const levelIndex = (type: NodeType): number => LEVELS.findIndex((level) => level.gate === type);
 
 describe("solutions", () => {
   test("the NAND level comes wired and passes as is", () => {
@@ -134,12 +134,12 @@ describe("the MUX level", () => {
   const index = levelIndex("MUX");
 
   test("comes after the parts its solution needs", () => {
-    expect(partsBin(index)).toEqual(expect.arrayContaining(["NOT", "AND", "OR"]));
+    for (const part of ["NOT", "AND", "OR"] as const) expect(partsBin(index)).toContain(part);
   });
 
   test("has three input terminals, A, B and SEL, top to bottom", () => {
     const { game, a, b, sel } = levelGame(index);
-    const y = (id: NodeID) => game.nodes.get(id)!.rect.y;
+    const y = (id: NodeID): number => game.nodes.get(id)!.rect.y;
     expect([a, b, sel].every((id) => id >= 0)).toBe(true);
     expect(y(a)).toBeLessThan(y(b));
     expect(y(b)).toBeLessThan(y(sel));
@@ -184,7 +184,7 @@ describe("the DEMUX level", () => {
 
   test("has inputs D and SEL and outputs Y0 and Y1", () => {
     const game = loadLevel(LEVELS[index]!);
-    const labels = (type: NodeType) =>
+    const labels = (type: NodeType): Label[] =>
       [...game.nodes.values()].filter((node) => node.type === type).map((node) => node.label);
     expect(labels("INPUT")).toEqual(["D", "SEL"]);
     expect(labels("OUTPUT")).toEqual(["Y0", "Y1"]);
@@ -279,7 +279,7 @@ const WITH_HALF = [...LEVELS, HALF_ADDER];
 const HALF = WITH_HALF.length - 1;
 
 // SUM is (A OR B) AND (A NAND B); COUT is A AND B.
-function buildHalfAdder(game: Game, cout: NodeType = "AND") {
+function buildHalfAdder(game: Game, cout: NodeType = "AND"): void {
   const a = terminal(game, "INPUT", "A");
   const b = terminal(game, "INPUT", "B");
   const or = gate(game, "OR");
@@ -351,7 +351,7 @@ describe("a level with two outputs", () => {
       [0, 1].map((vb) => {
         setInput(game, a, va);
         setInput(game, b, vb);
-        return [...half.signals, Number(game.nodes.get(not)!.isHigh), Number(game.nodes.get(lamp)!.isHigh)];
+        return half.signals.concat(Number(game.nodes.get(not)!.isHigh), Number(game.nodes.get(lamp)!.isHigh));
       }),
     );
     expect(seen).toEqual([
@@ -363,9 +363,10 @@ describe("a level with two outputs", () => {
   });
 });
 
+const stub = (layer: number): Level => ({ ...LEVELS[1]!, layer });
+
 describe("the stack", () => {
   // Two levels on L1 and one on L2, so a layer can be part solved.
-  const stub = (layer: number): Level => ({ ...LEVELS[1]!, layer });
   const levels = [stub(1), stub(1), stub(2)];
 
   test("lists nine layers, L1 to L9, each with a floor", () => {
@@ -376,7 +377,9 @@ describe("the stack", () => {
 
   test("every level belongs to a layer, in order up the stack", () => {
     const layers = LEVELS.map((level) => level.layer);
-    expect(layers).toEqual([...layers].sort());
+    const sorted = [...layers];
+    sorted.sort((p, q) => p - q);
+    expect(layers).toEqual(sorted);
     expect(layers.every((n) => LAYERS.some((layer) => layer.number === n))).toBe(true);
     expect(layerLevels(1)).toEqual([0]);
   });

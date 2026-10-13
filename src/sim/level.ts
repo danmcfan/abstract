@@ -1,6 +1,6 @@
 import { newGame, placeNode, setInputs, simulate, wire, type Game } from "./circuit";
 import { DEFAULT_GRID, type Size } from "./grid";
-import { definePart, mask, type Label, type NodeID, type NodeType, type Spec, type Value } from "./node";
+import { definePart, mask, type Label, type Node, type NodeID, type NodeType, type Spec, type Value } from "./node";
 
 // A level asks the player to build one gate out of the gates they have
 // already built. Solving it adds that gate to the parts bin for later levels.
@@ -135,19 +135,29 @@ export function layerState(layer: number, solved: number, levels = LEVELS): Laye
   const indexes = layerLevels(layer, levels);
   if (indexes.length === 0) return "locked";
   if (indexes.every((i) => i < solved)) return "built";
-  return indexes[0]! < playableCount(solved, levels) ? "in progress" : "locked";
+  const [first = Infinity] = indexes;
+  return first < playableCount(solved, levels) ? "in progress" : "locked";
 }
 
 export function layerOf(levelIndex: number, levels = LEVELS): Layer {
-  return LAYERS.find((layer) => layer.number === levels[levelIndex]!.layer)!;
+  const number = levelAt(levelIndex, levels).layer;
+  const layer = LAYERS.find((l) => l.number === number);
+  if (layer === undefined) throw new Error(`No layer ${number}`);
+  return layer;
+}
+
+export function levelAt(levelIndex: number, levels = LEVELS): Level {
+  const level = levels[levelIndex];
+  if (level === undefined) throw new Error(`No level ${levelIndex}`);
+  return level;
 }
 
 // The layer a level leads up to: the next layer, if the level is the last
 // of its own and the next layer has a level in the game yet.
 export function floorAbove(levelIndex: number, levels = LEVELS): Layer | null {
-  const here = levels[levelIndex]!.layer;
+  const here = levelAt(levelIndex, levels).layer;
   const next = levels[levelIndex + 1];
-  return next && next.layer !== here ? layerOf(levelIndex + 1, levels) : null;
+  return next !== undefined && next.layer !== here ? layerOf(levelIndex + 1, levels) : null;
 }
 
 // How many signals a level's terminal carries.
@@ -160,13 +170,12 @@ export function terminalWidth(level: Level, label: Label): number {
 // aren't parts, so the level supplies them (ADR 5).
 export function wiring(level: Level): { type: NodeType; width: number }[] {
   const widths = [...new Set([...level.inputs, ...level.outputs].map((label) => terminalWidth(level, label)))];
-  return widths
-    .filter((width) => width > 1)
-    .sort((a, b) => b - a)
-    .flatMap((width) => [
-      { type: "SPLIT" as const, width },
-      { type: "JOIN" as const, width },
-    ]);
+  const buses = widths.filter((width) => width > 1);
+  buses.sort((a, b) => b - a);
+  return buses.flatMap((width) => [
+    { type: "SPLIT" as const, width },
+    { type: "JOIN" as const, width },
+  ]);
 }
 
 // A fresh board with the level's input terminals down the left edge, its
@@ -175,21 +184,32 @@ export function wiring(level: Level): { type: NodeType; width: number }[] {
 export function loadLevel(level: Level): Game {
   const grid = level.grid ?? DEFAULT_GRID;
   const game = newGame(grid);
-  const column = (x: number, i: number, count: number) => ({ x, y: (grid.height * (i + 1)) / (count + 1) });
-  const place = (type: NodeType, labels: Label[], x: number) =>
-    labels.map((label, i) => placeNode(game, type, column(x, i, labels.length), label, terminalWidth(level, label))!);
+  const column = (x: number, i: number, count: number): { x: number; y: number } => ({
+    x,
+    y: (grid.height * (i + 1)) / (count + 1),
+  });
+  const place = (type: NodeType, labels: Label[], x: number): Node[] =>
+    labels.map((label, i) =>
+      placed(placeNode(game, type, column(x, i, labels.length), label, terminalWidth(level, label))),
+    );
   const inputs = place("INPUT", level.inputs, 4);
   const outputs = place("OUTPUT", level.outputs, grid.width - 4);
-  if (level.prebuilt) {
-    const gate = placeNode(game, level.gate, { x: grid.width / 2, y: grid.height / 2 })!;
-    inputs.forEach((input, i) =>
-      wire(game, { node: input.id, side: "out", index: 0 }, { node: gate.id, side: "in", index: i }),
-    );
-    outputs.forEach((output, i) =>
-      wire(game, { node: gate.id, side: "out", index: i }, { node: output.id, side: "in", index: 0 }),
-    );
+  if (level.prebuilt === true) {
+    const gate = placed(placeNode(game, level.gate, { x: grid.width / 2, y: grid.height / 2 }));
+    for (const [i, input] of inputs.entries()) {
+      wire(game, { node: input.id, side: "out", index: 0 }, { node: gate.id, side: "in", index: i });
+    }
+    for (const [i, output] of outputs.entries()) {
+      wire(game, { node: gate.id, side: "out", index: i }, { node: output.id, side: "in", index: 0 });
+    }
   }
   return game;
+}
+
+// A fresh board always has room for a level's own parts.
+function placed(node: Node | null): Node {
+  if (node === null) throw new Error("No room on the board for a level's part");
+  return node;
 }
 
 export interface Row {
@@ -199,13 +219,16 @@ export interface Row {
   expected: Value[];
 }
 
-export interface CheckedRow extends Row {
+interface CheckedRow extends Row {
   // What the board's output terminals gave.
   actual: Value[];
 }
 
 function expectedFor(level: Level, inputs: Value[]): Value[] {
-  return level.target(inputs).map((value, i) => mask(value, terminalWidth(level, level.outputs[i]!)));
+  return level.target(inputs).map((value, i) => {
+    const label = level.outputs[i];
+    return mask(value, label === undefined ? 1 : terminalWidth(level, label));
+  });
 }
 
 // How many rows the whole truth table has: one for every combination of
@@ -216,12 +239,15 @@ export function rowCount(level: Level): number {
 
 // The nth row of the whole truth table, counting up in binary with A as the
 // high bits.
-export function rowAt(level: Level, n: number): Row {
-  const inputs: Value[] = new Array(level.inputs.length);
+function rowAt(level: Level, n: number): Row {
+  const inputs: Value[] = [];
+  let rest = n;
   for (let i = level.inputs.length - 1; i >= 0; i--) {
-    const width = terminalWidth(level, level.inputs[i]!);
-    inputs[i] = n % 2 ** width;
-    n = Math.floor(n / 2 ** width);
+    const label = level.inputs[i];
+    if (label === undefined) continue;
+    const width = terminalWidth(level, label);
+    inputs.unshift(rest % 2 ** width);
+    rest = Math.floor(rest / 2 ** width);
   }
   return { inputs, expected: expectedFor(level, inputs) };
 }
@@ -235,7 +261,7 @@ function rowNumber(level: Level, inputs: Value[]): number {
 // The rows the level panel shows: the level's cases if it has them, or else
 // every combination of inputs.
 export function truthTable(level: Level): Row[] {
-  if (level.cases) return level.cases.map((inputs) => ({ inputs, expected: expectedFor(level, inputs) }));
+  if (level.cases !== undefined) return level.cases.map((inputs) => ({ inputs, expected: expectedFor(level, inputs) }));
   return Array.from({ length: rowCount(level) }, (_, n) => rowAt(level, n));
 }
 
@@ -245,7 +271,8 @@ export function applyInputs(game: Game, level: Level, values: Value[]): void {
   const settings = new Map<NodeID, Value>();
   for (const node of game.nodes.values()) {
     const i = level.inputs.indexOf(node.label);
-    if (node.type === "INPUT" && i >= 0) settings.set(node.id, values[i]!);
+    const value = values[i];
+    if (node.type === "INPUT" && value !== undefined) settings.set(node.id, value);
   }
   setInputs(game, settings);
 }
@@ -278,35 +305,37 @@ export interface CheckResult {
 // switches): the shown rows, then, if the level only shows a few cases,
 // every other row out of sight.
 export function checkLevel(board: Game, levelIndex: number, levels = LEVELS): CheckResult {
-  const level = levels[levelIndex]!;
+  const level = levelAt(levelIndex, levels);
   const allowed = new Set<NodeType>([
     "INPUT",
     "OUTPUT",
     ...partsBin(levelIndex, levels),
     ...wiring(level).map((w) => w.type),
   ]);
-  if (level.prebuilt) allowed.add(level.gate);
+  if (level.prebuilt === true) allowed.add(level.gate);
   const forbidden = [...new Set([...board.nodes.values()].map((node) => node.type))].filter(
     (type) => !allowed.has(type),
   );
 
-  const terminal = (type: NodeType) => (label: Label) =>
-    [...board.nodes.values()].find((node) => node.type === type && node.label === label)?.id ?? -1;
+  const terminal =
+    (type: NodeType) =>
+    (label: Label): NodeID =>
+      [...board.nodes.values()].find((node) => node.type === type && node.label === label)?.id ?? -1;
   const run = simulate(board, level.inputs.map(terminal("INPUT")), level.outputs.map(terminal("OUTPUT")));
-  const rows = truthTable(level).map((row) => ({ ...row, actual: run(row.inputs) }));
-  const hidden = level.cases ? checkHidden(level, run) : { checked: 0, failed: [] };
+  const rows = truthTable(level).map((row): CheckedRow => Object.assign(row, { actual: run(row.inputs) }));
+  const hidden = level.cases === undefined ? { checked: 0, failed: [] } : checkHidden(level, level.cases, run);
 
   const passed =
     forbidden.length === 0 && hidden.failed.length === 0 && rows.every((row) => matches(row.actual, row.expected));
   return { rows, hidden, forbidden, passed };
 }
 
-function checkHidden(level: Level, run: (values: Value[]) => Value[]): CheckResult["hidden"] {
-  const shown = new Set(level.cases!.map((inputs) => rowNumber(level, inputs)));
+function checkHidden(level: Level, cases: Value[][], run: (values: Value[]) => Value[]): CheckResult["hidden"] {
+  const shown = new Set(cases.map((inputs) => rowNumber(level, inputs)));
   const count = rowCount(level);
   const failed: CheckedRow[] = [];
   let checked = 0;
-  const check = (n: number) => {
+  const check = (n: number): void => {
     if (shown.has(n)) return;
     const row = rowAt(level, n);
     checked++;
@@ -327,7 +356,7 @@ function checkHidden(level: Level, run: (values: Value[]) => Value[]): CheckResu
 function seeded(seed: number): () => number {
   let state = seed;
   return () => {
-    state = (state + 0x6d2b79f5) | 0;
+    state = (state + 0x6d2b79f5) >>> 0;
     let t = Math.imul(state ^ (state >>> 15), 1 | state);
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;

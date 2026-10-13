@@ -144,7 +144,8 @@ export const solved = (level: Level): Line[] =>
 export const help = (level: Level): Line[] => [
   {
     face: "idle",
-    text: level.prebuilt ? `This is ${level.gate}. ${level.goal}` : `We're building ${level.gate}. ${level.goal}`,
+    text:
+      level.prebuilt === true ? `This is ${level.gate}. ${level.goal}` : `We're building ${level.gate}. ${level.goal}`,
   },
   ...(LEVELS[level.gate]?.hint ?? [CONTROLS]),
 ];
@@ -161,9 +162,10 @@ export const forbidden = (types: NodeType[]): Line[] => [
 export const welcomeBack = (level: Level): Line[] => [
   {
     face: "happy",
-    text: level.prebuilt
-      ? `Welcome back! We were looking at ${level.gate}.`
-      : `Welcome back! We were building ${level.gate}.`,
+    text:
+      level.prebuilt === true
+        ? `Welcome back! We were looking at ${level.gate}.`
+        : `Welcome back! We were building ${level.gate}.`,
   },
 ];
 

@@ -17,7 +17,8 @@ let reactTimer: ReturnType<typeof setTimeout> | undefined;
 
 export function speech(): { line: Line; index: number; count: number } | null {
   const all = lines();
-  return all ? { line: all[index()]!, index: index(), count: all.length } : null;
+  const line = all?.[index()];
+  return all && line ? { line, index: index(), count: all.length } : null;
 }
 
 // A face the robot pulls for a moment without saying anything. It shows over

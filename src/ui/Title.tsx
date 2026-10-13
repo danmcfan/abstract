@@ -1,5 +1,5 @@
-import { Show, createSignal } from "solid-js";
-import { LEVELS } from "../sim/level";
+import { Show, createSignal, type JSX } from "solid-js";
+import { LEVELS, type Level } from "../sim/level";
 import type { Expression } from "../robot/expression";
 import { RobotScreen } from "./RobotScreen";
 import { SoundButton } from "./SoundButton";
@@ -8,18 +8,27 @@ import { hasSave, savedLevel, solved } from "./state";
 // The title sheet. With no saved game there's one button, Start. With one,
 // Continue picks it up, The stack picks a level, and New Game starts over,
 // after asking, since that erases the save.
-export function Title(props: { onContinue: () => void; onStack: () => void; onNew: () => void }) {
+function saved(): Level {
+  const level = LEVELS[savedLevel()];
+  if (level === undefined) throw new Error(`The save points at a missing level ${savedLevel()}`);
+  return level;
+}
+
+export function Title(props: { onContinue: () => void; onStack: () => void; onNew: () => void }): JSX.Element {
   const [confirming, setConfirming] = createSignal(false);
   const [mood, setMood] = createSignal<Expression>("sleepy");
-  const wake = () => setMood("happy");
-  const doze = () => setMood(confirming() ? "worried" : "sleepy");
-  const saved = () => LEVELS[savedLevel()]!;
+  const wake = (): void => {
+    setMood("happy");
+  };
+  const doze = (): void => {
+    setMood(confirming() ? "worried" : "sleepy");
+  };
 
-  const askToErase = () => {
+  const askToErase = (): void => {
     setConfirming(true);
     setMood("worried");
   };
-  const keep = () => {
+  const keep = (): void => {
     setConfirming(false);
     setMood("sleepy");
   };
@@ -91,7 +100,8 @@ export function Title(props: { onContinue: () => void; onStack: () => void; onNe
                   >
                     Continue
                     <small class="block text-xs font-normal opacity-80">
-                      {saved().prebuilt ? "Meet" : "Build"} {saved().gate}, level {savedLevel() + 1} of {LEVELS.length}
+                      {saved().prebuilt === true ? "Meet" : "Build"} {saved().gate}, level {savedLevel() + 1} of{" "}
+                      {LEVELS.length}
                     </small>
                   </button>
                   <button
@@ -121,7 +131,7 @@ export function Title(props: { onContinue: () => void; onStack: () => void; onNe
 }
 
 // The drawing's title block, as on the vision board.
-function TitleBlock(props: { built: number }) {
+function TitleBlock(props: { built: number }): JSX.Element {
   const cell = "border-t-[1.5px] border-l-[1.5px] border-ink px-3 py-1.5 first:border-l-0";
   const head = "block text-[10px] text-pencil";
   return (

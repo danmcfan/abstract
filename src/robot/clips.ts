@@ -4,21 +4,34 @@ import { mix, progress, smoothstep } from "./timeline";
 // Everything about how the robot holds itself, as plain numbers so poses can
 // be blended. Arms are named as you look at the robot: left is -x.
 export interface Pose {
-  slide: number; // along the tread, in x
-  hop: number; // lifts the torso off the tread
-  squash: number; // vertical squash of the torso, 0 is none
-  lean: number; // torso tilt, forward is positive
-  roll: number; // torso tilt sideways
-  turn: number; // whole robot yaw
-  nod: number; // head tilt forward
-  tilt: number; // head tilt sideways
-  look: number; // head yaw
+  // Along the tread, in x.
+  slide: number;
+  // Lifts the torso off the tread.
+  hop: number;
+  // Vertical squash of the torso, 0 is none.
+  squash: number;
+  // Torso tilt, forward is positive.
+  lean: number;
+  // Torso tilt sideways.
+  roll: number;
+  // Whole robot yaw.
+  turn: number;
+  // Head tilt forward.
+  nod: number;
+  // Head tilt sideways.
+  tilt: number;
+  // Head yaw.
+  look: number;
   leftArm: Arm;
   rightArm: Arm;
-  antenna: number; // spring bend, sideways
-  spring: number; // spring stretch, 1 is rest
-  led: number; // antenna light, 0 to 1
-  wheels: number; // tread wheel angle
+  // Spring bend, sideways.
+  antenna: number;
+  // Spring stretch, 1 is rest.
+  spring: number;
+  // Antenna light, 0 to 1.
+  led: number;
+  // Tread wheel angle.
+  wheels: number;
 }
 
 // raise swings the arm out to the side, reach swings it forward, bend
@@ -52,10 +65,10 @@ export const REST: Pose = {
 // next. Plain math, so they're cheap to sample and easy to test.
 
 const { sin, abs } = Math;
-const ease = (start: number, end: number, t: number) => smoothstep(progress(t, start, end));
+const ease = (start: number, end: number, t: number): number => smoothstep(progress(t, start, end));
 const arm = (raise: number, reach: number, bend: number): Arm => ({ raise, reach, bend });
 // Wheel angle that matches sliding the tread by dx.
-const roll = (dx: number) => -dx / 0.085;
+const roll = (dx: number): number => -dx / 0.085;
 
 const CLIPS: Record<Expression, (t: number) => Partial<Pose>> = {
   idle: (t) => ({
@@ -185,11 +198,22 @@ export function blend(a: Pose, b: Pose, t: number): Pose {
     reach: mix(x.reach, y.reach, t),
     bend: mix(x.bend, y.bend, t),
   });
-  const out = { ...b, leftArm: arms(a.leftArm, b.leftArm), rightArm: arms(a.rightArm, b.rightArm) };
-  for (const key of Object.keys(b) as (keyof Pose)[]) {
-    const from = a[key];
-    const to = b[key];
-    if (typeof from === "number" && typeof to === "number") (out[key] as number) = mix(from, to, t);
-  }
-  return out;
+  const at = (key: Exclude<keyof Pose, "leftArm" | "rightArm">): number => mix(a[key], b[key], t);
+  return {
+    slide: at("slide"),
+    hop: at("hop"),
+    squash: at("squash"),
+    lean: at("lean"),
+    roll: at("roll"),
+    turn: at("turn"),
+    nod: at("nod"),
+    tilt: at("tilt"),
+    look: at("look"),
+    leftArm: arms(a.leftArm, b.leftArm),
+    rightArm: arms(a.rightArm, b.rightArm),
+    antenna: at("antenna"),
+    spring: at("spring"),
+    led: at("led"),
+    wheels: at("wheels"),
+  };
 }

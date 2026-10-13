@@ -1,7 +1,26 @@
 import type { Rect } from "./grid";
 
-export type NodeType =
-  "INPUT" | "OUTPUT" | "SPLIT" | "JOIN" | "NOT" | "OR" | "NOR" | "AND" | "NAND" | "XOR" | "XNOR" | "MUX" | "DEMUX";
+const NODE_TYPES = [
+  "INPUT",
+  "OUTPUT",
+  "SPLIT",
+  "JOIN",
+  "NOT",
+  "OR",
+  "NOR",
+  "AND",
+  "NAND",
+  "XOR",
+  "XNOR",
+  "MUX",
+  "DEMUX",
+] as const;
+
+export type NodeType = (typeof NODE_TYPES)[number];
+
+export function isNodeType(name: string): name is NodeType {
+  return NODE_TYPES.some((type) => type === name);
+}
 
 // A terminal's or a pin's short name, such as A, SEL, SUM or OUT. Each level
 // names its own; gates and other unnamed nodes have "".
@@ -94,11 +113,13 @@ export function nodeSize(type: NodeType, width = 1): { width: number; height: nu
     case "NAND":
     case "XNOR":
       return INVERTED_GATE_SIZE;
-    default:
-      // A part with no symbol is a box, tall enough to keep its pins two
-      // cells apart.
-      return { width: 6, height: Math.max(4, 2 * Math.max(inputCount(type), outputCount(type))) };
+    case "MUX":
+    case "DEMUX":
+      break;
   }
+  // A part with no symbol is a box, tall enough to keep its pins two cells
+  // apart.
+  return { width: 6, height: Math.max(4, 2 * Math.max(inputCount(type), outputCount(type))) };
 }
 
 export function inputCount(type: NodeType, width = 1): number {
@@ -113,9 +134,17 @@ export function inputCount(type: NodeType, width = 1): number {
       return 1;
     case "JOIN":
       return width;
-    default:
-      return 2;
+    case "OR":
+    case "NOR":
+    case "AND":
+    case "NAND":
+    case "XOR":
+    case "XNOR":
+    case "MUX":
+    case "DEMUX":
+      break;
   }
+  return 2;
 }
 
 export function outputCount(type: NodeType, width = 1): number {
@@ -141,9 +170,18 @@ export function pinWidth(type: NodeType, side: "in" | "out", index: number, widt
       return side === "in" ? width : 1;
     case "JOIN":
       return side === "out" ? width : 1;
-    default:
-      return 1;
+    case "NOT":
+    case "OR":
+    case "NOR":
+    case "AND":
+    case "NAND":
+    case "XOR":
+    case "XNOR":
+    case "MUX":
+    case "DEMUX":
+      break;
   }
+  return 1;
 }
 
 // Which bit of the bus a split's output pin, or a join's input pin, carries.
@@ -165,7 +203,7 @@ export function evaluate(type: NodeType, inputs: Value[], width = 1): Value[] {
   const part = specs.get(type);
   if (part) {
     const values = part.spec.target(inputs);
-    for (let i = 0; i < values.length; i++) values[i] = mask(values[i]!, part.outputWidths[i] ?? 1);
+    for (let i = 0; i < values.length; i++) values[i] = mask(values[i] ?? 0, part.outputWidths[i] ?? 1);
     return values;
   }
   switch (type) {
@@ -179,9 +217,18 @@ export function evaluate(type: NodeType, inputs: Value[], width = 1): Value[] {
     }
     case "JOIN":
       return [inputs.reduce((value, bit, i) => value | ((bit & 1) << bitOf(width, i)), 0)];
-    default:
-      return [gate(type, inputs[0] ?? 0, inputs[1] ?? 0)];
+    case "NOT":
+    case "OR":
+    case "NOR":
+    case "AND":
+    case "NAND":
+    case "XOR":
+    case "XNOR":
+    case "MUX":
+    case "DEMUX":
+      break;
   }
+  return [gate(type, inputs[0] ?? 0, inputs[1] ?? 0)];
 }
 
 function gate(type: NodeType, a: Value, b: Value): Value {
@@ -200,7 +247,13 @@ function gate(type: NodeType, a: Value, b: Value): Value {
       return a ^ b;
     case "XNOR":
       return 1 - (a ^ b);
-    default:
-      return 0;
+    case "INPUT":
+    case "OUTPUT":
+    case "SPLIT":
+    case "JOIN":
+    case "MUX":
+    case "DEMUX":
+      break;
   }
+  return 0;
 }

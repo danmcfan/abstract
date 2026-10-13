@@ -20,22 +20,25 @@ export interface Robot {
 }
 
 // The screen's canvas, in the same proportions as the glass.
-export const FACE_SIZE = { width: 300, height: 200 };
+const FACE_SIZE = { width: 300, height: 200 };
 
 const TREAD_HEIGHT = 0.32;
 // The tread's belt runs round two wheels this far either side of centre.
 const AXLE = 0.38;
 const BELT_RADIUS = 0.12;
-const WHEEL_RADIUS = 0.085; // clips.ts turns the wheels to match this
+// clips.ts turns the wheels to match this.
+const WHEEL_RADIUS = 0.085;
 
-const LINE = 0.018; // outline weight for big parts
-const FINE = 0.009; // and for small ones
+// Outline weight for big parts, and for small ones.
+const LINE = 0.018;
+const FINE = 0.009;
 
-const box = (w: number, h: number, d: number, r: number, segments = 3) => new RoundedBoxGeometry(w, h, d, segments, r);
+const box = (w: number, h: number, d: number, r: number, segments = 3): RoundedBoxGeometry =>
+  new RoundedBoxGeometry(w, h, d, segments, r);
 // A cylinder lying along x, for things on the robot's sides.
-const sideways = (geometry: THREE.BufferGeometry) => geometry.rotateZ(Math.PI / 2);
+const sideways = (geometry: THREE.BufferGeometry): THREE.BufferGeometry => geometry.rotateZ(Math.PI / 2);
 // A cylinder lying along z, for things on its front and back.
-const facing = (geometry: THREE.BufferGeometry) => geometry.rotateX(Math.PI / 2);
+const facing = (geometry: THREE.BufferGeometry): THREE.BufferGeometry => geometry.rotateX(Math.PI / 2);
 
 export function createRobot(): Robot {
   const group = new THREE.Group();
@@ -50,7 +53,7 @@ export function createRobot(): Robot {
   // A domed rivet or screw head on a surface facing +z; place and turn it
   // onto the surface. Screws get a slot, each at its own angle.
   let screws = 0;
-  const fastener = (radius: number, screw = false) => {
+  const fastener = (radius: number, screw = false): THREE.Mesh => {
     const head = inked(
       facing(new THREE.SphereGeometry(radius, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2)),
       steel,
@@ -65,7 +68,7 @@ export function createRobot(): Robot {
     return head;
   };
   // Where a fastener fell out: just the hole.
-  const hole = (radius: number) => new THREE.Mesh(new THREE.CircleGeometry(radius * 0.7, 14), slot);
+  const hole = (radius: number): THREE.Mesh => new THREE.Mesh(new THREE.CircleGeometry(radius * 0.7, 14), slot);
 
   // ---------------------------------------------------------------- tread
   const base = new THREE.Group();
@@ -297,7 +300,7 @@ export function createRobot(): Robot {
   );
   glass.position.set(0, 0.3, FACE + 0.003);
   head.add(glass);
-  const faceContext = screen.texture.image.getContext("2d")!;
+  const faceContext = screen.context;
   const BEZEL = FACE + 0.03;
   for (const [x, y] of [
     [-0.31, 0.51],
@@ -364,7 +367,7 @@ export function createRobot(): Robot {
   tip.add(bulbHalo);
   const dim = new THREE.Color("#9FB6D6");
 
-  const placeCleats = (travel: number) => {
+  const placeCleats = (travel: number): void => {
     const point = new THREE.Vector2();
     cleats.forEach((c, i) => {
       const angle = beltPoint(((i / cleats.length) * BELT_PERIMETER + travel) % BELT_PERIMETER, point);
@@ -397,10 +400,15 @@ export function createRobot(): Robot {
   };
 }
 
+interface ArmRig {
+  shoulder: THREE.Group;
+  apply(arm: Arm): void;
+}
+
 // An arm: ball shoulder, banded conduit upper arm, elbow, conduit forearm
 // and a hand. side is -1 for the arm on the left (as you look at it), +1 on the
 // right. The right hand is a two-fingered claw, the left a round mitt.
-function createArm(white: THREE.Material, wash: THREE.Material, steel: THREE.Material, side: -1 | 1) {
+function createArm(white: THREE.Material, wash: THREE.Material, steel: THREE.Material, side: -1 | 1): ArmRig {
   const shoulder = new THREE.Group();
   shoulder.add(inked(new THREE.SphereGeometry(0.058, 16, 12), white, FINE));
   shoulder.add(conduit(0.25, 0.03, steel));
@@ -442,7 +450,7 @@ function createArm(white: THREE.Material, wash: THREE.Material, steel: THREE.Mat
 
   return {
     shoulder,
-    apply(arm: Arm) {
+    apply(arm: Arm): void {
       shoulder.rotation.set(-arm.reach, 0, side * arm.raise, "ZXY");
       elbow.rotation.set(-arm.bend, 0, 0);
     },
@@ -485,10 +493,10 @@ const CLEAT_RADIUS = BELT_RADIUS + 0.012;
 const BELT_PERIMETER = 4 * AXLE + 2 * Math.PI * CLEAT_RADIUS;
 
 // Puts the point at distance s along the belt into out; returns the cleat's tilt.
-function beltPoint(s: number, out: THREE.Vector2): number {
+function beltPoint(distance: number, out: THREE.Vector2): number {
   const straight = 2 * AXLE;
   const arc = Math.PI * CLEAT_RADIUS;
-  if (s < 0) s += BELT_PERIMETER;
+  let s = distance < 0 ? distance + BELT_PERIMETER : distance;
   if (s < straight) return (out.set(-AXLE + s, CLEAT_RADIUS), 0);
   s -= straight;
   if (s < arc) {

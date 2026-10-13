@@ -60,8 +60,7 @@ export function glyph(type: NodeType, busWidth = 1): Glyph {
       break;
     }
     case "AND":
-    case "NAND":
-    default: {
+    case "NAND": {
       const r = (BOTTOM - TOP) / 2;
       front = 3.85;
       const flat = front - r;
@@ -78,10 +77,11 @@ export function glyph(type: NodeType, busWidth = 1): Glyph {
   return { width, height, body, back, bubble, inLeads, outLeads, label, pinLabels: [] };
 }
 
-const SYMBOLS = new Set<NodeType>(["NOT", "OR", "NOR", "XOR", "XNOR", "AND", "NAND"]);
+const SYMBOLS = ["NOT", "OR", "NOR", "XOR", "XNOR", "AND", "NAND"] as const satisfies readonly NodeType[];
+type SymbolType = (typeof SYMBOLS)[number];
 
-export function hasSymbol(type: NodeType): boolean {
-  return SYMBOLS.has(type);
+function hasSymbol(type: NodeType): type is SymbolType {
+  return SYMBOLS.some((symbol) => symbol === type);
 }
 
 function box(type: NodeType, width: number, height: number): Glyph {
