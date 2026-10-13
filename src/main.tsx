@@ -8,7 +8,8 @@ import { Board, toScreen } from "./ui/Board";
 import { DesktopNotice } from "./ui/DesktopNotice";
 import { noticeDismissal, watchSmallTouch } from "./ui/device";
 import { Dialogue } from "./ui/Dialogue";
-import { hush, say } from "./ui/speech";
+import { listenForFirstGesture } from "./ui/sound";
+import { hush, say, speech } from "./ui/speech";
 import { Hud } from "./ui/Hud";
 import * as script from "./ui/script";
 import { Stack } from "./ui/Stack";
@@ -100,6 +101,7 @@ function Play(props: { onMenu: () => void; onStack: (arrive?: number) => void })
   );
 }
 
+listenForFirstGesture();
 render(() => <App />, document.body);
 
 // A dev-only hook so automated play-tests can find things on screen.
@@ -111,6 +113,10 @@ if (import.meta.env.DEV) {
       },
       get levelIndex() {
         return levelIndex();
+      },
+      // The whole line Bitbox is on, however much of it is typed out yet.
+      get saying() {
+        return speech()?.line.text ?? null;
       },
       nodes: () => [...current().nodes.values()].map(({ id, type, label, isHigh }) => ({ id, type, label, isHigh })),
       pinScreen: (id: NodeID, side: Pin["side"], index = 0) => {

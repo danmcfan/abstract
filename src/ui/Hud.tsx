@@ -1,11 +1,10 @@
 import { For, Show, createEffect, createSignal, on } from "solid-js";
-import { placeNode } from "../sim/circuit";
-import { GRID_HEIGHT, GRID_WIDTH } from "../sim/grid";
 import { floorAbove, layerOf, LEVELS, matches, partsBin, truthTable } from "../sim/level";
 import { say } from "./speech";
 import { GateIcon } from "./GateIcon";
+import { SoundButton } from "./SoundButton";
 import * as script from "./script";
-import { clearBoard, currentRow, level, levelIndex, mutate, result, rowResults, runTest, stamped, startLevel, testing } from "./state";
+import { clearBoard, currentRow, level, levelIndex, placePart, result, rowResults, runTest, stamped, startLevel, testing } from "./state";
 
 const bit = (value: boolean) => (value ? "1" : "0");
 const bits = (values: boolean[]) => values.map(bit).join("");
@@ -150,6 +149,7 @@ export function Hud(props: { onMenu: () => void; onStack: (arrive?: number) => v
         <button id="help" class="btn btn-ghost btn-sm" onClick={() => say(script.help(level()))}>
           ? Help
         </button>
+        <SoundButton />
         <button id="menu" class="btn btn-ghost btn-sm" onClick={() => props.onMenu()}>
           Menu
         </button>
@@ -169,7 +169,7 @@ export function Hud(props: { onMenu: () => void; onStack: (arrive?: number) => v
               class="flex flex-col items-center gap-0.5 px-2.5 pt-1.5 pb-1 text-[11px] font-bold text-ink hover:bg-wash disabled:opacity-40 max-[899px]:px-2"
               data-gate={type}
               disabled={testing()}
-              onClick={() => mutate((g) => placeNode(g, type, { x: GRID_WIDTH / 2, y: GRID_HEIGHT / 2 }))}
+              onClick={() => placePart(type)}
             >
               <GateIcon type={type} class="h-6 w-9" />
               {type}

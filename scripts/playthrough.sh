@@ -78,7 +78,7 @@ until [[ $(js "typeof __abstract") == *object* ]]; do sleep 0.5; done
 check 3 1
 expect "document.querySelector('#up').textContent.includes('Up to the logic line')" "level 1 leads up to the logic line"
 ab click "#up"; sleep 1.2
-expect "document.querySelector('#dialogue').textContent.includes('logic line')" "Bitbox names the new floor"
+expect "!!__abstract.saying?.includes('logic line')" "Bitbox names the new floor"
 hush
 expect "document.querySelector('[data-layer=\"1\"]').parentElement.dataset.state === 'built'" "L1 is built"
 expect "document.querySelector('[data-layer=\"2\"]').parentElement.dataset.state === 'in progress'" "L2 is in progress"

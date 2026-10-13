@@ -2,6 +2,7 @@ import { Show, createSignal } from "solid-js";
 import { LEVELS } from "../sim/level";
 import type { Expression } from "../robot/expression";
 import { RobotScreen } from "./RobotScreen";
+import { SoundButton } from "./SoundButton";
 import { hasSave, savedLevel, solved } from "./state";
 
 // The title sheet. With no saved game there's one button, Start. With one,
@@ -25,7 +26,8 @@ export function Title(props: { onContinue: () => void; onStack: () => void; onNe
 
   return (
     <main class="fixed inset-0 grid place-items-center overflow-y-auto p-4 text-ink-deep">
-      <div class="sheet pop w-full max-w-[760px] border-[3px]! border-double!">
+      <div class="sheet pop relative w-full max-w-[760px] border-[3px]! border-double!">
+        <SoundButton class="absolute top-3 right-3" />
         <div class="grid items-center gap-2 p-6 pb-2 sm:grid-cols-[auto_1fr] sm:p-8 sm:pb-2">
           <div>
             <p class="text-xs text-pencil">Dwg LOA-000, title sheet</p>
