@@ -122,7 +122,8 @@ const LEVELS: Partial<Record<NodeType, LevelScript>> = {
   },
   "HALF ADDER": {
     intro: [
-      { face: "thinking", text: "Adding two bits: 0 + 0 is 0, 1 + 0 is 1, but 1 + 1 is 2. That's 10 in binary." },
+      { face: "thinking", text: "Adding two bits is easy until both are on. Then 1 + 1 is 2." },
+      { face: "idle", text: "In binary, 2 is written 10. It needs two places." },
       {
         face: "idle",
         text: "So a half adder has two lamps. SUM is the ones place. COUT is the carry to the twos place.",
@@ -143,7 +144,8 @@ const LEVELS: Partial<Record<NodeType, LevelScript>> = {
       { face: "thinking", text: "Try adding in two steps, like you would on paper." },
     ],
     hint: [
-      { face: "thinking", text: "Half-add A and B. Then half-add their SUM with CIN. That's your SUM." },
+      { face: "thinking", text: "First, half-add A and B." },
+      { face: "thinking", text: "Then half-add that SUM with CIN. Its SUM is your SUM." },
       { face: "thinking", text: "Only one of the two half adders can carry. OR their COUTs together." },
       CONTROLS,
     ],
