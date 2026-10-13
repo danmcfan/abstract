@@ -6,6 +6,7 @@ import {
   levelAt,
   LEVELS,
   loadLevel,
+  PARTS,
   matches,
   playableCount,
   truthTable,
@@ -128,7 +129,7 @@ export class Session {
     const level = levelAt(index);
     const board = this.boards[level.gate];
     this.levelIndex = index;
-    this.load(board ? loadBoard(board) : loadLevel(level));
+    this.load(board ? loadBoard(board, PARTS) : loadLevel(level));
   }
 
   // Throws away the current level's board for a fresh one. Other levels'

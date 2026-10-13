@@ -86,7 +86,7 @@ export function Board(): JSX.Element {
         const edge = current().edges.get(id);
         const from = edge && current().nodes.get(edge.from);
         if (edge === undefined || from === undefined) throw new Error(`Wire ${id} has no node to come from`);
-        return widthOf(from, { side: "out", index: edge.fromIndex });
+        return widthOf(current(), from, { side: "out", index: edge.fromIndex });
       });
       return { id, route: path, d: wirePath(path), width };
     }),
@@ -108,7 +108,7 @@ export function Board(): JSX.Element {
     const w = wiring();
     const from = w && current().nodes.get(w.from.node);
     if (!w || !from) return null;
-    const p = pinPosition(from, w.from.side, w.from.index);
+    const p = pinPosition(current(), from, w.from.side, w.from.index);
     return `M ${p.x} ${p.y} L ${w.to.x} ${w.to.y}`;
   };
 

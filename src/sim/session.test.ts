@@ -141,7 +141,7 @@ describe("session", () => {
     });
     expect(session.stamped).toBe(false);
     expect(session.result?.passed).toBe(true);
-    expect(store.load()?.boards.NOT?.nodes.length).toBe(4);
+    expect(store.load()?.boards["NOT"]?.nodes.length).toBe(4);
   });
 
   test("the stamp stays through an edit that leaves the board as it was", () => {
@@ -207,7 +207,7 @@ describe("saved games", () => {
     buildNot(session.game);
     session.save();
     const { boards, ...rest } = store.load()!;
-    const old = { ...rest, board: boards.NOT };
+    const old = { ...rest, board: boards["NOT"] };
 
     const later = new Session(memorySave(old));
     later.resume();
@@ -369,7 +369,7 @@ describe("one board per level", () => {
     session.clear();
     expect(session.levelIndex).toBe(AND_LEVEL);
     expect(session.game.nodes.size).toBe(3);
-    expect(store.load()?.boards.AND?.nodes.length).toBe(3);
+    expect(store.load()?.boards["AND"]?.nodes.length).toBe(3);
     session.start(NOT_LEVEL);
     expect(session.game.edges.size).toBe(3);
   });

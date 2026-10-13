@@ -1,4 +1,15 @@
-import { moveNode, pinAt, removeNode, setInput, switchAt, unwire, wire, type Game, type Pin } from "./circuit";
+import {
+  moveNode,
+  nodeKind,
+  pinAt,
+  removeNode,
+  setInput,
+  switchAt,
+  unwire,
+  wire,
+  type Game,
+  type Pin,
+} from "./circuit";
 import { contains } from "./grid";
 import type { NodeID } from "./node";
 import { silent, type Sound } from "./sound";
@@ -109,8 +120,8 @@ export function createGestures(host: GestureHost): Gestures {
       if (d && !d.moved) {
         host.edit((g) => {
           const node = g.nodes.get(d.id);
-          if (node?.type !== "INPUT") return;
-          const bit = node.width === 1 ? 0 : switchAt(node, p.x, p.y);
+          if (!node || !nodeKind(g, node).clickable) return;
+          const bit = node.width === 1 ? 0 : switchAt(g, node, p.x, p.y);
           if (bit === null) return;
           setInput(g, node.id, (node.signals[0] ?? 0) ^ (1 << bit));
           sound.play("switch");
@@ -128,8 +139,9 @@ export function createGestures(host: GestureHost): Gestures {
         });
         return;
       }
-      const node = host.game().nodes.get(nodeAt(host.game(), p.x, p.y) ?? -1);
-      if (node && node.type !== "INPUT" && node.type !== "OUTPUT")
+      const game = host.game();
+      const node = game.nodes.get(nodeAt(game, p.x, p.y) ?? -1);
+      if (node && nodeKind(game, node).removable)
         host.edit((g) => {
           removeNode(g, node.id);
         });

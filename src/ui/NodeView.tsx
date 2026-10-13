@@ -1,5 +1,5 @@
 import { For, Show, createMemo, untrack, type JSX } from "solid-js";
-import { edgeInto, pinPosition, pins, widthOf, type Pin } from "../sim/circuit";
+import { edgeInto, nodeKind, pinPosition, pins, widthOf, type Pin } from "../sim/circuit";
 import { bitCell, type Node } from "../sim/node";
 import { glyph } from "./glyph";
 import { current } from "./state";
@@ -18,6 +18,7 @@ export function NodeView(props: { node: Node; hovered: boolean; hoveredPin: Pin 
   // A node keeps its type and size, so they're read once.
   const { width, height } = untrack(() => props.node.rect);
   const type = untrack(() => props.node.type);
+  const { look } = untrack(() => nodeKind(current(), props.node));
 
   return (
     <g
@@ -29,29 +30,29 @@ export function NodeView(props: { node: Node; hovered: boolean; hoveredPin: Pin 
     >
       <rect class="hit" x={0} y={0} width={width} height={height} />
       <rect class="halo" x={0.1} y={0.1} width={width - 0.2} height={height - 0.2} rx={0.3} />
-      <Show when={type === "INPUT" && props.node.width === 1}>
+      <Show when={look.shape === "switch" && props.node.width === 1}>
         <KnifeSwitch name={props.node.label} on={isHigh()} width={width} height={height} />
       </Show>
-      <Show when={type === "OUTPUT" && props.node.width === 1}>
+      <Show when={look.shape === "lamp" && props.node.width === 1}>
         <Lamp name={props.node.label} width={width} height={height} />
       </Show>
-      <Show when={(type === "INPUT" || type === "OUTPUT") && props.node.width > 1}>
-        <BitRow node={props.node} />
+      <Show when={(look.shape === "switch" || look.shape === "lamp") && props.node.width > 1}>
+        <BitRow node={props.node} input={look.shape === "switch"} />
       </Show>
-      <Show when={type !== "INPUT" && type !== "OUTPUT"}>
+      <Show when={look.shape !== "switch" && look.shape !== "lamp"}>
         <Gate node={props.node} />
       </Show>
-      <For each={pins(props.node)}>
+      <For each={pins(current(), props.node)}>
         {(pin) => {
           // Offsets within the node, worked out once: the attribute bindings
           // below rerun on hover, after the node may have moved.
-          const p = pinPosition(props.node, pin.side, pin.index);
+          const p = pinPosition(current(), props.node, pin.side, pin.index);
           const cx = p.x - props.node.rect.x;
           const cy = p.y - props.node.rect.y;
           return (
             <circle
               class="pin"
-              classList={{ hovered: samePin(props.hoveredPin, pin), bus: widthOf(props.node, pin) > 1 }}
+              classList={{ hovered: samePin(props.hoveredPin, pin), bus: widthOf(current(), props.node, pin) > 1 }}
               cx={cx}
               cy={cy}
               r={0.26}
@@ -66,9 +67,9 @@ export function NodeView(props: { node: Node; hovered: boolean; hoveredPin: Pin 
 
 function Gate(props: { node: Node }): JSX.Element {
   // A gate's type and width never change, so its symbol is drawn once.
-  const g = untrack(() => glyph(props.node.type, props.node.width));
+  const g = untrack(() => glyph(nodeKind(current(), props.node), props.node.width));
   const signal = (i: number): boolean => (current(), (props.node.signals[i] ?? 0) !== 0);
-  const bus = (side: Pin["side"], index: number): boolean => widthOf(props.node, { side, index }) > 1;
+  const bus = (side: Pin["side"], index: number): boolean => widthOf(current(), props.node, { side, index }) > 1;
   return (
     <>
       <For each={g.inLeads}>{(d, i) => <path class="lead" classList={{ bus: bus("in", i()) }} d={d} />}</For>
@@ -139,12 +140,12 @@ function Lamp(props: { name: string; width: number; height: number }): JSX.Eleme
 // A bus terminal: a row of bit switches (an input) or lamps (an output), high
 // bit first, with the value they make as a number after them. An input's
 // value is its switches; an output shows the value on its wire.
-function BitRow(props: { node: Node }): JSX.Element {
-  // A terminal keeps its width, type and size, so they're read once.
-  const { width: bits, type } = untrack(() => props.node);
+function BitRow(props: { node: Node; input: boolean }): JSX.Element {
+  // A terminal keeps its width, kind and size, so they're read once.
+  const { width: bits } = untrack(() => props.node);
   const { width, height } = untrack(() => props.node.rect);
   const y = height / 2;
-  const isInput = type === "INPUT";
+  const isInput = untrack(() => props.input);
   const value = (): number => {
     current();
     return isInput ? (props.node.signals[0] ?? 0) : (edgeInto(current(), props.node.id, 0)?.value ?? 0);

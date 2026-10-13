@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { edgeInto, newGame, placeNode, setInput, switchAt, widthOf, wire, type Game, type Pin } from "./circuit";
 import { createGestures } from "./gesture";
-import { checkLevel, LEVELS, loadLevel, rowCount, truthTable, wiring, type Level } from "./level";
-import { definePart, type Label, type NodeID, type NodeType } from "./node";
+import { partsFrom } from "./kind";
+import { checkLevel, LEVELS, loadLevel, PARTS, rowCount, truthTable, wiring, type Level } from "./level";
+import type { Label, NodeID, NodeType } from "./node";
 import { loadBoard, saveBoard, type SavedBoard } from "./save";
 
 const out = (node: NodeID, index = 0): Pin => ({ node, side: "out", index });
@@ -12,23 +13,22 @@ function terminal(game: Game, type: NodeType, label: Label): NodeID {
   return [...game.nodes.values()].find((node) => node.type === type && node.label === label)!.id;
 }
 
-// A full adder, as a level before the adders below would define it. Its part
-// type doesn't exist yet, so the test names one.
+// A full adder, as a level before the adders below would define it. The
+// game has no such level yet, so the test makes one.
 const FULL_ADDER: Level = {
-  gate: "FULL" as NodeType,
+  gate: "FULL",
   goal: "SUM is the low bit of A + B + CIN; COUT is the high bit.",
   layer: 3,
   inputs: ["A", "B", "CIN"],
   outputs: ["SUM", "COUT"],
   target: ([a = 0, b = 0, cin = 0]) => [a ^ b ^ cin, (a & b) | (cin & (a ^ b))],
 };
-definePart(FULL_ADDER.gate, FULL_ADDER);
 
 // An adder of the given width with a few named cases, on a board large
 // enough to build it.
 function adder(width: number, cases: number[][]): Level {
   return {
-    gate: `ADD${width}` as NodeType,
+    gate: `ADD${width}`,
     goal: "SUM and COUT are A + B + CIN.",
     layer: 3,
     inputs: ["A", "B", "CIN"],
@@ -53,6 +53,8 @@ const ADD8 = adder(8, [
   [100, 55, 0],
 ]);
 const levelsWith = (level: Level): Level[] => [...LEVELS, FULL_ADDER, level];
+// A fresh board for an adder level, which can hold the full adder below it.
+const adderBoard = (level: Level): Game => loadLevel(level, partsFrom(levelsWith(level)));
 
 // A ripple-carry adder: split A and B into bits, chain a full adder per bit
 // from the low bit up, and join the sums. With a glitch, COUT is also forced
@@ -103,7 +105,7 @@ function buildAdder(game: Game, width: number, glitch = false): void {
 
 describe("buses", () => {
   test("a wire between pins of different widths is refused", () => {
-    const game = newGame();
+    const game = newGame(PARTS);
     const bus = placeNode(game, "INPUT", { x: 5, y: 10 }, "A", 8)!.id;
     const narrow = placeNode(game, "OUTPUT", { x: 40, y: 10 }, "OUT", 4)!.id;
     const single = placeNode(game, "NOT", { x: 20, y: 30 })!.id;
@@ -116,7 +118,7 @@ describe("buses", () => {
   });
 
   test("a bus carries its whole value and is lit when any signal is on", () => {
-    const game = newGame();
+    const game = newGame(PARTS);
     const a = placeNode(game, "INPUT", { x: 5, y: 10 }, "A", 8)!.id;
     const lamp = placeNode(game, "OUTPUT", { x: 40, y: 10 }, "OUT", 8)!.id;
     const edge = wire(game, out(a), inp(lamp))!;
@@ -130,14 +132,17 @@ describe("buses", () => {
   });
 
   test("split, then single wires, then join gives back the same 8-bit value", () => {
-    const game = newGame();
+    const game = newGame(PARTS);
     const a = placeNode(game, "INPUT", { x: 5, y: 20 }, "A", 8)!.id;
     const split = placeNode(game, "SPLIT", { x: 18, y: 20 }, "", 8)!;
     const join = placeNode(game, "JOIN", { x: 28, y: 20 }, "", 8)!;
     const lamp = placeNode(game, "OUTPUT", { x: 40, y: 20 }, "OUT", 8)!.id;
-    expect([widthOf(split, inp(0)), widthOf(split, out(0)), widthOf(join, inp(0)), widthOf(join, out(0))]).toEqual([
-      8, 1, 1, 8,
-    ]);
+    expect([
+      widthOf(game, split, inp(0)),
+      widthOf(game, split, out(0)),
+      widthOf(game, join, inp(0)),
+      widthOf(game, join, out(0)),
+    ]).toEqual([8, 1, 1, 8]);
     wire(game, out(a), inp(split.id));
     for (let i = 0; i < 8; i++) expect(wire(game, out(split.id, i), inp(join.id, i))).not.toBeNull();
     wire(game, out(join.id), inp(lamp));
@@ -148,7 +153,7 @@ describe("buses", () => {
   });
 
   test("a split's top pin carries the high bit", () => {
-    const game = newGame();
+    const game = newGame(PARTS);
     const a = placeNode(game, "INPUT", { x: 5, y: 20 }, "A", 4)!.id;
     const split = placeNode(game, "SPLIT", { x: 20, y: 20 }, "", 4)!;
     wire(game, out(a), inp(split.id));
@@ -159,7 +164,7 @@ describe("buses", () => {
 
 describe("a bus input terminal", () => {
   test("is a row of switches, high bit first; clicking one flips that bit", () => {
-    const game = newGame();
+    const game = newGame(PARTS);
     const a = placeNode(game, "INPUT", { x: 10, y: 10 }, "A", 4)!;
     const g = createGestures({
       game: () => game,
@@ -170,7 +175,7 @@ describe("a bus input terminal", () => {
     });
     const click = (bit: number): void => {
       const p = { x: a.rect.x + 1.5 + (3 - bit), y: a.rect.y + a.rect.height / 2 };
-      expect(switchAt(a, p.x, p.y)).toBe(bit);
+      expect(switchAt(game, a, p.x, p.y)).toBe(bit);
       g.down(p, 0);
       g.up(p);
     };
@@ -182,7 +187,7 @@ describe("a bus input terminal", () => {
     expect(a.signals).toEqual([0b0001]);
     // Away from the switches, a click flips nothing.
     const label = { x: a.rect.x + a.rect.width - 2, y: a.rect.y + 2 };
-    expect(switchAt(a, label.x, label.y)).toBeNull();
+    expect(switchAt(game, a, label.x, label.y)).toBeNull();
     g.down(label, 0);
     g.up(label);
     expect(a.signals).toEqual([0b0001]);
@@ -223,7 +228,7 @@ describe("a level with buses", () => {
 
   test("a 4-bit adder built from full adders with split and join passes", () => {
     const levels = levelsWith(ADD4);
-    const game = loadLevel(ADD4);
+    const game = adderBoard(ADD4);
     buildAdder(game, 4);
     const result = checkLevel(game, levels.length - 1, levels);
     expect(result.forbidden).toEqual([]);
@@ -234,7 +239,7 @@ describe("a level with buses", () => {
 
   test("a board wrong only on a row outside the named cases fails, and that row is in the result", () => {
     const levels = levelsWith(ADD4);
-    const game = loadLevel(ADD4);
+    const game = adderBoard(ADD4);
     buildAdder(game, 4, true);
     const result = checkLevel(game, levels.length - 1, levels);
     expect(result.rows.every((row) => row.actual.join() === row.expected.join())).toBe(true);
@@ -250,7 +255,7 @@ describe("a level with buses", () => {
 
   test("a test run over 131,072 rows is quick", () => {
     const levels = levelsWith(ADD8);
-    const game = loadLevel(ADD8);
+    const game = adderBoard(ADD8);
     buildAdder(game, 8);
     const start = performance.now();
     const result = checkLevel(game, levels.length - 1, levels);
@@ -281,16 +286,15 @@ describe("a level with buses", () => {
 
 describe("a part with bus pins", () => {
   test("has bus pins as wide as its level's terminals, and settles on a later board", () => {
-    definePart(ADD8.gate, ADD8);
-    const game = newGame();
+    const game = newGame(partsFrom([...LEVELS, ADD8]));
     const a = placeNode(game, "INPUT", { x: 6, y: 5 }, "A", 8)!.id;
     const b = placeNode(game, "INPUT", { x: 6, y: 15 }, "B", 8)!.id;
     const cin = placeNode(game, "INPUT", { x: 6, y: 25 }, "CIN")!.id;
     const sum = placeNode(game, "OUTPUT", { x: 40, y: 5 }, "SUM", 8)!.id;
     const cout = placeNode(game, "OUTPUT", { x: 40, y: 25 }, "COUT")!.id;
     const add = placeNode(game, ADD8.gate, { x: 22, y: 15 })!;
-    expect([0, 1, 2].map((i) => widthOf(add, inp(0, i)))).toEqual([8, 8, 1]);
-    expect([0, 1].map((i) => widthOf(add, out(0, i)))).toEqual([8, 1]);
+    expect([0, 1, 2].map((i) => widthOf(game, add, inp(0, i)))).toEqual([8, 8, 1]);
+    expect([0, 1].map((i) => widthOf(game, add, out(0, i)))).toEqual([8, 1]);
     wire(game, out(a), inp(add.id, 0));
     wire(game, out(b), inp(add.id, 1));
     wire(game, out(cin), inp(add.id, 2));
@@ -308,7 +312,7 @@ describe("a part with bus pins", () => {
   test("a board with buses saves and loads with its widths and size", () => {
     const game = loadLevel(ADD4);
     setInput(game, terminal(game, "INPUT", "A"), 9);
-    const loaded = loadBoard(JSON.parse(JSON.stringify(saveBoard(game))) as SavedBoard);
+    const loaded = loadBoard(JSON.parse(JSON.stringify(saveBoard(game))) as SavedBoard, PARTS);
     expect(loaded.grid).toEqual(ADD4.grid!);
     expect(loaded.nodes.get(terminal(game, "INPUT", "A"))).toEqual(game.nodes.get(terminal(game, "INPUT", "A")));
   });

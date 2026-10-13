@@ -10,10 +10,12 @@ import {
   loadLevel,
   matches,
   partsBin,
+  PARTS,
   truthTable,
   type Level,
 } from "./level";
-import { definePart, outputCount, partSpec, type Label, type NodeID, type NodeType } from "./node";
+import { kindOf, partsFrom } from "./kind";
+import type { Label, NodeID, NodeType } from "./node";
 
 const out = (node: NodeID, index = 0): Pin => ({ node, side: "out", index });
 const inp = (node: NodeID, index = 0): Pin => ({ node, side: "in", index });
@@ -218,8 +220,8 @@ describe("the DEMUX level", () => {
 
   test("once solved, DEMUX is a part with two output pins that does what its level asks", () => {
     expect(partsBin(index + 1)).toContain("DEMUX");
-    expect(outputCount("DEMUX")).toBe(2);
-    expect(partSpec("DEMUX")!.outputs).toEqual(["Y0", "Y1"]);
+    expect(kindOf(PARTS, "DEMUX").outputCount(1)).toBe(2);
+    expect(kindOf(PARTS, "DEMUX").look).toMatchObject({ inputs: ["D", "SEL"], outputs: ["Y0", "Y1"] });
     const game = loadLevel(LEVELS[index]!);
     const demux = gate(game, "DEMUX");
     wire(game, out(terminal(game, "INPUT", "D")), inp(demux, 0));
@@ -266,9 +268,9 @@ test("checkLevel leaves the board's inputs alone", () => {
 });
 
 // A two-output level after the four we have, built from their parts. Its
-// part type doesn't exist yet, so the test names one.
+// level isn't in the game yet, so the test makes one.
 const HALF_ADDER: Level = {
-  gate: "HALF" as NodeType,
+  gate: "HALF",
   goal: "SUM is on when exactly one input is on; COUT when both are.",
   layer: 3,
   inputs: ["A", "B"],
@@ -334,14 +336,13 @@ describe("a level with two outputs", () => {
   });
 
   test("its part settles each output pin when wired on a later board", () => {
-    definePart(HALF_ADDER.gate, HALF_ADDER);
-    const game = newGame();
+    const game = newGame(partsFrom(WITH_HALF));
     const a = placeNode(game, "INPUT", { x: 4, y: 10 }, "A")!.id;
     const b = placeNode(game, "INPUT", { x: 4, y: 20 }, "B")!.id;
     const lamp = placeNode(game, "OUTPUT", { x: 40, y: 10 }, "OUT")!.id;
     const half = placeNode(game, HALF_ADDER.gate, { x: 20, y: 20 })!;
     expect(half.signals).toEqual([0, 0]);
-    expect(pinPosition(half, "out", 0).y).toBeLessThan(pinPosition(half, "out", 1).y);
+    expect(pinPosition(game, half, "out", 0).y).toBeLessThan(pinPosition(game, half, "out", 1).y);
     const not = gate(game, "NOT");
     wire(game, out(a), inp(half.id, 0));
     wire(game, out(b), inp(half.id, 1));
