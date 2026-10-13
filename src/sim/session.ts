@@ -1,11 +1,16 @@
 import type { Game } from "./circuit";
-import { applyInputs, checkLevel, LEVELS, loadLevel, type CheckResult, type Level } from "./level";
+import { placeNode } from "./circuit";
+import { GRID_HEIGHT, GRID_WIDTH } from "./grid";
+import { applyInputs, checkLevel, LEVELS, loadLevel, matches, type CheckResult, type Level } from "./level";
+import type { NodeType } from "./node";
 import { loadBoard, saveBoard, type SaveStore } from "./save";
+import { silent, type Sound } from "./sound";
 
 // One player's play: the current level and board, a test run stepping
 // through the truth table one row at a time, solved progress, and story
 // flags. Time lives outside; the caller decides when to step. The caller
-// changes the board through edit().
+// changes the board through edit(). A test run plays its sound cues as it
+// goes.
 export class Session {
   levelIndex = 0;
   game: Game = loadLevel(LEVELS[0]!);
@@ -25,7 +30,10 @@ export class Session {
   flags = new Set<string>();
   private check: CheckResult | null = null;
 
-  constructor(private store: SaveStore) {
+  constructor(
+    private store: SaveStore,
+    private sound: Sound = silent,
+  ) {
     this.solved = store.load()?.solved ?? 0;
   }
 
@@ -106,9 +114,17 @@ export class Session {
     this.save();
   }
 
-  // Returns false if a run is already going.
+  // Drops a part from the parts bin in the middle of the board.
+  place(type: NodeType): void {
+    if (!placeNode(this.game, type, { x: GRID_WIDTH / 2, y: GRID_HEIGHT / 2 })) return;
+    this.sound.play("place");
+  }
+
+  // Returns false if a run is already going. Every row is checked here, out
+  // of sight and without a sound; step() shows them, one tick each.
   beginTest(): boolean {
     if (this.testing) return false;
+    this.sound.play("carriage");
     this.run++;
     this.testing = true;
     this.check = checkLevel(this.game, this.levelIndex);
@@ -130,6 +146,7 @@ export class Session {
       applyInputs(this.game, this.level, row.inputs);
       this.currentRow = next;
       this.rowResults = Object.assign([...this.rowResults], { [next]: row.actual });
+      this.sound.play(matches(row.actual, row.expected) ? "tick" : "fail-tick");
       return true;
     }
     this.testing = false;
@@ -137,6 +154,10 @@ export class Session {
     this.currentRow = null;
     this.result = check;
     this.stamped = check.passed;
+    if (check.passed) {
+      this.sound.play("stamp");
+      this.sound.play("bell");
+    } else this.sound.play("fail-stamp");
     if (check.passed && this.levelIndex + 1 > this.solved) {
       this.solved = this.levelIndex + 1;
       this.save();

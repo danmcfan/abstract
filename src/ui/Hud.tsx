@@ -1,15 +1,14 @@
 import { For, Show } from "solid-js";
-import { placeNode } from "../sim/circuit";
-import { GRID_HEIGHT, GRID_WIDTH } from "../sim/grid";
 import { LEVELS, matches, partsBin, truthTable } from "../sim/level";
 import { say } from "./speech";
 import { GateIcon } from "./GateIcon";
+import { SoundButton } from "./SoundButton";
 import * as script from "./script";
 import {
   currentRow,
   level,
   levelIndex,
-  mutate,
+  placePart,
   result,
   rowResults,
   runTest,
@@ -130,6 +129,7 @@ export function Hud(props: { onMenu: () => void }) {
         <button id="help" class="btn btn-ghost btn-sm ml-1.5 max-[899px]:ml-0" onClick={() => say(script.help(level()))}>
           ? Help
         </button>
+        <SoundButton />
         <button id="menu" class="btn btn-ghost btn-sm" onClick={() => props.onMenu()}>
           Menu
         </button>
@@ -149,7 +149,7 @@ export function Hud(props: { onMenu: () => void }) {
               class="flex flex-col items-center gap-0.5 px-2.5 pt-1.5 pb-1 text-[11px] font-bold text-ink hover:bg-wash disabled:opacity-40 max-[899px]:px-2"
               data-gate={type}
               disabled={testing()}
-              onClick={() => mutate((g) => placeNode(g, type, { x: GRID_WIDTH / 2, y: GRID_HEIGHT / 2 }))}
+              onClick={() => placePart(type)}
             >
               <GateIcon type={type} class="h-6 w-9" />
               {type}
