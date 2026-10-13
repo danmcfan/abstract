@@ -21,7 +21,12 @@ export interface Level extends Spec {
   // A board larger than the usual one, for wide parts. The view scales to
   // fit it.
   grid?: Size;
+  // The part solving the level adds to the bin, when it isn't the gate the
+  // level builds: a narrow bus level can hand over the full-width part.
+  gives?: Part;
 }
+
+type Part = Spec & { gate: NodeType };
 
 // The stack the player climbs, bottom to top. Each layer is built from the
 // ones below it and happens on its own floor of the factory. Every layer is
@@ -36,7 +41,7 @@ export interface Layer {
 export const LAYERS: Layer[] = [
   { number: 1, name: "NAND", floor: "the gate foundry", parts: "The one schematic Bitbox remembers" },
   { number: 2, name: "Basic gates", floor: "the logic line", parts: "NOT, AND, OR, XOR, MUX, DEMUX" },
-  { number: 3, name: "Arithmetic", floor: "adder assembly", parts: "Half adder, full adder, 8-bit adder" },
+  { number: 3, name: "Arithmetic", floor: "adder assembly", parts: "Half adder, full adder, 2-bit adder" },
   { number: 4, name: "ALU", floor: "the calculation shop", parts: "Add, subtract, and, or, xor, not; a zero test" },
   { number: 5, name: "Memory", floor: "the filing vault", parts: "Latch, flip-flop, register, register file, RAM" },
   {
@@ -124,15 +129,47 @@ export const LEVELS: Level[] = [
     outputs: ["SUM", "COUT"],
     target: ([a = 0, b = 0, cin = 0]) => [a ^ b ^ cin, (a & b) | (cin & (a ^ b))],
   },
+  {
+    gate: "2-BIT ADDER",
+    goal: "Add A, B and CIN. SUM is the total, up to 3, and COUT is on when it goes past.",
+    layer: 3,
+    inputs: ["A", "B", "CIN"],
+    outputs: ["SUM", "COUT"],
+    widths: { A: 2, B: 2, SUM: 2 },
+    target: ([a = 0, b = 0, cin = 0]) => [(a + b + cin) % 4, a + b + cin >= 4 ? 1 : 0],
+    cases: [
+      [0, 0, 0],
+      [1, 1, 0],
+      [2, 1, 0],
+      [3, 1, 0],
+      [3, 3, 1],
+    ],
+    // Building 8 bits is the same ripple carry four times over, so Bitbox
+    // hands over the 8-bit adder once the player has built 2.
+    gives: {
+      gate: "8-BIT ADDER",
+      inputs: ["A", "B", "CIN"],
+      outputs: ["SUM", "COUT"],
+      widths: { A: 8, B: 8, SUM: 8 },
+      target: ([a = 0, b = 0, cin = 0]) => [(a + b + cin) % 256, a + b + cin >= 256 ? 1 : 0],
+    },
+  },
 ];
 
-// The parts the game's boards can hold: each level's gate, computing what
-// its level asks for.
-export const PARTS: Parts = partsFrom(LEVELS);
+// The part a solved level adds to the bin: the gate it builds, unless it
+// gives another.
+export function partGiven(level: Level): Part {
+  return level.gives ?? level;
+}
 
-// Every solved level adds its gate; the first level hands you NAND.
+// The parts the game's boards can hold: each level's gate, computing what
+// its level asks for, and each part a level gives instead. A level's own
+// gate stays a kind, so its board can still be loaded and tested.
+export const PARTS: Parts = partsFrom([...LEVELS, ...LEVELS.flatMap((level) => level.gives ?? [])]);
+
+// Every solved level adds its part; the first level hands you NAND.
 export function partsBin(levelIndex: number, levels = LEVELS): NodeType[] {
-  return levels.slice(0, levelIndex).map((level) => level.gate);
+  return levels.slice(0, levelIndex).map((level) => partGiven(level).gate);
 }
 
 // The levels that can be played: every solved level plus the next one.

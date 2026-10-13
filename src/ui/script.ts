@@ -151,6 +151,32 @@ const LEVELS: Partial<Record<NodeType, LevelScript>> = {
     ],
     solved: [{ face: "happy", text: "Full adder, done! Chain eight of them and you can add whole numbers." }],
   },
+  "2-BIT ADDER": {
+    intro: [
+      { face: "amazed", text: "Look at A and B! Each one is a pair of switches." },
+      { face: "idle", text: "That's a bus: two signals on one thick wire." },
+      { face: "idle", text: "Together, the two signals make a number up to 3." },
+      { face: "idle", text: "Split and join are in the Wiring section of the parts bin." },
+      { face: "idle", text: "A split breaks a bus into single wires." },
+      { face: "idle", text: "A join does the opposite. It gathers single wires back into one bus." },
+      { face: "thinking", text: "Each split's top pin is the high bit. The bottom pin is the ones place." },
+    ],
+    hint: [
+      { face: "thinking", text: "Split A and split B. Give each pair of bits its own full adder." },
+      { face: "thinking", text: "Start at the bottom, the ones place. Its full adder takes CIN." },
+      { face: "thinking", text: "Its COUT goes into the CIN of the full adder one place up." },
+      { face: "thinking", text: "Join the two SUMs into SUM. The top COUT is your COUT." },
+      CONTROLS,
+    ],
+    solved: [
+      { face: "happy", text: "2-bit adder, done! 3 + 1 rolls over to 0, with COUT on." },
+      { face: "idle", text: "Real computers add 8 bits at a time. It's the same chain, just four times longer." },
+      { face: "idle", text: "Eight full adders, each COUT into the next CIN. Nothing new, only more of it." },
+      { face: "happy", text: "So I chained them for you. There's an 8-bit adder in your parts bin!" },
+      { face: "amazed", text: "That's the last level on adder assembly." },
+      { face: "happy", text: "Our gates can count now. Next, we teach them some new tricks." },
+    ],
+  },
 };
 
 // The first time the elevator reaches each floor, by layer number.
