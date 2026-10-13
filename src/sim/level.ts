@@ -108,6 +108,22 @@ export const LEVELS: Level[] = [
     outputs: ["Y0", "Y1"],
     target: ([d = 0, sel = 0]) => [d & (1 - sel), d & sel],
   },
+  {
+    gate: "HALF ADDER",
+    goal: "SUM is on when exactly one of A and B is on. COUT is on when both are.",
+    layer: 3,
+    inputs: ["A", "B"],
+    outputs: ["SUM", "COUT"],
+    target: ([a = 0, b = 0]) => [a ^ b, a & b],
+  },
+  {
+    gate: "FULL ADDER",
+    goal: "Add A, B and CIN. SUM is the ones place of the total, and COUT the twos place.",
+    layer: 3,
+    inputs: ["A", "B", "CIN"],
+    outputs: ["SUM", "COUT"],
+    target: ([a = 0, b = 0, cin = 0]) => [a ^ b ^ cin, (a & b) | (cin & (a ^ b))],
+  },
 ];
 
 // The parts the game's boards can hold: each level's gate, computing what

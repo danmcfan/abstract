@@ -16,7 +16,7 @@ Every change ships through a pull request: CI runs `bun run verify` on it, and m
 
 `scripts/playthrough.sh` plays every level in a real browser with [agent-browser](https://github.com/vercel-labs/agent-browser). It places gates and draws wires with real mouse drags, saves a screenshot per level and a video to `playthrough/` (or the directory you pass), and fails on a level that doesn't pass or on any page error.
 
-A new level needs a block in this script that solves it. Copy an existing level's block, using `add <GATE> <x> <y>` to place a part at a board cell and `wire <from> <to> [input-index]` to connect pins.
+A new level needs a block in this script that solves it. Copy an existing level's block, using `add <GATE> <x> <y>` to place a part at a board cell and `wire <from> <to> [input-index] [output-index]` to connect pins.
 
 ## Driving the game yourself
 

@@ -37,16 +37,17 @@ newest() { js "Math.max(...__abstract.nodes().map(n => n.id))"; }
 
 # Adds a gate from the toolbox and drags it to board cell (x, y).
 add() {
-  ab click "button[data-gate=$1]"
+  ab click "button[data-gate=\"$1\"]"
   local id; id=$(newest)
   # shellcheck disable=SC2046
   drag $(body "$id") $(board "$2" "$3")
   echo "$id"
 }
 
+# Wires node $1's output pin $4 (default 0) to node $2's input pin $3.
 wire() {
   # shellcheck disable=SC2046
-  drag $(pin "$1" out) $(pin "$2" in "${3:-0}")
+  drag $(pin "$1" out "${4:-0}") $(pin "$2" in "${3:-0}")
 }
 
 # Closes the robot's popup if it's up, so it can't cover the board.
@@ -136,17 +137,44 @@ wire "$S" "$T"; wire "$D" "$G0" 0; wire "$T" "$G0" 1; wire "$D" "$G1" 0; wire "$
 wire "$G0" "$Y0"; wire "$G1" "$Y1"
 check 4 7
 
-# DEMUX is the last level so far, and L3 has none yet, so there's no way up.
+# DEMUX ends L2, so passing leads up to adder assembly.
+expect "document.querySelector('#up').textContent.includes('Up to adder assembly')" "level 7 leads up to adder assembly"
+ab click "#up"; sleep 1.2
+expect "!!__abstract.saying?.includes('Adder assembly')" "Bitbox names the new floor"
+hush
+expect "document.querySelector('[data-layer=\"3\"]').parentElement.dataset.state === 'in progress'" "L3 is in progress"
+sheet 8
+
+# Level 8: a half adder is SUM = A XOR B, COUT = A AND B.
+A=$(terminal INPUT A); B=$(terminal INPUT B); S=$(terminal OUTPUT SUM); C=$(terminal OUTPUT COUT)
+X=$(add XOR 22 12); G=$(add AND 22 28)
+wire "$A" "$X" 0; wire "$B" "$X" 1; wire "$A" "$G" 0; wire "$B" "$G" 1
+wire "$X" "$S"; wire "$G" "$C"
+check 3 8
+
+# Level 9: a full adder is two half adders, with their carries ORed.
+ab click "#next"; sleep 0.5; hush
+A=$(terminal INPUT A); B=$(terminal INPUT B); CI=$(terminal INPUT CIN)
+S=$(terminal OUTPUT SUM); C=$(terminal OUTPUT COUT)
+H1=$(add "HALF ADDER" 14 14); H2=$(add "HALF ADDER" 26 20); R=$(add OR 34 30)
+wire "$A" "$H1" 0; wire "$B" "$H1" 1; wire "$H1" "$H2" 0; wire "$CI" "$H2" 1
+wire "$H2" "$S"
+wire "$H1" "$R" 0 1; wire "$H2" "$R" 1 1
+wire "$R" "$C"
+check 5 9
+
+# The full adder is the last level so far, and L4 has none yet, so there's
+# no way up.
 expect "!document.querySelector('#up') && !document.querySelector('#next')" "no way up from the last level"
 
 # The HUD button opens the stack on the current layer, and each level keeps
-# its board: going back to NOT finds it still wired.
-expect "document.querySelector('#open-stack').textContent.includes('L2 · the logic line')" "the HUD names the current layer"
+# its board: going back to the half adder finds it still wired.
+expect "document.querySelector('#open-stack').textContent.includes('L3 · adder assembly')" "the HUD names the current layer"
 ab click "#open-stack"; sleep 0.8; hush
-expect "document.querySelector('[data-layer=\"2\"]').parentElement.dataset.state === 'built'" "L2 is built"
+expect "document.querySelector('[data-layer=\"3\"]').parentElement.dataset.state === 'built'" "L3 is built"
 agent-browser screenshot "$OUT/stack-built.png" >/dev/null
-sheet 2
-expect "__abstract.levelIndex === 1 && __abstract.game.edges.size === 3" "NOT keeps its board"
+sheet 8
+expect "__abstract.levelIndex === 7 && __abstract.game.edges.size === 6" "the half adder keeps its board"
 
 # The title offers the stack once there's a save.
 ab click "#menu"; sleep 0.5

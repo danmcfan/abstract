@@ -120,6 +120,37 @@ const LEVELS: Partial<Record<NodeType, LevelScript>> = {
       { face: "happy", text: "There are more floors to this factory. We'll get there, partner." },
     ],
   },
+  "HALF ADDER": {
+    intro: [
+      { face: "thinking", text: "Adding two bits is easy until both are on. Then 1 + 1 is 2." },
+      { face: "idle", text: "In binary, 2 is written 10. It needs two places." },
+      {
+        face: "idle",
+        text: "So a half adder has two lamps. SUM is the ones place. COUT is the carry to the twos place.",
+      },
+      { face: "thinking", text: "Look at SUM's column in the table. Haven't we built that one already?" },
+    ],
+    hint: [
+      { face: "thinking", text: "SUM is on when exactly one input is on. That's XOR." },
+      { face: "thinking", text: "COUT is on only when A and B are both on. That's AND." },
+      CONTROLS,
+    ],
+    solved: [{ face: "amazed", text: "Half adder, filed! Our first part that does arithmetic." }],
+  },
+  "FULL ADDER": {
+    intro: [
+      { face: "thinking", text: "A half adder can't take a carry in. A full adder adds three bits: A, B and CIN." },
+      { face: "idle", text: "Three bits add up to at most 3, which is 11 in binary. Still two lamps." },
+      { face: "thinking", text: "Try adding in two steps, like you would on paper." },
+    ],
+    hint: [
+      { face: "thinking", text: "First, half-add A and B." },
+      { face: "thinking", text: "Then half-add that SUM with CIN. Its SUM is your SUM." },
+      { face: "thinking", text: "Only one of the two half adders can carry. OR their COUTs together." },
+      CONTROLS,
+    ],
+    solved: [{ face: "happy", text: "Full adder, done! Chain eight of them and you can add whole numbers." }],
+  },
 };
 
 // The first time the elevator reaches each floor, by layer number.
