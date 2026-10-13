@@ -154,7 +154,7 @@ export function routeWires(game: Game): Routing {
       const prev = full[i - 1];
       const next = full[i + 1];
       const straight = prev && next && (prev.x === next.x || prev.y === next.y);
-      const usage: Usage = !straight ? "bend" : prev.y === next.y ? "h" : "v";
+      const usage: Usage = straight ? (prev.y === next.y ? "h" : "v") : "bend";
       const uses = pointUse.get(key(p.x, p.y)) ?? new Map<string, Usage>();
       // A point the net already turns at stays a turn.
       if (uses.get(net) !== "bend") uses.set(net, uses.has(net) && uses.get(net) !== usage ? "bend" : usage);
@@ -296,7 +296,7 @@ function simplify(points: Point[]): Point[] {
 
 // A binary min-heap of states keyed by priority.
 class Heap {
-  private items: { state: number; priority: number }[] = [];
+  private readonly items: { state: number; priority: number }[] = [];
 
   get size(): number {
     return this.items.length;

@@ -41,7 +41,9 @@ export function Stack(props: { arrive?: number | undefined; onPick: (index: numb
   onMount(() => {
     const observer = new ResizeObserver(measure);
     observer.observe(list);
-    onCleanup(() => observer.disconnect());
+    onCleanup(() => {
+      observer.disconnect();
+    });
     rows.get(open())?.scrollIntoView({ block: "center" });
     if (props.arrive) {
       // Two frames, so the car is drawn on the floor below before it moves.
@@ -57,7 +59,13 @@ export function Stack(props: { arrive?: number | undefined; onPick: (index: numb
             <p class="text-xs text-pencil">Dwg LOA-001: each layer is built from the ones below it.</p>
             <h1 class="text-2xl font-bold text-ink">The stack</h1>
           </div>
-          <button id="stack-close" class="btn btn-sm btn-ghost" onClick={() => props.onClose()}>
+          <button
+            id="stack-close"
+            class="btn btn-sm btn-ghost"
+            onClick={() => {
+              props.onClose();
+            }}
+          >
             Back
           </button>
         </header>
@@ -118,16 +126,18 @@ export function Stack(props: { arrive?: number | undefined; onPick: (index: numb
                             return (
                               <button
                                 class={`flex flex-col items-start gap-0.5 border-2 px-2.5 py-1.5 text-left ${
-                                  !playable()
-                                    ? "border-dashed border-pencil text-pencil"
-                                    : current()
+                                  playable()
+                                    ? current()
                                       ? "cursor-pointer border-ink bg-wash text-ink shadow-[3px_3px_0_var(--color-ink)]"
                                       : "cursor-pointer border-ink bg-surface text-ink hover:bg-wash"
+                                    : "border-dashed border-pencil text-pencil"
                                 }`}
                                 data-level={i + 1}
                                 disabled={!playable()}
                                 aria-current={current() ? "step" : undefined}
-                                onClick={() => props.onPick(i)}
+                                onClick={() => {
+                                  props.onPick(i);
+                                }}
                               >
                                 <span class="text-[10px] text-pencil">SH {pad(i + 1)}</span>
                                 <span class="flex items-center gap-1.5 text-[13px] font-bold">

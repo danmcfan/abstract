@@ -68,7 +68,10 @@ export class Session {
   // Picks up the saved game where it left off, boards and all.
   resume(): void {
     const data = this.store.load();
-    if (!data) return this.reset();
+    if (!data) {
+      this.reset();
+      return;
+    }
     this.solved = Math.min(data.solved, LEVELS.length);
     this.flags = new Set(data.flags);
     this.boards = data.boards;

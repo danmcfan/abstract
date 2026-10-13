@@ -158,7 +158,13 @@ describe("a bus input terminal", () => {
   test("is a row of switches, high bit first; clicking one flips that bit", () => {
     const game = newGame();
     const a = placeNode(game, "INPUT", { x: 10, y: 10 }, "A", 4)!;
-    const g = createGestures({ game: () => game, edit: (change) => change(game), locked: () => false });
+    const g = createGestures({
+      game: () => game,
+      edit: (change) => {
+        change(game);
+      },
+      locked: () => false,
+    });
     const click = (bit: number) => {
       const p = { x: a.rect.x + 1.5 + (3 - bit), y: a.rect.y + a.rect.height / 2 };
       expect(switchAt(a, p.x, p.y)).toBe(bit);
@@ -298,6 +304,6 @@ describe("a part with bus pins", () => {
     setInput(game, terminal(game, "INPUT", "A"), 9);
     const loaded = loadBoard(JSON.parse(JSON.stringify(saveBoard(game))));
     expect(loaded.grid).toEqual(ADD4.grid!);
-    expect(loaded.nodes.get(terminal(game, "INPUT", "A"))).toEqual(game.nodes.get(terminal(game, "INPUT", "A"))!);
+    expect(loaded.nodes.get(terminal(game, "INPUT", "A"))).toEqual(game.nodes.get(terminal(game, "INPUT", "A")));
   });
 });

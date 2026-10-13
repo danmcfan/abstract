@@ -165,13 +165,25 @@ export function Hud(props: { onMenu: () => void; onStack: (arrive?: number) => v
           <Show
             when={above()}
             fallback={
-              <button id="next" class="mt-2.5 btn" onClick={() => startLevel(levelIndex() + 1)}>
+              <button
+                id="next"
+                class="mt-2.5 btn"
+                onClick={() => {
+                  startLevel(levelIndex() + 1);
+                }}
+              >
                 Next level ▸
               </button>
             }
           >
             {(next) => (
-              <button id="up" class="mt-2.5 btn" onClick={() => props.onStack(next().number)}>
+              <button
+                id="up"
+                class="mt-2.5 btn"
+                onClick={() => {
+                  props.onStack(next().number);
+                }}
+              >
                 Up to {next().floor} ▸
               </button>
             )}
@@ -181,14 +193,32 @@ export function Hud(props: { onMenu: () => void; onStack: (arrive?: number) => v
       </section>
 
       <nav class="fixed top-3 right-3 flex gap-1.5 max-[899px]:top-auto max-[899px]:right-auto max-[899px]:bottom-3 max-[899px]:left-3 min-[900px]:top-5 min-[900px]:right-5">
-        <button id="open-stack" class="btn btn-sm btn-ghost" onClick={() => props.onStack()}>
+        <button
+          id="open-stack"
+          class="btn btn-sm btn-ghost"
+          onClick={() => {
+            props.onStack();
+          }}
+        >
           L{layer().number} · {layer().floor}
         </button>
-        <button id="help" class="btn btn-sm btn-ghost" onClick={() => say(script.help(level()))}>
+        <button
+          id="help"
+          class="btn btn-sm btn-ghost"
+          onClick={() => {
+            say(script.help(level()));
+          }}
+        >
           ? Help
         </button>
         <SoundButton />
-        <button id="menu" class="btn btn-sm btn-ghost" onClick={() => props.onMenu()}>
+        <button
+          id="menu"
+          class="btn btn-sm btn-ghost"
+          onClick={() => {
+            props.onMenu();
+          }}
+        >
           Menu
         </button>
       </nav>
@@ -209,7 +239,9 @@ export function Hud(props: { onMenu: () => void; onStack: (arrive?: number) => v
               class="flex flex-col items-center gap-0.5 px-2.5 pt-1.5 pb-1 text-[11px] font-bold text-ink hover:bg-wash disabled:opacity-40 max-[899px]:px-2"
               data-gate={type}
               disabled={testing()}
-              onClick={() => placePart(type)}
+              onClick={() => {
+                placePart(type);
+              }}
             >
               <GateIcon type={type} class="h-6 w-9" />
               {type}
@@ -229,7 +261,9 @@ export function Hud(props: { onMenu: () => void; onStack: (arrive?: number) => v
                 data-gate={w.type}
                 data-width={w.width}
                 disabled={testing()}
-                onClick={() => placePart(w.type, w.width)}
+                onClick={() => {
+                  placePart(w.type, w.width);
+                }}
               >
                 <GateIcon type={w.type} width={Math.min(w.width, 4)} class="h-6 w-9" />
                 {`${w.type} ${w.width}`}

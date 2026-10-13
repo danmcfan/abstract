@@ -46,7 +46,7 @@ export function Board() {
   const hud = new ResizeObserver(onResize);
   onMount(() => {
     for (const id of HUD_IDS) {
-      const el = document.getElementById(id);
+      const el = document.querySelector(`#${id}`);
       if (el) hud.observe(el);
     }
   });
@@ -102,19 +102,27 @@ export function Board() {
     return `M ${p.x} ${p.y} L ${w.to.x} ${w.to.y}`;
   };
 
-  const onPointerMove = (event: PointerEvent) => handle(event, (p) => gestures.move(p));
+  const onPointerMove = (event: PointerEvent) => {
+    handle(event, (p) => gestures.move(p));
+  };
   const onPointerDown = (event: PointerEvent) => {
-    handle(event, (p) => gestures.down(p, event.button));
+    handle(event, (p) => {
+      gestures.down(p, event.button);
+    });
     if (gestures.preview || gestures.dragging) svg!.setPointerCapture(event.pointerId);
   };
   const onPointerUp = (event: PointerEvent) => {
     const firstNew = current().nextEdgeID;
-    handle(event, (p) => gestures.up(p));
+    handle(event, (p) => {
+      gestures.up(p);
+    });
     inkNewWires(firstNew);
   };
   const onContextMenu = (event: MouseEvent) => {
     event.preventDefault();
-    handle(event, (p) => gestures.contextMenu(p));
+    handle(event, (p) => {
+      gestures.contextMenu(p);
+    });
   };
 
   return (
@@ -248,8 +256,8 @@ const HUD_IDS = ["level-panel", "parts-bin"];
 function fitViewBox(grid: Size): string {
   const w = window.innerWidth;
   const h = window.innerHeight;
-  const panel = document.getElementById("level-panel")?.getBoundingClientRect();
-  const bin = document.getElementById("parts-bin")?.getBoundingClientRect();
+  const panel = document.querySelector("#level-panel")?.getBoundingClientRect();
+  const bin = document.querySelector("#parts-bin")?.getBoundingClientRect();
   const wide = w >= WIDE_MIN_WIDTH;
   const inset = {
     left: wide && panel ? panel.right + GAP : 0,

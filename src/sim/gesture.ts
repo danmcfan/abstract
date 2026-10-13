@@ -122,9 +122,15 @@ export function createGestures(host: GestureHost): Gestures {
       hover(p);
       if (host.locked()) return;
       const pin = hoveredPin;
-      if (pin?.side === "in") return host.edit((g) => unwire(g, pin));
+      if (pin?.side === "in") {
+        host.edit((g) => unwire(g, pin));
+        return;
+      }
       const node = host.game().nodes.get(nodeAt(host.game(), p.x, p.y) ?? -1);
-      if (node && node.type !== "INPUT" && node.type !== "OUTPUT") host.edit((g) => removeNode(g, node.id));
+      if (node && node.type !== "INPUT" && node.type !== "OUTPUT")
+        host.edit((g) => {
+          removeNode(g, node.id);
+        });
     },
   };
 }

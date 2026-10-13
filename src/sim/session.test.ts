@@ -145,7 +145,9 @@ describe("session", () => {
     runAll(session);
     const nand = find(session.game, "NAND");
     const a = find(session.game, "INPUT");
-    session.edit((game) => setInput(game, nand, 1));
+    session.edit((game) => {
+      setInput(game, nand, 1);
+    });
     session.edit((game) => wire(game, out(nand), out(a)));
     const onA = session.game.nodes.get(a)!.rect;
     session.edit((game) => moveNode(game, nand, onA.x, onA.y));

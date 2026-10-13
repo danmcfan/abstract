@@ -18,7 +18,14 @@ const find = (game: Game, type: NodeType) => [...game.nodes.values()].find((n) =
 function board() {
   const game = newGame();
   const sound = recordingSound();
-  const g = createGestures({ game: () => game, edit: (change) => change(game), locked: () => false, sound });
+  const g = createGestures({
+    game: () => game,
+    edit: (change) => {
+      change(game);
+    },
+    locked: () => false,
+    sound,
+  });
   const add = (type: NodeType, x: number, y: number) => placeNode(game, type, { x, y })!.id;
   return { game, g, add, sound };
 }

@@ -46,7 +46,10 @@ function App() {
   const openStack = (arrive?: number) => {
     hush();
     setStack({ arrive });
-    if (arrive) once(`floor:${arrive}`, () => say(script.floor(arrive)));
+    if (arrive)
+      once(`floor:${arrive}`, () => {
+        say(script.floor(arrive));
+      });
   };
   // Picking the level already on the board leaves it alone, test result
   // and all.
@@ -65,17 +68,19 @@ function App() {
     <Show when={!smallTouch() || notice.dismissed()} fallback={<DesktopNotice onContinue={notice.dismiss} />}>
       <Show when={screen() === "title" && !stack()}>
         <Title
-          onContinue={() =>
+          onContinue={() => {
             play(() => {
               continueGame();
               if (hasFlag(`intro:${level().gate}`)) say(script.welcomeBack(level()));
-            })
-          }
+            });
+          }}
           onStack={() => {
             continueGame();
             openStack();
           }}
-          onNew={() => play(newGame)}
+          onNew={() => {
+            play(newGame);
+          }}
         />
       </Show>
       <Show when={screen() === "play"}>

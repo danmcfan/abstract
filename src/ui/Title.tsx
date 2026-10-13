@@ -46,7 +46,9 @@ export function Title(props: { onContinue: () => void; onStack: () => void; onNe
                     class="btn px-8 text-lg"
                     onMouseEnter={wake}
                     onFocus={wake}
-                    onClick={() => props.onNew()}
+                    onClick={() => {
+                      props.onNew();
+                    }}
                   >
                     Start
                   </button>
@@ -62,7 +64,13 @@ export function Title(props: { onContinue: () => void; onStack: () => void; onNe
                     >
                       <p class="mb-3 text-[13px]">Start over? Your saved game will be erased.</p>
                       <div class="flex flex-wrap gap-3">
-                        <button id="erase" class="btn border-fail bg-fail btn-sm" onClick={() => props.onNew()}>
+                        <button
+                          id="erase"
+                          class="btn border-fail bg-fail btn-sm"
+                          onClick={() => {
+                            props.onNew();
+                          }}
+                        >
                           Erase and start
                         </button>
                         <button id="keep" class="btn btn-sm btn-ghost" onClick={keep}>
@@ -77,7 +85,9 @@ export function Title(props: { onContinue: () => void; onStack: () => void; onNe
                     class="btn px-6 text-left text-lg"
                     onMouseEnter={wake}
                     onFocus={wake}
-                    onClick={() => props.onContinue()}
+                    onClick={() => {
+                      props.onContinue();
+                    }}
                   >
                     Continue
                     <small class="block text-xs font-normal opacity-80">
@@ -89,7 +99,9 @@ export function Title(props: { onContinue: () => void; onStack: () => void; onNe
                     class="btn btn-ghost"
                     onMouseEnter={wake}
                     onFocus={wake}
-                    onClick={() => props.onStack()}
+                    onClick={() => {
+                      props.onStack();
+                    }}
                   >
                     The stack
                   </button>

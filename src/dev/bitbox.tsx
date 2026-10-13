@@ -107,7 +107,7 @@ function ModelSheet() {
       setTime(t);
       if (!held()) setLive(viewer?.pose());
     });
-    faceSlot.appendChild(viewer.face);
+    faceSlot.append(viewer.face);
     viewer.face.className = "block w-full border-2 border-ink";
     Object.assign(window, { __bitbox: viewer });
   });
@@ -131,16 +131,18 @@ function ModelSheet() {
     history.replaceState(null, "", `?${q}`);
   });
 
-  const choosePreset = (name: string) =>
+  const choosePreset = (name: string) => {
     batch(() => {
       setPreset(name);
       setLighting(LIGHTS[name]!);
     });
-  const tweak = (change: Partial<Lighting>) =>
+  };
+  const tweak = (change: Partial<Lighting>) => {
     batch(() => {
       setPreset("custom");
       setLighting((l) => ({ ...l, ...change }));
     });
+  };
 
   // Touching a pose slider freezes the robot in its current pose and edits that.
   const shown = () => held() ?? live();
@@ -150,7 +152,7 @@ function ModelSheet() {
     setHeld(p);
   };
   const release = () => setHeld(null);
-  const copyPose = () =>
+  const copyPose = async () =>
     navigator.clipboard.writeText(JSON.stringify(shown(), (_k, v) => (typeof v === "number" ? +v.toFixed(3) : v), 2));
 
   const snapshot = () => {
@@ -171,7 +173,9 @@ function ModelSheet() {
     event.preventDefault();
   };
   window.addEventListener("keydown", onKey);
-  onCleanup(() => window.removeEventListener("keydown", onKey));
+  onCleanup(() => {
+    window.removeEventListener("keydown", onKey);
+  });
 
   return (
     <div class="fixed inset-0 grid grid-rows-[minmax(300px,1fr)_minmax(0,45%)] text-ink-deep md:grid-cols-[1fr_380px] md:grid-rows-1">
@@ -259,7 +263,12 @@ function ModelSheet() {
           <div class="grid grid-cols-4 gap-1.5">
             <For each={Object.keys(LIGHTS)}>
               {(name) => (
-                <Choice on={preset() === name} onClick={() => choosePreset(name)}>
+                <Choice
+                  on={preset() === name}
+                  onClick={() => {
+                    choosePreset(name);
+                  }}
+                >
                   {name}
                 </Choice>
               )}
@@ -271,9 +280,20 @@ function ModelSheet() {
             max={4}
             step={0.05}
             value={lighting().fill}
-            onInput={(fill) => tweak({ fill })}
+            onInput={(fill) => {
+              tweak({ fill });
+            }}
           />
-          <Slider label="Sun" min={0} max={4} step={0.05} value={lighting().sun} onInput={(sun) => tweak({ sun })} />
+          <Slider
+            label="Sun"
+            min={0}
+            max={4}
+            step={0.05}
+            value={lighting().sun}
+            onInput={(sun) => {
+              tweak({ sun });
+            }}
+          />
           <Slider
             label="Sun around"
             min={-180}
@@ -281,7 +301,9 @@ function ModelSheet() {
             step={1}
             value={lighting().azimuth}
             format={(d) => `${d}°`}
-            onInput={(azimuth) => tweak({ azimuth })}
+            onInput={(azimuth) => {
+              tweak({ azimuth });
+            }}
           />
           <Slider
             label="Sun height"
@@ -290,13 +312,42 @@ function ModelSheet() {
             step={1}
             value={lighting().elevation}
             format={(d) => `${d}°`}
-            onInput={(elevation) => tweak({ elevation })}
+            onInput={(elevation) => {
+              tweak({ elevation });
+            }}
           />
-          <Slider label="Rim" min={0} max={4} step={0.05} value={lighting().rim} onInput={(rim) => tweak({ rim })} />
+          <Slider
+            label="Rim"
+            min={0}
+            max={4}
+            step={0.05}
+            value={lighting().rim}
+            onInput={(rim) => {
+              tweak({ rim });
+            }}
+          />
           <div class="mt-2 grid grid-cols-3 gap-1.5 text-[11px]">
-            <Swatch label="Fill" value={lighting().fillColor} onInput={(fillColor) => tweak({ fillColor })} />
-            <Swatch label="Sun" value={lighting().sunColor} onInput={(sunColor) => tweak({ sunColor })} />
-            <Swatch label="Rim" value={lighting().rimColor} onInput={(rimColor) => tweak({ rimColor })} />
+            <Swatch
+              label="Fill"
+              value={lighting().fillColor}
+              onInput={(fillColor) => {
+                tweak({ fillColor });
+              }}
+            />
+            <Swatch
+              label="Sun"
+              value={lighting().sunColor}
+              onInput={(sunColor) => {
+                tweak({ sunColor });
+              }}
+            />
+            <Swatch
+              label="Rim"
+              value={lighting().rimColor}
+              onInput={(rimColor) => {
+                tweak({ rimColor });
+              }}
+            />
           </div>
         </Section>
 
@@ -353,7 +404,9 @@ function ModelSheet() {
                       max={max}
                       step={0.005}
                       value={p()[key] as number}
-                      onInput={(v) => edit((q) => ((q[key] as number) = v))}
+                      onInput={(v) => {
+                        edit((q) => ((q[key] as number) = v));
+                      }}
                     />
                   )}
                 </For>
@@ -371,7 +424,9 @@ function ModelSheet() {
                             max={max}
                             step={0.005}
                             value={p()[side][key]}
-                            onInput={(v) => edit((q) => (q[side][key] = v))}
+                            onInput={(v) => {
+                              edit((q) => (q[side][key] = v));
+                            }}
                           />
                         )}
                       </For>
@@ -427,7 +482,9 @@ function Slider(props: {
         max={props.max}
         step={props.step}
         value={props.value}
-        onInput={(e) => props.onInput(e.currentTarget.valueAsNumber)}
+        onInput={(e) => {
+          props.onInput(e.currentTarget.valueAsNumber);
+        }}
       />
       <span class="text-right text-pencil tabular-nums">
         {props.format ? props.format(props.value) : props.value.toFixed(2)}
@@ -443,7 +500,9 @@ function Toggle(props: { label: string; value: boolean; onChange: (on: boolean) 
         type="checkbox"
         class="accent-ink"
         checked={props.value}
-        onChange={(e) => props.onChange(e.currentTarget.checked)}
+        onChange={(e) => {
+          props.onChange(e.currentTarget.checked);
+        }}
       />
       {props.label}
     </label>
@@ -457,7 +516,9 @@ function Swatch(props: { label: string; value: string; onInput: (v: string) => v
         type="color"
         class="h-6 w-full cursor-pointer border-[1.5px] border-ink"
         value={props.value}
-        onInput={(e) => props.onInput(e.currentTarget.value)}
+        onInput={(e) => {
+          props.onInput(e.currentTarget.value);
+        }}
       />
       {props.label}
     </label>

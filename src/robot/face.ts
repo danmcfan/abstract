@@ -237,18 +237,28 @@ function mouth(g: CanvasRenderingContext2D, x: number, y: number, t: number) {
 }
 
 const REST_MOUTHS: Partial<Record<Expression, Draw>> = {
-  idle: (g, _t, x, y) => stroke(g, 6, (g) => (g.moveTo(x - 14, y), g.lineTo(x + 14, y))),
-  happy: (g, _t, x, y) => stroke(g, 7, (g) => (g.moveTo(x - 26, y - 8), g.quadraticCurveTo(x, y + 14, x + 26, y - 8))),
-  worried: (g, t, x, y) =>
+  idle: (g, _t, x, y) => {
+    stroke(g, 6, (g) => (g.moveTo(x - 14, y), g.lineTo(x + 14, y)));
+  },
+  happy: (g, _t, x, y) => {
+    stroke(g, 7, (g) => (g.moveTo(x - 26, y - 8), g.quadraticCurveTo(x, y + 14, x + 26, y - 8)));
+  },
+  worried: (g, t, x, y) => {
     stroke(g, 5, (g) => {
       g.moveTo(x - 24, y);
       for (let i = 1; i <= 6; i++) g.lineTo(x - 24 + i * 8, y + (i % 2 ? -5 : 5) + Math.sin(t * 30) * 1.5);
-    }),
-  thinking: (g, _t, x, y) => stroke(g, 6, (g) => (g.moveTo(x + 2, y), g.lineTo(x + 24, y - 4))),
-  error: (g, _t, x, y) =>
+    });
+  },
+  thinking: (g, _t, x, y) => {
+    stroke(g, 6, (g) => (g.moveTo(x + 2, y), g.lineTo(x + 24, y - 4)));
+  },
+  error: (g, _t, x, y) => {
     stroke(g, 5, (g) => {
       g.moveTo(x - 26, y);
       for (let i = 1; i <= 5; i++) g.lineTo(x - 26 + i * 10.4, y + (i % 2 ? -7 : 7));
-    }),
-  amazed: (g, _t, x, y) => stroke(g, 6, (g) => g.arc(x, y, 9, 0, Math.PI * 2)),
+    });
+  },
+  amazed: (g, _t, x, y) => {
+    stroke(g, 6, (g) => g.arc(x, y, 9, 0, Math.PI * 2));
+  },
 };

@@ -29,7 +29,9 @@ describe("clips", () => {
   test("blending starts at one pose and ends at the other", () => {
     const a = pose("happy", 0.3);
     const b = pose("sleepy", 0.3);
-    const near = (x: Pose, y: Pose) => numbers(x).forEach((v, i) => expect(v).toBeCloseTo(numbers(y)[i]!));
+    const near = (x: Pose, y: Pose) => {
+      numbers(x).forEach((v, i) => expect(v).toBeCloseTo(numbers(y)[i]!));
+    };
     near(blend(a, b, 0), a);
     near(blend(a, b, 1), b);
     expect(blend(a, b, 0.5).leftArm.raise).toBeCloseTo((a.leftArm.raise + b.leftArm.raise) / 2);

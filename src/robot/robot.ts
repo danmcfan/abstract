@@ -297,7 +297,7 @@ export function createRobot(): Robot {
   );
   glass.position.set(0, 0.3, FACE + 0.003);
   head.add(glass);
-  const faceContext = (screen.texture.image as HTMLCanvasElement).getContext("2d")!;
+  const faceContext = screen.texture.image.getContext("2d")!;
   const BEZEL = FACE + 0.03;
   for (const [x, y] of [
     [-0.31, 0.51],
@@ -392,7 +392,7 @@ export function createRobot(): Robot {
       coil.rotation.z = pose.antenna;
       coil.scale.y = pose.spring;
       bulbMaterial.color.copy(dim).lerp(PALETTE.glow, pose.led);
-      (bulbHalo.material as THREE.SpriteMaterial).opacity = pose.led;
+      bulbHalo.material.opacity = pose.led;
     },
   };
 }

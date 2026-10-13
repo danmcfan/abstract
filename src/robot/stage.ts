@@ -97,7 +97,7 @@ function createStage(): RobotStage {
       if (host === container) return;
       if (host) observer.unobserve(host);
       host = container;
-      container.appendChild(canvas);
+      container.append(canvas);
       observer.observe(container);
       resize();
       cancelAnimationFrame(frame);

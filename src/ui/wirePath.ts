@@ -24,8 +24,10 @@ export function wirePath(route: Route): string {
         .filter((h) => h.y === corner.y && (h.x - from.x) * ux > 0 && (corner.x - h.x) * ux > 0)
         .sort((a, b) => (a.x - b.x) * ux);
       for (const h of hops) {
-        parts.push(`L ${h.x - HOP_RADIUS * ux} ${h.y}`);
-        parts.push(`A ${HOP_RADIUS} ${HOP_RADIUS} 0 0 ${ux > 0 ? 1 : 0} ${h.x + HOP_RADIUS * ux} ${h.y}`);
+        parts.push(
+          `L ${h.x - HOP_RADIUS * ux} ${h.y}`,
+          `A ${HOP_RADIUS} ${HOP_RADIUS} 0 0 ${ux > 0 ? 1 : 0} ${h.x + HOP_RADIUS * ux} ${h.y}`,
+        );
       }
     }
 
@@ -35,8 +37,10 @@ export function wirePath(route: Route): string {
     }
     const vx = Math.sign(next.x - corner.x);
     const vy = Math.sign(next.y - corner.y);
-    parts.push(`L ${corner.x - ux * r} ${corner.y - uy * r}`);
-    parts.push(`Q ${corner.x} ${corner.y} ${corner.x + vx * r} ${corner.y + vy * r}`);
+    parts.push(
+      `L ${corner.x - ux * r} ${corner.y - uy * r}`,
+      `Q ${corner.x} ${corner.y} ${corner.x + vx * r} ${corner.y + vy * r}`,
+    );
   }
   return parts.join(" ");
 }

@@ -15,7 +15,9 @@ export function useTutorial(): void {
 
   createEffect(
     on(currentLevel, (l) => {
-      once(`intro:${l.gate}`, () => say(script.intro(l)));
+      once(`intro:${l.gate}`, () => {
+        say(script.intro(l));
+      });
     }),
   );
 
@@ -24,7 +26,10 @@ export function useTutorial(): void {
       if (!r) return;
       const response = respond(r, currentLevel(), hasFlag);
       if (!response) return;
-      if ("react" in response) return react(response.react);
+      if ("react" in response) {
+        react(response.react);
+        return;
+      }
       if (response.flag) setFlag(response.flag);
       say(response.say);
     }),

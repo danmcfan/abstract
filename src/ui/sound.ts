@@ -115,8 +115,12 @@ const CUES: Record<Cue, (now: number, pitch: number) => void> = {
     burst(at, 0.09, 0.6, "lowpass", 900);
     tone(at, 0.06, 0.15, 220, "triangle");
   },
-  tick: (t) => tone(t, 0.035, 0.18, 1600, "triangle"),
-  "fail-tick": (t) => tone(t, 0.05, 0.18, 640, "triangle"),
+  tick: (t) => {
+    tone(t, 0.035, 0.18, 1600, "triangle");
+  },
+  "fail-tick": (t) => {
+    tone(t, 0.05, 0.18, 640, "triangle");
+  },
   stamp: (t) => {
     burst(t, 0.2, 0.9, "lowpass", 300);
     tone(t, 0.16, 0.5, 90, "sine", 55);
@@ -141,7 +145,7 @@ const CUES: Record<Cue, (now: number, pitch: number) => void> = {
 
 const voice: Sound = {
   play(cue, pitch = 0) {
-    if (!ctx || ctx.state !== "running") return;
+    if (ctx?.state !== "running") return;
     try {
       CUES[cue](ctx.currentTime, pitch);
     } catch {}

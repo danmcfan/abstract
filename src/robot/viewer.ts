@@ -77,7 +77,7 @@ export function createViewer(container: HTMLElement, onFrame?: (time: number) =>
   canvas.style.width = "100%";
   canvas.style.height = "100%";
   canvas.style.touchAction = "none";
-  container.appendChild(canvas);
+  container.append(canvas);
 
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(26, 1, 0.1, 50);
