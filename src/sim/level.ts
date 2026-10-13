@@ -154,7 +154,116 @@ export const LEVELS: Level[] = [
       target: ([a = 0, b = 0, cin = 0]) => [(a + b + cin) % 256, a + b + cin >= 256 ? 1 : 0],
     },
   },
+  {
+    gate: "2-BIT MUX",
+    goal: "OUT is both signals of A when SEL is off, and both of B when SEL is on.",
+    layer: 4,
+    inputs: ["A", "B", "SEL"],
+    outputs: ["OUT"],
+    widths: { A: 2, B: 2, OUT: 2 },
+    target: ([a = 0, b = 0, sel = 0]) => [sel ? b : a],
+    cases: [
+      [1, 2, 0],
+      [1, 2, 1],
+      [3, 0, 0],
+      [3, 0, 1],
+    ],
+    // Like the adder: once the player has built 2 signals, 8 is the same
+    // MUX six more times, so Bitbox hands over MUX8.
+    gives: {
+      gate: "MUX8",
+      inputs: ["A", "B", "SEL"],
+      outputs: ["OUT"],
+      widths: { A: 8, B: 8, OUT: 8 },
+      target: ([a = 0, b = 0, sel = 0]) => [sel ? b : a],
+    },
+  },
+  {
+    gate: "ZERO TEST",
+    goal: "ZERO is on only when every signal of A is off.",
+    layer: 4,
+    inputs: ["A"],
+    outputs: ["ZERO"],
+    widths: { A: 8 },
+    target: ([a = 0]) => [a === 0 ? 1 : 0],
+    grid: { width: 60, height: 45 },
+    cases: [[0], [1], [16], [128], [255]],
+  },
+  {
+    gate: "ALU SLICE",
+    goal: "Do OP to A and B: 0 add, 1 subtract, 2 and, 3 or, 4 xor, 5 not A. OP 6 and 7 give nothing.",
+    layer: 4,
+    inputs: ["A", "B", "CIN", "OP"],
+    outputs: ["OUT", "COUT"],
+    widths: { OP: 3 },
+    target: ([a = 0, b = 0, cin = 0, op = 0]) => operate(op, a, b, cin, 1),
+    grid: { width: 60, height: 60 },
+    cases: [
+      [1, 1, 0, 0],
+      [1, 0, 1, 0],
+      [0, 1, 1, 1],
+      [1, 1, 1, 1],
+      [1, 1, 0, 2],
+      [1, 0, 0, 3],
+      [1, 1, 0, 4],
+      [0, 1, 0, 5],
+      [1, 1, 1, 6],
+      [1, 1, 1, 7],
+    ],
+  },
+  {
+    gate: "2-BIT ALU",
+    goal: "OUT is OP's operation on A and B, as on the slice. ZERO is on when A is 0, whatever OP is.",
+    layer: 4,
+    inputs: ["A", "B", "OP"],
+    outputs: ["OUT", "ZERO"],
+    widths: { A: 2, B: 2, OP: 3, OUT: 2 },
+    target: aluTarget(2),
+    cases: [
+      [1, 2, 0],
+      [3, 1, 0],
+      [3, 1, 1],
+      [1, 2, 1],
+      [3, 2, 2],
+      [1, 2, 3],
+      [3, 1, 4],
+      [1, 0, 5],
+      [0, 2, 0],
+      [3, 3, 6],
+      [3, 3, 7],
+    ],
+    // The 8-bit ALU is the same chain of slices four times as long.
+    gives: {
+      gate: "ALU",
+      inputs: ["A", "B", "OP"],
+      outputs: ["OUT", "ZERO"],
+      widths: { A: 8, B: 8, OP: 3, OUT: 8 },
+      target: aluTarget(8),
+    },
+  },
 ];
+
+// An ALU on buses width signals wide. Subtract is add with B flipped and a
+// carry in, which wraps 1 - 2 round to 3 at 2 bits, or 3 - 5 to 254 at 8.
+function aluTarget(width: number): Level["target"] {
+  return ([a = 0, b = 0, op = 0]) => [operate(op, a, b, op === 1 ? 1 : 0, width)[0] ?? 0, a === 0 ? 1 : 0];
+}
+
+// The ALU's operations on buses width signals wide, by OP: the result and the carry
+// out. Only add and subtract carry; OP 6 and 7 are unused and give nothing.
+function operate(op: Value, a: Value, b: Value, cin: Value, width: number): Value[] {
+  const all = 2 ** width - 1;
+  const sum = (x: Value): Value[] => [x & all, x > all ? 1 : 0];
+  const results: Value[][] = [
+    sum(a + b + cin),
+    sum(a + (~b & all) + cin),
+    [a & b, 0],
+    [a | b, 0],
+    [a ^ b, 0],
+    [~a & all, 0],
+  ];
+  return results[op] ?? [0, 0];
+}
 
 // The part a solved level adds to the bin: the gate it builds, unless it
 // gives another.

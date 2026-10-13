@@ -35,9 +35,10 @@ board() { js "(p => Math.round(p.x) + ' ' + Math.round(p.y))(__abstract.boardScr
 terminal() { js "__abstract.nodes().find(n => n.type === '$1' && n.label === '$2').id"; }
 newest() { js "Math.max(...__abstract.nodes().map(n => n.id))"; }
 
-# Adds a gate from the toolbox and drags it to board cell (x, y).
+# Adds a gate from the toolbox and drags it to board cell (x, y). A split or
+# join takes its bus width as a fourth argument, when the bin has more than one.
 add() {
-  ab click "button[data-gate=\"$1\"]"
+  ab click "button[data-gate=\"$1\"]${4:+[data-width=\"$4\"]}"
   local id; id=$(newest)
   # shellcheck disable=SC2046
   drag $(body "$id") $(board "$2" "$3")
@@ -182,17 +183,104 @@ done
 wire "$J" "$S"; wire "$CARRY" "$C" 0 1
 check 3 10
 
-# The 2-bit adder ends L3, and L4 has no levels yet, so there's no way up.
+# The 2-bit adder ends L3, so passing leads up to the calculation shop.
+expect "document.querySelector('#up').textContent.includes('Up to the calculation shop')" "level 10 leads up to the calculation shop"
+ab click "#up"; sleep 1.2
+expect "!!__abstract.saying?.includes('calculation shop')" "Bitbox names the new floor"
+hush
+expect "document.querySelector('[data-layer=\"3\"]').parentElement.dataset.state === 'built'" "L3 is built"
+expect "document.querySelector('[data-layer=\"4\"]').parentElement.dataset.state === 'in progress'" "L4 is in progress"
+sheet 11
+
+# Level 11: a 2-bit MUX is a MUX per signal. Split A and B, give each pair
+# of signals a MUX with SEL on both, and join the outputs in order.
+A=$(terminal INPUT A); B=$(terminal INPUT B); SEL=$(terminal INPUT SEL); O=$(terminal OUTPUT OUT)
+SA=$(add SPLIT 12 9); SB=$(add SPLIT 12 31); J=$(add JOIN 34 20)
+wire "$A" "$SA"; wire "$B" "$SB"
+for pin in 0 1; do
+  M=$(add MUX 23 $((14 + pin * 14)))
+  wire "$SA" "$M" 0 "$pin"; wire "$SB" "$M" 1 "$pin"; wire "$SEL" "$M" 2
+  wire "$M" "$J" "$pin"
+done
+wire "$J" "$O"
+check 3 11
+
+# Level 12: the zero test ORs A's signals together in pairs, down to one
+# wire that's on when A isn't zero, and NOTs it.
+ab click "#next"; sleep 0.5; hush
+A=$(terminal INPUT A); Z=$(terminal OUTPUT ZERO)
+SP=$(add SPLIT 17 22)
+wire "$A" "$SP"
+R=()
+for i in 0 1 2 3; do
+  R[i]=$(add OR 26 $((10 + i * 8)))
+  wire "$SP" "${R[i]}" 0 $((2 * i)); wire "$SP" "${R[i]}" 1 $((2 * i + 1))
+done
+R4=$(add OR 35 14); R5=$(add OR 35 30); R6=$(add OR 43 22); N=$(add NOT 51 22)
+wire "${R[0]}" "$R4" 0; wire "${R[1]}" "$R4" 1; wire "${R[2]}" "$R5" 0; wire "${R[3]}" "$R5" 1
+wire "$R4" "$R6" 0; wire "$R5" "$R6" 1; wire "$R6" "$N"; wire "$N" "$Z"
+check 3 12
+
+# Level 13: the ALU slice works out every job side by side and MUXes on OP
+# pick one. The full adder adds A to B XOR OP's ones place, so OP 1
+# subtracts, and COUT is the carry only while OP's top two signals are off.
+ab click "#next"; sleep 0.5; hush
+A=$(terminal INPUT A); B=$(terminal INPUT B); CI=$(terminal INPUT CIN); OP=$(terminal INPUT OP)
+O=$(terminal OUTPUT OUT); C=$(terminal OUTPUT COUT)
+SP=$(add SPLIT 14 50 3)
+FLIP=$(add XOR 14 26); F=$(add "FULL ADDER" 23 12)
+GA=$(add AND 23 25); GO=$(add OR 23 31); GX=$(add XOR 23 37); NA=$(add NOT 23 43)
+P23=$(add MUX 32 28); P45=$(add MUX 32 40); N1=$(add NOT 32 48); ANY=$(add OR 32 54)
+LOW=$(add MUX 41 16); HIGH=$(add AND 41 42); NONE=$(add NOT 41 54)
+RES=$(add MUX 50 18); CO=$(add AND 50 38)
+wire "$OP" "$SP"
+wire "$B" "$FLIP" 0; wire "$SP" "$FLIP" 1 2
+wire "$A" "$F" 0; wire "$FLIP" "$F" 1; wire "$CI" "$F" 2
+wire "$A" "$GA" 0; wire "$B" "$GA" 1; wire "$A" "$GO" 0; wire "$B" "$GO" 1
+wire "$A" "$GX" 0; wire "$B" "$GX" 1; wire "$A" "$NA"
+wire "$GA" "$P23" 0; wire "$GO" "$P23" 1; wire "$SP" "$P23" 2 2
+wire "$GX" "$P45" 0; wire "$NA" "$P45" 1; wire "$SP" "$P45" 2 2
+wire "$SP" "$N1" 0 1; wire "$SP" "$ANY" 0 1; wire "$SP" "$ANY" 1 0
+wire "$F" "$LOW" 0; wire "$P23" "$LOW" 1; wire "$SP" "$LOW" 2 1
+wire "$P45" "$HIGH" 0; wire "$N1" "$HIGH" 1; wire "$ANY" "$NONE"
+wire "$LOW" "$RES" 0; wire "$HIGH" "$RES" 1; wire "$SP" "$RES" 2 0
+wire "$F" "$CO" 0 1; wire "$NONE" "$CO" 1
+wire "$RES" "$O"; wire "$CO" "$C"
+check 7 13
+
+# Level 14: a 2-bit ALU is two slices in a chain, the ones place at the
+# bottom, the low COUT into the high CIN. The bottom CIN is OP's ones place:
+# on for subtract, off for add. ZERO ORs A's two signals and NOTs them, up
+# by A.
+ab click "#next"; sleep 0.5; hush
+A=$(terminal INPUT A); B=$(terminal INPUT B); OP=$(terminal INPUT OP)
+O=$(terminal OUTPUT OUT); Z=$(terminal OUTPUT ZERO)
+SA=$(add SPLIT 12 8 2); SB=$(add SPLIT 12 20 2); SO=$(add SPLIT 12 34 3)
+J=$(add JOIN 34 19 2); ANY=$(add OR 23 3); NONE=$(add NOT 32 3)
+wire "$A" "$SA"; wire "$B" "$SB"; wire "$OP" "$SO"
+CARRY=$SO; CARRY_PIN=2
+for bit in 0 1; do
+  pin=$((1 - bit))
+  S=$(add "ALU SLICE" 23 $((12 + pin * 14)))
+  wire "$SA" "$S" 0 "$pin"; wire "$SB" "$S" 1 "$pin"; wire "$CARRY" "$S" 2 "$CARRY_PIN"; wire "$OP" "$S" 3
+  wire "$S" "$J" "$pin" 0
+  CARRY=$S; CARRY_PIN=1
+done
+wire "$SA" "$ANY" 0 0; wire "$SA" "$ANY" 1 1; wire "$ANY" "$NONE"
+wire "$J" "$O"; wire "$NONE" "$Z"
+check 7 14
+
+# The 2-bit ALU ends L4, and L5 has no levels yet, so there's no way up.
 expect "!document.querySelector('#up') && !document.querySelector('#next')" "no way up from the last level"
 
 # The HUD button opens the stack on the current layer, and each level keeps
-# its board: going back to the half adder finds it still wired.
-expect "document.querySelector('#open-stack').textContent.includes('L3 · adder assembly')" "the HUD names the current layer"
+# its board: going back to the zero test finds it still wired.
+expect "document.querySelector('#open-stack').textContent.includes('L4 · the calculation shop')" "the HUD names the current layer"
 ab click "#open-stack"; sleep 0.8; hush
-expect "document.querySelector('[data-layer=\"3\"]').parentElement.dataset.state === 'built'" "L3 is built"
+expect "document.querySelector('[data-layer=\"4\"]').parentElement.dataset.state === 'built'" "L4 is built"
 agent-browser screenshot "$OUT/stack-built.png" >/dev/null
-sheet 8
-expect "__abstract.levelIndex === 7 && __abstract.game.edges.size === 6" "the half adder keeps its board"
+sheet 12
+expect "__abstract.levelIndex === 11 && __abstract.game.edges.size === 17" "the zero test keeps its board"
 
 # The title offers the stack once there's a save.
 ab click "#menu"; sleep 0.5
