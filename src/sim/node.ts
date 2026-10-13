@@ -30,6 +30,10 @@ export interface Node {
   isHigh: boolean;
   // The value on each output pin, in pin order. An INPUT's is its switches.
   signals: Value[];
+  // A memory part's state, which its level's rule reads and changes. 0 for
+  // every other node, and for every node when a board loads or a test run
+  // starts.
+  state: Value;
 }
 
 export function mask(value: Value, width: number): Value {

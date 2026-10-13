@@ -1,31 +1,35 @@
 import type { Game } from "./circuit";
-import { placeNode } from "./circuit";
+import { placeNode, restart, tick } from "./circuit";
+import { partsFrom, type Parts } from "./kind";
 import {
   applyInputs,
+  CLOCK,
   checkLevel,
+  hasClock,
   levelAt,
   LEVELS,
   loadLevel,
   PARTS,
   matches,
   playableCount,
-  truthTable,
+  testTable,
   type CheckResult,
   type Level,
   type Row,
 } from "./level";
-import type { NodeType, Value } from "./node";
+import type { NodeID, NodeType, Value } from "./node";
 import { loadBoard, saveBoard, type Boards, type SaveStore } from "./save";
 import { silent, type Sound } from "./sound";
 
 // One player's play: the current level and board, the board left on every
-// other level, a test run stepping through the truth table one row at a
-// time, solved progress, and story flags. Time lives outside; the caller
-// decides when to step. The caller changes the board through edit(). A test
-// run plays its sound cues as it goes.
+// other level, a test run stepping through the truth table or timing table
+// one row at a time, solved progress, and story flags. Time lives outside;
+// the caller decides when to step, and when to tick a level's clock. The
+// caller changes the board through edit(). A test run plays its sound cues
+// as it goes.
 export class Session {
   levelIndex = 0;
-  game: Game = loadLevel(levelAt(0));
+  game: Game;
   solved: number;
   // Bumped whenever a test run begins or is aborted, so a caller holding a
   // run can tell it's stale.
@@ -45,10 +49,16 @@ export class Session {
 
   private readonly store: SaveStore;
   private readonly sound: Sound;
+  private readonly levels: Level[];
+  private readonly parts: Parts;
 
-  constructor(store: SaveStore, sound: Sound = silent) {
+  // The levels are the game's own, except in tests.
+  constructor(store: SaveStore, sound: Sound = silent, levels: Level[] = LEVELS) {
     this.store = store;
     this.sound = sound;
+    this.levels = levels;
+    this.parts = levels === LEVELS ? PARTS : partsFrom([...levels, ...levels.flatMap((level) => level.gives ?? [])]);
+    this.game = loadLevel(levelAt(0, levels), this.parts);
     const data = store.load();
     this.solved = data?.solved ?? 0;
     this.boards = data?.boards ?? {};
@@ -64,7 +74,7 @@ export class Session {
   get savedLevel(): number {
     const data = this.store.load();
     if (!data) return 0;
-    return Math.max(0, Math.min(data.levelIndex, playableCount(data.solved) - 1));
+    return Math.max(0, Math.min(data.levelIndex, playableCount(data.solved, this.levels) - 1));
   }
 
   // Picks up the saved game where it left off, boards and all.
@@ -74,7 +84,7 @@ export class Session {
       this.reset();
       return;
     }
-    this.solved = Math.min(data.solved, LEVELS.length);
+    this.solved = Math.min(data.solved, this.levels.length);
     this.flags = new Set(data.flags);
     this.boards = data.boards;
     this.start(this.savedLevel);
@@ -92,10 +102,13 @@ export class Session {
   // Applies a change to the board and saves it. A change that alters the
   // board takes the stamp off, since the board it vouched for is gone; one
   // that leaves it as it was, like a rejected wire, keeps the stamp.
+  // A change that leaves the board unstable plays its sound cue.
   edit(change: (game: Game) => void): void {
     const before = JSON.stringify(saveBoard(this.game));
+    const stable = this.game.stable;
     change(this.game);
     if (JSON.stringify(saveBoard(this.game)) !== before) this.stamped = false;
+    if (stable && !this.game.stable) this.sound.play("unstable");
     this.save();
   }
 
@@ -110,32 +123,32 @@ export class Session {
   }
 
   get level(): Level {
-    return levelAt(this.levelIndex);
+    return levelAt(this.levelIndex, this.levels);
   }
 
-  // The rows the level panel shows: the truth table, then any rows the last
-  // test run found failing out of sight.
+  // The rows the level panel shows: the truth table or timing table, then
+  // any rows the last test run found failing out of sight.
   get tableRows(): Row[] {
-    return [...truthTable(this.level), ...(this.result?.hidden.failed ?? [])];
+    return [...testTable(this.level), ...(this.result?.hidden.failed ?? [])];
   }
 
   get unlockedCount(): number {
-    return playableCount(this.solved);
+    return playableCount(this.solved, this.levels);
   }
 
   // Opens a level on the board the player left there, or a fresh one if
   // they've never been, aborting any test run without recording a result.
   start(index: number): void {
-    const level = levelAt(index);
+    const level = levelAt(index, this.levels);
     const board = this.boards[level.gate];
     this.levelIndex = index;
-    this.load(board ? loadBoard(board, PARTS) : loadLevel(level));
+    this.load(board ? loadBoard(board, this.parts) : loadLevel(level, this.parts));
   }
 
   // Throws away the current level's board for a fresh one. Other levels'
   // boards are kept.
   clear(): void {
-    this.load(loadLevel(this.level));
+    this.load(loadLevel(this.level, this.parts));
   }
 
   private load(game: Game): void {
@@ -158,14 +171,33 @@ export class Session {
     this.sound.play("place");
   }
 
+  // Turns the level's clock on and off, if it has one and no test run is
+  // going. Returns whether it ticked.
+  tick(): boolean {
+    const clock = this.clock();
+    if (this.testing || clock === undefined) return false;
+    this.edit((game) => {
+      tick(game, clock);
+    });
+    this.sound.play("clock");
+    return true;
+  }
+
+  private clock(): NodeID | undefined {
+    if (!hasClock(this.level)) return undefined;
+    return [...this.game.nodes.values()].find((node) => node.type === "INPUT" && node.label === CLOCK)?.id;
+  }
+
   // Returns false if a run is already going. Every row is checked here, out
-  // of sight and without a sound; step() shows them, one tick each.
+  // of sight and without a sound; step() shows them, one tick each. The
+  // board restarts first, so the rows it shows are the ones checked.
   beginTest(): boolean {
     if (this.testing) return false;
     this.sound.play("carriage");
     this.run++;
     this.testing = true;
-    this.check = checkLevel(this.game, this.levelIndex);
+    restart(this.game);
+    this.check = checkLevel(this.game, this.levelIndex, this.levels);
     this.currentRow = null;
     this.rowResults = [];
     this.result = null;
@@ -183,6 +215,11 @@ export class Session {
     const row = check.rows[next];
     if (row) {
       applyInputs(this.game, this.level, row.inputs);
+      const clock = this.clock();
+      if (row.tick === true && clock !== undefined) {
+        tick(this.game, clock);
+        this.sound.play("clock");
+      }
       this.currentRow = next;
       this.rowResults = Object.assign([...this.rowResults], { [next]: row.actual });
       this.sound.play(matches(row.actual, row.expected) ? "tick" : "fail-tick");

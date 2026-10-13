@@ -12,6 +12,10 @@ export type Cue =
   | "pencil"
   // A wire connecting: a relay click.
   | "connect"
+  // A tick of the clock: a heavier relay click.
+  | "clock"
+  // The board becoming unstable: a buzz and a pop.
+  | "unstable"
   // A test run starting: a typewriter carriage return.
   | "carriage"
   // A truth table row showing during a test run, lower when it fails.

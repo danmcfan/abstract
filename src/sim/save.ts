@@ -1,4 +1,4 @@
-import type { Edge, Game } from "./circuit";
+import { restart, type Edge, type Game } from "./circuit";
 import { DEFAULT_GRID, type Size } from "./grid";
 import { LEVELS, PARTS } from "./level";
 import { hasKind, kindOf, type Parts } from "./kind";
@@ -90,7 +90,7 @@ export function saveBoard(game: Game): SavedBoard {
 const LEGACY_LABELS: Record<string, Label> = { ALPHA: "A", BETA: "B", NONE: "" };
 
 // A node or wire as an older save may hold it.
-type OldNode = Omit<Node, "width"> & { width?: number };
+type OldNode = Omit<Node, "width" | "state"> & { width?: number };
 type OldEdge = Omit<Edge, "value"> & { value?: Value; isHigh?: boolean };
 
 function upgradeNode(node: OldNode, parts: Parts): Node {
@@ -100,7 +100,7 @@ function upgradeNode(node: OldNode, parts: Parts): Node {
   const signals = Array.isArray(node.signals)
     ? node.signals.map(Number)
     : Array.from({ length: kind.outputCount(1) }, () => Number(node.isHigh));
-  return { ...node, label, signals, width: node.width ?? 1, rect: { ...node.rect } };
+  return { ...node, label, signals, width: node.width ?? 1, rect: { ...node.rect }, state: 0 };
 }
 
 function upgradeEdge(edge: OldEdge): Edge {
@@ -108,16 +108,20 @@ function upgradeEdge(edge: OldEdge): Edge {
   return { ...rest, value: edge.value ?? Number(isHigh ?? false) };
 }
 
-// The board's nodes can be any of the given parts.
+// The board's nodes can be any of the given parts. Every memory part starts
+// at 0, so the board restarts from its switches.
 export function loadBoard(board: SavedBoard, parts: Parts): Game {
-  return {
+  const game: Game = {
     nodes: new Map(board.nodes.map((node) => [node.id, upgradeNode(node, parts)])),
     edges: new Map(board.edges.map((edge) => [edge.id, upgradeEdge(edge)])),
     nextNodeID: board.nextNodeID,
     nextEdgeID: board.nextEdgeID,
     grid: { ...(board.grid ?? DEFAULT_GRID) },
     parts,
+    stable: true,
   };
+  restart(game);
+  return game;
 }
 
 // Only the arrays and the node kinds are checked; the rest of a board is

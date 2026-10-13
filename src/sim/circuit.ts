@@ -5,8 +5,8 @@ import { mask, MAX_WIDTH, type Label, type Node, type NodeID, type NodeType, typ
 // The board: nodes, the wires between them, and the signals on both. Every
 // command leaves the circuit settled, so readers never see stale signals.
 // Invariants: wires run output pin -> input pin, an input pin takes at most
-// one wire, wires never form a loop, a wire joins pins of the same width, and
-// every wire's nodes exist.
+// one wire, a wire joins pins of the same width, and every wire's nodes
+// exist. Wires may form loops, so a board can be unstable.
 
 export type EdgeID = number;
 
@@ -30,6 +30,9 @@ export interface Game {
   grid: Size;
   // The parts its nodes can be, from the levels.
   parts: Parts;
+  // False when the last settle gave up because a loop kept changing its own
+  // signals.
+  stable: boolean;
 }
 
 // A connection point on a node. Input pins sit on the left edge, output pins
@@ -41,7 +44,7 @@ export interface Pin {
 }
 
 export function newGame(parts: Parts, grid: Size = DEFAULT_GRID): Game {
-  return { nodes: new Map(), edges: new Map(), nextNodeID: 0, nextEdgeID: 0, grid: { ...grid }, parts };
+  return { nodes: new Map(), edges: new Map(), nextNodeID: 0, nextEdgeID: 0, grid: { ...grid }, parts, stable: true };
 }
 
 export function nodeKind(game: Game, node: Node): NodeKind {
@@ -70,7 +73,7 @@ export function placeNode(
   if (!Number.isInteger(width) || width < 1 || width > MAX_WIDTH) return null;
   const rect = freeRect(game, kindOf(game.parts, type).size(width), center);
   if (!rect) return null;
-  const node: Node = { id: game.nextNodeID++, type, label, rect, width, isHigh: false, signals: [] };
+  const node: Node = { id: game.nextNodeID++, type, label, rect, width, isHigh: false, signals: [], state: 0 };
   game.nodes.set(node.id, node);
   settle(game);
   return node;
@@ -98,16 +101,14 @@ export function removeNode(game: Game, id: NodeID): void {
 
 // Wires an output pin to an input pin, in either order. An input pin takes
 // one wire, so an existing wire into it is replaced. Refuses wires that
-// would form a loop or join pins of different widths. Returns the new edge,
-// or null if refused.
+// join pins of different widths. Returns the new edge, or null if refused.
 export function wire(game: Game, a: Pin, b: Pin): Edge | null {
   const [from, to] = a.side === "out" ? [a, b] : [b, a];
-  if (from.side !== "out" || to.side !== "in" || from.node === to.node) return null;
+  if (from.side !== "out" || to.side !== "in") return null;
   const source = game.nodes.get(from.node);
   const target = game.nodes.get(to.node);
   if (!source || !target) return null;
   if (widthOf(game, source, from) !== widthOf(game, target, to)) return null;
-  if (reaches(game, to.node, from.node)) return null;
 
   const old = edgeInto(game, to.node, to.index);
   if (old) game.edges.delete(old.id);
@@ -143,6 +144,23 @@ export function setInputs(game: Game, values: Map<NodeID, Value>): void {
   for (const [id, value] of values) {
     const node = game.nodes.get(id);
     if (node && nodeKind(game, node).terminal === "input") node.signals = [mask(value, node.width)];
+  }
+  settle(game);
+}
+
+// Turns the clock on and then off, settling after each change.
+export function tick(game: Game, clock: NodeID): void {
+  setInput(game, clock, 1);
+  setInput(game, clock, 0);
+}
+
+// Puts every node but the input terminals back to off and every memory
+// part's state back to 0, then settles, so what happens next doesn't hang
+// on what happened before. simulate starts from the same place.
+export function restart(game: Game): void {
+  for (const node of game.nodes.values()) {
+    node.state = 0;
+    if (nodeKind(game, node).terminal !== "input") node.signals = [];
   }
   settle(game);
 }
@@ -227,79 +245,124 @@ function collides(game: Game, rect: Rect, except?: NodeID): boolean {
   return false;
 }
 
-// Whether signals flow from start to target along wires.
-function reaches(game: Game, start: NodeID, target: NodeID): boolean {
-  const seen = new Set<NodeID>();
-  const stack = [start];
-  for (let id = stack.pop(); id !== undefined; id = stack.pop()) {
-    if (id === target) return true;
-    if (seen.has(id)) continue;
-    seen.add(id);
-    for (const edge of game.edges.values()) {
-      if (edge.from === id) stack.push(edge.to);
-    }
-  }
-  return false;
-}
-
 // The board in dependency order, each node with the wire into each of its
-// input pins and the position of that wire's source in the order. The
-// circuit has no loops, so one pass in this order settles it.
+// input pins and the position of that wire's source in the order. Without
+// loops or memory parts, one pass in this order settles the board; with
+// them, a pass reads the signals a later node gave on the pass before, and
+// passes repeat until nothing changes.
 interface Step {
   node: Node;
   kind: NodeKind;
   inputs: ({ edge: Edge; from: number } | null)[];
 }
 
-function plan(game: Game): Step[] {
+interface Plan {
+  steps: Step[];
+  // Whether one pass settles the board.
+  once: boolean;
+}
+
+function plan(game: Game): Plan {
   const into = new Map<NodeID, Edge[]>();
   for (const edge of game.edges.values()) {
     const wires = into.get(edge.to) ?? [];
     wires[edge.toIndex] = edge;
     into.set(edge.to, wires);
   }
-  const steps: Step[] = [];
+  const order: Node[] = [];
   const position = new Map<NodeID, number>();
-  const visit = (node: Node): number => {
-    const seen = position.get(node.id);
-    if (seen !== undefined) return seen;
+  const visiting = new Set<NodeID>();
+  // Wires that lead back to a node still being visited: the loops.
+  const loops: Edge[] = [];
+  const visit = (node: Node): void => {
+    if (position.has(node.id)) return;
+    visiting.add(node.id);
+    // A wire back to a node still being visited closes a loop: that node's
+    // signal comes from the pass before.
+    into.get(node.id)?.forEach((edge) => {
+      const from = wiredNode(game, edge.from);
+      if (visiting.has(from.id) && !position.has(from.id)) loops.push(edge);
+      else visit(from);
+    });
+    position.set(node.id, order.length);
+    order.push(node);
+  };
+  for (const node of game.nodes.values()) visit(node);
+  const steps = order.map((node): Step => {
     const kind = nodeKind(game, node);
     const inputs = Array.from({ length: kind.inputCount(node.width) }, (_, i) => {
       const edge = into.get(node.id)?.[i];
-      return edge ? { edge, from: visit(wiredNode(game, edge.from)) } : null;
+      return edge ? { edge, from: position.get(edge.from) ?? -1 } : null;
     });
-    position.set(node.id, steps.length);
-    steps.push({ node, kind, inputs });
-    return steps.length - 1;
-  };
-  for (const node of game.nodes.values()) visit(node);
-  return steps;
+    return { node, kind, inputs };
+  });
+  return { steps, once: loops.length === 0 && steps.every((step) => step.kind.next === undefined) };
 }
 
-// One pass over a plan: each step's output values and the values into its
-// input pins, by position. Input terminals take their values from source.
-// Unwired input pins read 0.
-function pass(steps: Step[], source: (node: Node) => Value): { signals: Value[][]; inputs: Value[][] } {
+// Every step's output values, the values into its input pins and its state,
+// by position.
+interface Signals {
+  outputs: Value[][];
+  inputs: Value[][];
+  states: Value[];
+}
+
+// One pass over a plan, changing signals in place. Input terminals take
+// their values from source. Unwired input pins read 0. A memory part gives
+// the outputs of the state it had, then takes its next state. Returns
+// whether anything changed.
+function pass(steps: Step[], signals: Signals, source: (node: Node) => Value): boolean {
   // Plain loops: this runs for every node on every row of a test run.
-  const signals: Value[][] = [];
-  const inputs: Value[][] = [];
-  for (const { node, kind, inputs: wires } of steps) {
+  let changed = false;
+  for (const [i, { node, kind, inputs: wires }] of steps.entries()) {
     const values: Value[] = [];
-    for (const w of wires) values.push(w ? (signals[w.from]?.[w.edge.fromIndex] ?? 0) : 0);
-    inputs.push(values);
-    signals.push(kind.terminal === "input" ? [mask(source(node), node.width)] : kind.evaluate(values, node.width));
+    for (const w of wires) values.push(w ? (signals.outputs[w.from]?.[w.edge.fromIndex] ?? 0) : 0);
+    signals.inputs[i] = values;
+    const state = signals.states[i] ?? 0;
+    const outputs =
+      kind.terminal === "input" ? [mask(source(node), node.width)] : kind.evaluate(values, node.width, state);
+    if (kind.next) {
+      const next = kind.next(values, state);
+      if (next !== state) changed = true;
+      signals.states[i] = next;
+    }
+    const old = signals.outputs[i] ?? [];
+    if (outputs.length !== old.length || outputs.some((value, pin) => value !== old[pin])) changed = true;
+    signals.outputs[i] = outputs;
   }
-  return { signals, inputs };
+  return changed;
 }
 
-// Recomputes every node and wire from the input terminals.
+// Settling gives up after this many passes per node: a loop that still
+// changes by then keeps flipping its own signal.
+const PASSES_PER_NODE = 2;
+
+// Passes over a plan until nothing changes. Returns whether it settled.
+function run(board: Plan, signals: Signals, source: (node: Node) => Value): boolean {
+  if (board.once) {
+    pass(board.steps, signals, source);
+    return true;
+  }
+  const limit = PASSES_PER_NODE * board.steps.length + 2;
+  for (let i = 0; i < limit; i++) if (!pass(board.steps, signals, source)) return true;
+  return false;
+}
+
+// Recomputes every node and wire from the input terminals, starting from
+// the signals the board has, so a loop holds its value.
 function settle(game: Game): void {
-  const steps = plan(game);
-  const { signals, inputs } = pass(steps, (node) => node.signals[0] ?? 0);
-  // pass gives one entry per step and one value per wired pin.
+  const board = plan(game);
+  const { steps } = board;
+  const signals: Signals = {
+    outputs: steps.map((step) => step.node.signals),
+    inputs: [],
+    states: steps.map((step) => step.node.state),
+  };
+  game.stable = run(board, signals, (node) => node.signals[0] ?? 0);
   steps.forEach(({ node, kind, inputs: wires }, i) => {
-    node.signals = signals[i] ?? [];
-    const into = inputs[i] ?? [];
+    node.signals = signals.outputs[i] ?? [];
+    node.state = signals.states[i] ?? 0;
+    const into = signals.inputs[i] ?? [];
     wires.forEach((w, pin) => {
       if (w) w.edge.value = into[pin] ?? 0;
     });
@@ -308,15 +371,28 @@ function settle(game: Game): void {
 }
 
 // Runs many sets of input values through the board without changing it,
-// much faster than setting the switches and settling each time. The returned
-// function takes one value per input terminal in inputs and gives one value
-// per output terminal in outputs: the value on its wire, or 0 if unwired.
-export function simulate(game: Game, inputs: NodeID[], outputs: NodeID[]): (values: Value[]) => Value[] {
-  const steps = plan(game);
+// much faster than setting the switches and settling each time. It starts
+// where restart would leave the board, and each set of values carries on
+// from the last, so a loop or memory part keeps its value between them. The
+// returned function takes one value per input terminal in inputs and gives
+// one value per output terminal in outputs (the value on its wire, or 0 if
+// unwired) and whether the board settled.
+export function simulate(
+  game: Game,
+  inputs: NodeID[],
+  outputs: NodeID[],
+): (values: Value[]) => { outputs: Value[]; stable: boolean } {
+  const board = plan(game);
+  const signals: Signals = {
+    outputs: board.steps.map((step) => (step.kind.terminal === "input" ? step.node.signals : [])),
+    inputs: [],
+    states: board.steps.map(() => 0),
+  };
+  run(board, signals, (node) => node.signals[0] ?? 0);
   const slot = new Map(inputs.map((id, i) => [id, i]));
-  const lamps = outputs.map((id) => steps.findIndex((step) => step.node.id === id));
+  const lamps = outputs.map((id) => board.steps.findIndex((step) => step.node.id === id));
   return (values) => {
-    const { inputs: into } = pass(steps, (node) => values[slot.get(node.id) ?? -1] ?? 0);
-    return lamps.map((i) => into[i]?.[0] ?? 0);
+    const stable = run(board, signals, (node) => values[slot.get(node.id) ?? -1] ?? 0);
+    return { outputs: lamps.map((i) => signals.inputs[i]?.[0] ?? 0), stable };
   };
 }

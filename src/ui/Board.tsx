@@ -144,6 +144,7 @@ export function Board(): JSX.Element {
         svg = el;
       }}
       viewBox={viewBox()}
+      classList={{ unstable: !current().stable }}
       onPointerMove={onPointerMove}
       onPointerDown={onPointerDown}
       onPointerUp={onPointerUp}
@@ -194,6 +195,11 @@ export function Board(): JSX.Element {
       <rect x={0} y={0} width={grid().width} height={grid().height} fill="url(#minor)" />
       <rect x={0} y={0} width={grid().width} height={grid().height} fill="url(#major)" />
       <rect class="work-area" x={0} y={0} width={grid().width} height={grid().height} />
+      <Show when={!current().stable}>
+        <text id="unstable" class="unstable-note" x={0.4} y={-0.4}>
+          UNSTABLE: a loop never settles
+        </text>
+      </Show>
 
       <g>
         <For each={wires()}>

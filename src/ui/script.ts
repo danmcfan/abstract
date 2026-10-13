@@ -282,6 +282,11 @@ export const failed: Line[] = [
   { face: "idle", text: "Flip the switches yourself to see what your circuit really does." },
 ];
 
+export const unstable: Line[] = [
+  { face: "error", text: "Bzzt! A loop on your board keeps flipping its own signal, so it never settles." },
+  { face: "idle", text: "Look for a wire that feeds a gate's output back into it." },
+];
+
 export const forbidden = (types: NodeType[]): Line[] => [
   { face: "worried", text: `${types.join(" and ")} isn't allowed on this level yet. Stick to the parts in the bin.` },
 ];

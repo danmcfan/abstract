@@ -2,7 +2,17 @@ import { describe, expect, test } from "bun:test";
 import { edgeInto, newGame, placeNode, setInput, switchAt, widthOf, wire, type Game, type Pin } from "./circuit";
 import { createGestures } from "./gesture";
 import { partsFrom } from "./kind";
-import { checkLevel, LEVELS, loadLevel, PARTS, rowCount, truthTable, wiring, type Level } from "./level";
+import {
+  checkLevel,
+  LEVELS,
+  loadLevel,
+  PARTS,
+  rowCount,
+  truthTable,
+  wiring,
+  type Level,
+  type TruthTableLevel,
+} from "./level";
 import type { Label, NodeID, NodeType } from "./node";
 import { loadBoard, saveBoard, type SavedBoard } from "./save";
 
@@ -26,7 +36,7 @@ const FULL_ADDER: Level = {
 
 // An adder of the given width with a few named cases, on a board large
 // enough to build it.
-function adder(width: number, cases: number[][]): Level {
+function adder(width: number, cases: number[][]): TruthTableLevel {
   return {
     gate: `ADD${width}`,
     goal: "SUM and COUT are A + B + CIN.",

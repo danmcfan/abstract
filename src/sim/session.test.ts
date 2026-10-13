@@ -4,6 +4,8 @@ import type { Node, NodeID, NodeType } from "./node";
 import type { Rect } from "./grid";
 import { memorySave, type SaveData, type SaveStore } from "./save";
 import { Session } from "./session";
+import { LEVELS, type Level } from "./level";
+import { recordingSound } from "./sound";
 
 const out = (node: NodeID): Pin => ({ node, side: "out", index: 0 });
 const inp = (node: NodeID, index = 0): Pin => ({ node, side: "in", index });
@@ -401,4 +403,97 @@ describe("one board per level", () => {
     expect(session.result).toBeNull();
     expect(session.game.edges.size).toBe(0);
   });
+});
+
+// A NAND level, then a D flip-flop level that comes prebuilt, so its board
+// has the part wired between D, CLK and Q.
+const CLOCKED: Level[] = [
+  LEVELS[0]!,
+  {
+    gate: "DFF",
+    goal: "Q takes D's value when the clock turns on.",
+    layer: 5,
+    inputs: ["D", "CLK"],
+    outputs: ["Q"],
+    memory: {
+      next: ([d = 0, clk = 0], state) => (clk && !(state >> 1) ? d : state & 1) | (clk << 1),
+      outputs: (state) => [state & 1],
+    },
+    steps: [
+      { inputs: [1, 0], expected: [0] },
+      { inputs: [1, 0], tick: true, expected: [1] },
+      { inputs: [0, 0], expected: [1] },
+    ],
+    prebuilt: true,
+  },
+];
+
+function clocked(): { session: Session; sound: ReturnType<typeof recordingSound>; label: (l: string) => NodeID } {
+  const sound = recordingSound();
+  const session = new Session(memorySave(saved(1)), sound, CLOCKED);
+  session.start(1);
+  const label = (l: string): NodeID => [...session.game.nodes.values()].find((n) => n.label === l)!.id;
+  return { session, sound, label };
+}
+const q = (session: Session): boolean => [...session.game.nodes.values()].find((n) => n.label === "Q")!.isHigh;
+
+describe("a level with a clock", () => {
+  test("Tick turns the clock on and off once, so the flip-flop takes in D once", () => {
+    const { session, sound, label } = clocked();
+    session.edit((game) => {
+      setInput(game, label("D"), 1);
+    });
+    expect(q(session)).toBe(false);
+    expect(session.tick()).toBe(true);
+    expect(q(session)).toBe(true);
+    expect(session.game.nodes.get(label("CLK"))!.signals).toEqual([0]);
+    session.edit((game) => {
+      setInput(game, label("D"), 0);
+    });
+    expect(q(session)).toBe(true);
+    session.tick();
+    expect(q(session)).toBe(false);
+    expect(sound.played.filter((cue) => cue === "clock")).toHaveLength(2);
+  });
+
+  test("Tick does nothing on a level without a clock, or during a test run", () => {
+    const { session } = fresh();
+    expect(session.tick()).toBe(false);
+    const { session: withClock } = clocked();
+    withClock.beginTest();
+    expect(withClock.tick()).toBe(false);
+  });
+
+  test("a test run plays the timing table, ticking where a step says, from memory parts at 0", () => {
+    const { session, sound, label } = clocked();
+    session.edit((game) => {
+      setInput(game, label("D"), 1);
+    });
+    session.tick();
+    expect(q(session)).toBe(true);
+    sound.played.length = 0;
+    session.beginTest();
+    expect(q(session)).toBe(false);
+    expect(session.tableRows).toEqual(CLOCKED[1]!.steps!);
+    while (session.step());
+    expect(session.result!.passed).toBe(true);
+    expect(session.rowResults).toEqual([[0], [1], [1]]);
+    expect(sound.played.filter((cue) => cue === "clock")).toHaveLength(1);
+  });
+});
+
+test("a change that makes the board unstable plays the unstable cue once", () => {
+  const sound = recordingSound();
+  const session = new Session(memorySave(saved(1)), sound);
+  session.start(NOT_LEVEL);
+  const not = placeNode(session.game, "NAND", { x: 20, y: 10 })!.id;
+  session.edit((game) => {
+    wire(game, out(not), inp(not, 0));
+    wire(game, out(not), inp(not, 1));
+  });
+  expect(session.game.stable).toBe(false);
+  session.edit((game) => {
+    moveNode(game, not, 20, 20);
+  });
+  expect(sound.played.filter((cue) => cue === "unstable")).toHaveLength(1);
 });
