@@ -14,7 +14,7 @@ import {
   truthTable,
   type Level,
 } from "./level";
-import { kindOf, partsFrom } from "./kind";
+import { kindOf } from "./kind";
 import type { Label, NodeID, NodeType } from "./node";
 
 const out = (node: NodeID, index = 0): Pin => ({ node, side: "out", index });
@@ -179,9 +179,9 @@ describe("the MUX level", () => {
 describe("the DEMUX level", () => {
   const index = levelIndex("DEMUX");
 
-  test("comes straight after MUX, as the last level so far", () => {
+  test("comes straight after MUX, as the last level on the logic line", () => {
     expect(LEVELS[index - 1]!.gate).toBe("MUX");
-    expect(index).toBe(LEVELS.length - 1);
+    expect(floorAbove(index)?.floor).toBe("adder assembly");
   });
 
   test("has inputs D and SEL and outputs Y0 and Y1", () => {
@@ -267,18 +267,9 @@ test("checkLevel leaves the board's inputs alone", () => {
   expect(game.nodes.get(a)!.isHigh).toBe(false);
 });
 
-// A two-output level after the four we have, built from their parts. Its
-// level isn't in the game yet, so the test makes one.
-const HALF_ADDER: Level = {
-  gate: "HALF",
-  goal: "SUM is on when exactly one input is on; COUT when both are.",
-  layer: 3,
-  inputs: ["A", "B"],
-  outputs: ["SUM", "COUT"],
-  target: ([a = 0, b = 0]) => [a ^ b, a & b],
-};
-const WITH_HALF = [...LEVELS, HALF_ADDER];
-const HALF = WITH_HALF.length - 1;
+// The half adder: the first level with two outputs.
+const HALF = levelIndex("HALF ADDER");
+const HALF_ADDER = LEVELS[HALF]!;
 
 // SUM is (A OR B) AND (A NAND B); COUT is A AND B.
 function buildHalfAdder(game: Game, cout: NodeType = "AND"): void {
@@ -297,6 +288,67 @@ function buildHalfAdder(game: Game, cout: NodeType = "AND"): void {
   wire(game, out(and), inp(terminal(game, "OUTPUT", "SUM")));
   wire(game, out(carry), inp(terminal(game, "OUTPUT", "COUT")));
 }
+
+describe("the adder levels", () => {
+  const full = levelIndex("FULL ADDER");
+
+  test("open L3 straight after DEMUX, half adder then full adder", () => {
+    expect(HALF).toBe(levelIndex("DEMUX") + 1);
+    expect(full).toBe(HALF + 1);
+    expect(layerLevels(3)).toEqual([HALF, full]);
+  });
+
+  test("the half adder's SUM is A XOR B and its COUT is A AND B", () => {
+    expect(HALF_ADDER.inputs).toEqual(["A", "B"]);
+    expect(HALF_ADDER.outputs).toEqual(["SUM", "COUT"]);
+    expect(truthTable(HALF_ADDER)).toEqual([
+      { inputs: [0, 0], expected: [0, 0] },
+      { inputs: [0, 1], expected: [1, 0] },
+      { inputs: [1, 0], expected: [1, 0] },
+      { inputs: [1, 1], expected: [0, 1] },
+    ]);
+  });
+
+  test("an XOR and an AND make a half adder", () => {
+    const game = loadLevel(HALF_ADDER);
+    const a = terminal(game, "INPUT", "A");
+    const b = terminal(game, "INPUT", "B");
+    const xor = gate(game, "XOR");
+    const and = gate(game, "AND");
+    for (const g of [xor, and]) {
+      wire(game, out(a), inp(g, 0));
+      wire(game, out(b), inp(g, 1));
+    }
+    wire(game, out(xor), inp(terminal(game, "OUTPUT", "SUM")));
+    wire(game, out(and), inp(terminal(game, "OUTPUT", "COUT")));
+    expect(checkLevel(game, HALF).passed).toBe(true);
+  });
+
+  test("the full adder adds A, B and CIN into SUM and COUT", () => {
+    const level = LEVELS[full]!;
+    expect(level.inputs).toEqual(["A", "B", "CIN"]);
+    expect(level.outputs).toEqual(["SUM", "COUT"]);
+    expect(truthTable(level).map((row) => row.expected)).toEqual(
+      [0, 1, 1, 2, 1, 2, 2, 3].map((total) => [total & 1, total >> 1]),
+    );
+  });
+
+  test("two half adders and an OR make a full adder", () => {
+    const game = loadLevel(LEVELS[full]!);
+    const first = gate(game, "HALF ADDER");
+    const second = gate(game, "HALF ADDER");
+    const or = gate(game, "OR");
+    wire(game, out(terminal(game, "INPUT", "A")), inp(first, 0));
+    wire(game, out(terminal(game, "INPUT", "B")), inp(first, 1));
+    wire(game, out(first, 0), inp(second, 0));
+    wire(game, out(terminal(game, "INPUT", "CIN")), inp(second, 1));
+    wire(game, out(first, 1), inp(or, 0));
+    wire(game, out(second, 1), inp(or, 1));
+    wire(game, out(second, 0), inp(terminal(game, "OUTPUT", "SUM")));
+    wire(game, out(or), inp(terminal(game, "OUTPUT", "COUT")));
+    expect(checkLevel(game, full).passed).toBe(true);
+  });
+});
 
 describe("a level with two outputs", () => {
   test("places a named output terminal for each output, down the right edge", () => {
@@ -319,13 +371,13 @@ describe("a level with two outputs", () => {
   test("a correct board passes", () => {
     const game = loadLevel(HALF_ADDER);
     buildHalfAdder(game);
-    expect(checkLevel(game, HALF, WITH_HALF).passed).toBe(true);
+    expect(checkLevel(game, HALF).passed).toBe(true);
   });
 
   test("one wrong output fails, and the failing row reports the actual bits", () => {
     const game = loadLevel(HALF_ADDER);
     buildHalfAdder(game, "OR");
-    const result = checkLevel(game, HALF, WITH_HALF);
+    const result = checkLevel(game, HALF);
     expect(result.passed).toBe(false);
     expect(result.rows.map((row) => row.actual)).toEqual([
       [0, 0],
@@ -336,7 +388,7 @@ describe("a level with two outputs", () => {
   });
 
   test("its part settles each output pin when wired on a later board", () => {
-    const game = newGame(partsFrom(WITH_HALF));
+    const game = newGame(PARTS);
     const a = placeNode(game, "INPUT", { x: 4, y: 10 }, "A")!.id;
     const b = placeNode(game, "INPUT", { x: 4, y: 20 }, "B")!.id;
     const lamp = placeNode(game, "OUTPUT", { x: 40, y: 10 }, "OUT")!.id;

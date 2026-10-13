@@ -73,6 +73,32 @@ const EXPECTED: Record<NodeType, Expected[]> = {
       ],
     },
   ],
+  "HALF ADDER": [
+    {
+      ins: [1, 1],
+      outs: [1, 1],
+      size: [6, 4],
+      cases: [
+        [
+          [1, 1],
+          [0, 1],
+        ],
+      ],
+    },
+  ],
+  "FULL ADDER": [
+    {
+      ins: [1, 1, 1],
+      outs: [1, 1],
+      size: [6, 6],
+      cases: [
+        [
+          [1, 0, 1],
+          [0, 1],
+        ],
+      ],
+    },
+  ],
 };
 
 describe("every kind the game uses", () => {
