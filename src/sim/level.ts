@@ -124,6 +124,25 @@ export const LEVELS: Level[] = [
     outputs: ["SUM", "COUT"],
     target: ([a = 0, b = 0, cin = 0]) => [a ^ b ^ cin, (a & b) | (cin & (a ^ b))],
   },
+  {
+    gate: "8-BIT ADDER",
+    goal: "Add A, B and CIN. SUM is the total, up to 255, and COUT is on when it goes past.",
+    layer: 3,
+    inputs: ["A", "B", "CIN"],
+    outputs: ["SUM", "COUT"],
+    widths: { A: 8, B: 8, SUM: 8 },
+    target: ([a = 0, b = 0, cin = 0]) => [(a + b + cin) % 256, a + b + cin >= 256 ? 1 : 0],
+    cases: [
+      [0, 0, 0],
+      [1, 1, 0],
+      [100, 55, 0],
+      [255, 1, 0],
+      [255, 255, 1],
+    ],
+    // Eight full adders stacked between two splits and a join don't fit
+    // on the usual board.
+    grid: { width: 60, height: 60 },
+  },
 ];
 
 // The parts the game's boards can hold: each level's gate, computing what

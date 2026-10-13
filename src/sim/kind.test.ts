@@ -99,6 +99,19 @@ const EXPECTED: Record<NodeType, Expected[]> = {
       ],
     },
   ],
+  "8-BIT ADDER": [
+    {
+      ins: [8, 8, 1],
+      outs: [8, 1],
+      size: [6, 6],
+      cases: [
+        [
+          [255, 1, 0],
+          [0, 1],
+        ],
+      ],
+    },
+  ],
 };
 
 describe("every kind the game uses", () => {

@@ -223,7 +223,7 @@ describe("a level with buses", () => {
       { type: "SPLIT", width: 8 },
       { type: "JOIN", width: 8 },
     ]);
-    for (const level of LEVELS) expect(wiring(level)).toEqual([]);
+    for (const level of LEVELS.filter((l) => l.widths === undefined)) expect(wiring(level)).toEqual([]);
   });
 
   test("a 4-bit adder built from full adders with split and join passes", () => {

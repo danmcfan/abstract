@@ -295,7 +295,7 @@ describe("the adder levels", () => {
   test("open L3 straight after DEMUX, half adder then full adder", () => {
     expect(HALF).toBe(levelIndex("DEMUX") + 1);
     expect(full).toBe(HALF + 1);
-    expect(layerLevels(3)).toEqual([HALF, full]);
+    expect(layerLevels(3).slice(0, 2)).toEqual([HALF, full]);
   });
 
   test("the half adder's SUM is A XOR B and its COUT is A AND B", () => {
@@ -347,6 +347,93 @@ describe("the adder levels", () => {
     wire(game, out(second, 0), inp(terminal(game, "OUTPUT", "SUM")));
     wire(game, out(or), inp(terminal(game, "OUTPUT", "COUT")));
     expect(checkLevel(game, full).passed).toBe(true);
+  });
+});
+
+// The 8-bit adder: the first level with buses, and the last on L3.
+const ADD8 = levelIndex("8-BIT ADDER");
+
+// A ripple-carry adder: split A and B into bits, chain eight full adders
+// from the low bit (the split's bottom pin) up, and join the sums. Without
+// its carry in, the low full adder never sees CIN.
+function buildRippleAdder(game: Game, carryIn = true): void {
+  const place = (type: NodeType, x: number, y: number, width = 1): NodeID =>
+    placeNode(game, type, { x, y }, "", width)!.id;
+  const splitA = place("SPLIT", 19, 2, 8);
+  const splitB = place("SPLIT", 19, 40, 8);
+  const join = place("JOIN", 42, 20, 8);
+  wire(game, out(terminal(game, "INPUT", "A")), inp(splitA));
+  wire(game, out(terminal(game, "INPUT", "B")), inp(splitB));
+  let carry: Pin | null = carryIn ? out(terminal(game, "INPUT", "CIN")) : null;
+  for (let bit = 0; bit < 8; bit++) {
+    const pin = 7 - bit;
+    const full = place("FULL ADDER", 30, 52 - bit * 7);
+    wire(game, out(splitA, pin), inp(full, 0));
+    wire(game, out(splitB, pin), inp(full, 1));
+    if (carry !== null) wire(game, carry, inp(full, 2));
+    wire(game, out(full, 0), inp(join, pin));
+    carry = out(full, 1);
+  }
+  wire(game, out(join), inp(terminal(game, "OUTPUT", "SUM")));
+  wire(game, carry!, inp(terminal(game, "OUTPUT", "COUT")));
+}
+
+describe("the 8-bit adder level", () => {
+  const level = LEVELS[ADD8]!;
+
+  test("comes after the full adder, as the last level of L3", () => {
+    expect(ADD8).toBe(levelIndex("FULL ADDER") + 1);
+    expect(layerLevels(3).at(-1)).toBe(ADD8);
+  });
+
+  test("adds bus A and B and a single CIN into bus SUM and a single COUT", () => {
+    const game = loadLevel(level);
+    const widths = [...game.nodes.values()].map((node) => [node.type, node.label, node.width]);
+    expect(widths).toEqual([
+      ["INPUT", "A", 8],
+      ["INPUT", "B", 8],
+      ["INPUT", "CIN", 1],
+      ["OUTPUT", "SUM", 8],
+      ["OUTPUT", "COUT", 1],
+    ]);
+  });
+
+  test("shows exactly its five named cases, as numbers", () => {
+    expect(truthTable(level)).toEqual([
+      { inputs: [0, 0, 0], expected: [0, 0] },
+      { inputs: [1, 1, 0], expected: [2, 0] },
+      { inputs: [100, 55, 0], expected: [155, 0] },
+      { inputs: [255, 1, 0], expected: [0, 1] },
+      { inputs: [255, 255, 1], expected: [255, 1] },
+    ]);
+  });
+
+  test("a ripple-carry adder of eight full adders passes", () => {
+    const game = loadLevel(level);
+    buildRippleAdder(game);
+    const result = checkLevel(game, ADD8);
+    expect(result.forbidden).toEqual([]);
+    expect(result.hidden).toEqual({ checked: 131_072 - 5, failed: [] });
+    expect(result.passed).toBe(true);
+  });
+
+  test("with its carry-in wire missing, it fails, and the failing rows are in the result", () => {
+    const game = loadLevel(level);
+    buildRippleAdder(game, false);
+    const result = checkLevel(game, ADD8);
+    expect(result.passed).toBe(false);
+    const wrong = result.rows.filter((row) => !matches(row.actual, row.expected));
+    expect(wrong).toEqual([{ inputs: [255, 255, 1], expected: [255, 1], actual: [254, 1] }]);
+    expect(result.hidden.failed.length).toBeGreaterThan(0);
+    expect(result.hidden.failed.every((row) => row.inputs[2] === 1)).toBe(true);
+  });
+
+  test("once solved, it's a part with bus pins that adds", () => {
+    expect(partsBin(ADD8 + 1)).toContain("8-BIT ADDER");
+    const add = kindOf(PARTS, "8-BIT ADDER");
+    expect([0, 1, 2].map((i) => add.pinWidth("in", i, 1))).toEqual([8, 8, 1]);
+    expect([0, 1].map((i) => add.pinWidth("out", i, 1))).toEqual([8, 1]);
+    expect(add.evaluate([200, 100, 1], 1)).toEqual([45, 1]);
   });
 });
 

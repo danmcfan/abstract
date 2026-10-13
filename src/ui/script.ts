@@ -151,6 +151,31 @@ const LEVELS: Partial<Record<NodeType, LevelScript>> = {
     ],
     solved: [{ face: "happy", text: "Full adder, done! Chain eight of them and you can add whole numbers." }],
   },
+  "8-BIT ADDER": {
+    intro: [
+      { face: "amazed", text: "Look at A and B! Each one is a row of eight switches." },
+      { face: "idle", text: "That's a bus: eight signals on one thick wire. Together they make a number up to 255." },
+      {
+        face: "idle",
+        text: "Check the Wiring section of the parts bin. A split breaks a bus into eight single wires.",
+      },
+      { face: "idle", text: "A join does the opposite. It gathers eight wires back into one bus." },
+      { face: "thinking", text: "Each split's top pin is the high bit. The bottom pin is the ones place." },
+      { face: "thinking", text: "The table only shows five rows. Run test checks all the others too." },
+    ],
+    hint: [
+      { face: "thinking", text: "Split A and split B. Give each pair of bits its own full adder." },
+      { face: "thinking", text: "Start at the bottom, the ones place. Its full adder takes CIN." },
+      { face: "thinking", text: "Each COUT goes into the CIN of the full adder one place up." },
+      { face: "thinking", text: "Join the eight SUMs into SUM. The top COUT is your COUT." },
+      CONTROLS,
+    ],
+    solved: [
+      { face: "happy", text: "8-bit adder, done! 255 + 1 rolls over to 0, with COUT on." },
+      { face: "amazed", text: "That's the last schematic on adder assembly." },
+      { face: "happy", text: "Our gates can count now. Next, we teach them some new tricks." },
+    ],
+  },
 };
 
 // The first time the elevator reaches each floor, by layer number.
