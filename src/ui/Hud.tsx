@@ -1,5 +1,15 @@
 import { For, Show, createEffect, createSignal, on, type JSX } from "solid-js";
-import { floorAbove, layerOf, LEVELS, type Layer, matches, partsBin, terminalWidth, wiring } from "../sim/level";
+import {
+  floorAbove,
+  layerOf,
+  LEVELS,
+  type Layer,
+  matches,
+  partGiven,
+  partsBin,
+  terminalWidth,
+  wiring,
+} from "../sim/level";
 import type { Value } from "../sim/node";
 import { say } from "./speech";
 import { GateIcon } from "./GateIcon";
@@ -45,7 +55,7 @@ function status(): { text: string; tone: string } | null {
   if (!r.passed) return { text: "Not quite. Some rows don't match.", tone: "text-fail" };
   const hasNext = levelIndex() + 1 < LEVELS.length;
   return {
-    text: hasNext ? `Tested! ${level().gate} is in your parts bin.` : "Tested! That's every level so far.",
+    text: hasNext ? `Tested! ${partGiven(level()).gate} is in your parts bin.` : "Tested! That's every level so far.",
     tone: "text-pass",
   };
 }

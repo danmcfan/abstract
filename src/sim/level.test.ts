@@ -439,12 +439,13 @@ describe("the 2-bit adder level", () => {
     expect(result.hidden.failed.length).toBeGreaterThan(0);
   });
 
-  test("once solved, it's a part with bus pins that adds", () => {
-    expect(partsBin(ADD2 + 1)).toContain("2-BIT ADDER");
-    const add = kindOf(PARTS, "2-BIT ADDER");
-    expect([0, 1, 2].map((i) => add.pinWidth("in", i, 1))).toEqual([2, 2, 1]);
-    expect([0, 1].map((i) => add.pinWidth("out", i, 1))).toEqual([2, 1]);
-    expect(add.evaluate([3, 2, 1], 1)).toEqual([2, 1]);
+  test("once solved, it gives the 8-bit adder, not the 2-bit one", () => {
+    expect(partsBin(ADD2 + 1)).toContain("8-BIT ADDER");
+    expect(partsBin(ADD2 + 1)).not.toContain("2-BIT ADDER");
+    const add = kindOf(PARTS, "8-BIT ADDER");
+    expect([0, 1, 2].map((i) => add.pinWidth("in", i, 1))).toEqual([8, 8, 1]);
+    expect([0, 1].map((i) => add.pinWidth("out", i, 1))).toEqual([8, 1]);
+    expect(add.evaluate([200, 100, 1], 1)).toEqual([45, 1]);
   });
 });
 

@@ -172,6 +172,7 @@ const LEVELS: Partial<Record<NodeType, LevelScript>> = {
       { face: "happy", text: "2-bit adder, done! 3 + 1 rolls over to 0, with COUT on." },
       { face: "idle", text: "Real computers add 8 bits at a time. It's the same chain, just four times longer." },
       { face: "idle", text: "Eight full adders, each COUT into the next CIN. Nothing new, only more of it." },
+      { face: "happy", text: "So I chained them for you. There's an 8-bit adder in your parts bin!" },
       { face: "amazed", text: "That's the last level on adder assembly." },
       { face: "happy", text: "Our gates can count now. Next, we teach them some new tricks." },
     ],
