@@ -277,7 +277,8 @@ function plan(game: Game): Plan {
   const visit = (node: Node): void => {
     if (position.has(node.id)) return;
     visiting.add(node.id);
-    // forEach skips the input pins with no wire.
+    // A wire back to a node still being visited closes a loop: that node's
+    // signal comes from the pass before.
     into.get(node.id)?.forEach((edge) => {
       const from = wiredNode(game, edge.from);
       if (visiting.has(from.id) && !position.has(from.id)) loops.push(edge);
@@ -350,13 +351,14 @@ function run(board: Plan, signals: Signals, source: (node: Node) => Value): bool
 // Recomputes every node and wire from the input terminals, starting from
 // the signals the board has, so a loop holds its value.
 function settle(game: Game): void {
-  const { steps, once } = plan(game);
+  const board = plan(game);
+  const { steps } = board;
   const signals: Signals = {
     outputs: steps.map((step) => step.node.signals),
     inputs: [],
     states: steps.map((step) => step.node.state),
   };
-  game.stable = run({ steps, once }, signals, (node) => node.signals[0] ?? 0);
+  game.stable = run(board, signals, (node) => node.signals[0] ?? 0);
   steps.forEach(({ node, kind, inputs: wires }, i) => {
     node.signals = signals.outputs[i] ?? [];
     node.state = signals.states[i] ?? 0;

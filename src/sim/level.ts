@@ -505,8 +505,8 @@ export interface CheckResult {
   passed: boolean;
 }
 
-// Runs the truth table or timing table without touching the player's board
-// (or its input switches): the shown rows, then, if the level only shows a
+// Runs the truth table or timing table on a copy of the board's signals,
+// leaving the board and its input switches alone: the shown rows, then, if the level only shows a
 // few cases, every other row out of sight. The run starts where restart
 // would leave the board, so every memory part starts at 0.
 export function checkLevel(board: Game, levelIndex: number, levels = LEVELS): CheckResult {
