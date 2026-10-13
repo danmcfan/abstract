@@ -163,26 +163,26 @@ wire "$H1" "$R" 0 1; wire "$H2" "$R" 1 1
 wire "$R" "$C"
 check 5 9
 
-# Level 10: an 8-bit adder is a ripple carry. Split A and B, stack eight
-# full adders with the ones place at the bottom by CIN, chain each COUT into
-# the CIN above, and join the SUMs.
+# Level 10: a 2-bit adder is a ripple carry. Split A and B, stack two full
+# adders with the ones place at the bottom by CIN, chain the low COUT into
+# the high CIN, and join the SUMs.
 ab click "#next"; sleep 0.5; hush
 A=$(terminal INPUT A); B=$(terminal INPUT B); CI=$(terminal INPUT CIN)
 S=$(terminal OUTPUT SUM); C=$(terminal OUTPUT COUT)
-SA=$(add SPLIT 21 9); SB=$(add SPLIT 21 29); J=$(add JOIN 43 30)
+SA=$(add SPLIT 12 9); SB=$(add SPLIT 12 31); J=$(add JOIN 34 16)
 wire "$A" "$SA"; wire "$B" "$SB"
 CARRY=$CI; CARRY_PIN=0
-for bit in 0 1 2 3 4 5 6 7; do
-  pin=$((7 - bit))
-  F=$(add "FULL ADDER" 32 $((4 + pin * 7)))
+for bit in 0 1; do
+  pin=$((1 - bit))
+  F=$(add "FULL ADDER" 22 $((14 + pin * 14)))
   wire "$SA" "$F" 0 "$pin"; wire "$SB" "$F" 1 "$pin"; wire "$CARRY" "$F" 2 "$CARRY_PIN"
   wire "$F" "$J" "$pin" 0
   CARRY=$F; CARRY_PIN=1
 done
 wire "$J" "$S"; wire "$CARRY" "$C" 0 1
-check 8 10
+check 3 10
 
-# The 8-bit adder ends L3, and L4 has no levels yet, so there's no way up.
+# The 2-bit adder ends L3, and L4 has no levels yet, so there's no way up.
 expect "!document.querySelector('#up') && !document.querySelector('#next')" "no way up from the last level"
 
 # The HUD button opens the stack on the current layer, and each level keeps

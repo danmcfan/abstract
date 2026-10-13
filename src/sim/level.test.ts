@@ -351,27 +351,27 @@ describe("the adder levels", () => {
   });
 });
 
-// The 8-bit adder: the first level with buses, and the last on L3.
-const ADD8 = levelIndex("8-BIT ADDER");
+// The 2-bit adder: the first level with buses, and the last on L3.
+const ADD2 = levelIndex("2-BIT ADDER");
 
-// A ripple-carry adder: split A and B into bits, chain eight full adders
-// from the low bit (the split's bottom pin) up, and join the sums. A
-// missing carry leaves that bit's full adder without its CIN wire.
-function buildRippleAdder(game: Game, missingCarry?: number): void {
+// A ripple-carry adder: split A and B into bits, chain two full adders from
+// the low bit (the split's bottom pin) up, and join the sums. A missing
+// carry leaves the high bit's full adder without its CIN wire.
+function buildRippleAdder(game: Game, missingCarry = false): void {
   const place = (type: NodeType, x: number, y: number, width = 1): NodeID =>
     placeNode(game, type, { x, y }, "", width)!.id;
-  const splitA = place("SPLIT", 19, 2, 8);
-  const splitB = place("SPLIT", 19, 40, 8);
-  const join = place("JOIN", 42, 20, 8);
+  const splitA = place("SPLIT", 12, 8, 2);
+  const splitB = place("SPLIT", 12, 30, 2);
+  const join = place("JOIN", 34, 15, 2);
   wire(game, out(terminal(game, "INPUT", "A")), inp(splitA));
   wire(game, out(terminal(game, "INPUT", "B")), inp(splitB));
   let carry = out(terminal(game, "INPUT", "CIN"));
-  for (let bit = 0; bit < 8; bit++) {
-    const pin = 7 - bit;
-    const full = place("FULL ADDER", 30, 52 - bit * 7);
+  for (let bit = 0; bit < 2; bit++) {
+    const pin = 1 - bit;
+    const full = place("FULL ADDER", 22, 28 - bit * 14);
     wire(game, out(splitA, pin), inp(full, 0));
     wire(game, out(splitB, pin), inp(full, 1));
-    if (bit !== missingCarry) wire(game, carry, inp(full, 2));
+    if (!(missingCarry && bit === 1)) wire(game, carry, inp(full, 2));
     wire(game, out(full, 0), inp(join, pin));
     carry = out(full, 1);
   }
@@ -379,30 +379,30 @@ function buildRippleAdder(game: Game, missingCarry?: number): void {
   wire(game, carry, inp(terminal(game, "OUTPUT", "COUT")));
 }
 
-describe("the 8-bit adder level", () => {
-  const level = LEVELS[ADD8]!;
+describe("the 2-bit adder level", () => {
+  const level = LEVELS[ADD2]!;
 
   test("comes after the full adder, as the last level of L3", () => {
-    expect(ADD8).toBe(levelIndex("FULL ADDER") + 1);
-    expect(layerLevels(3).at(-1)).toBe(ADD8);
+    expect(ADD2).toBe(levelIndex("FULL ADDER") + 1);
+    expect(layerLevels(3).at(-1)).toBe(ADD2);
   });
 
   test("adds bus A and B and a single CIN into bus SUM and a single COUT", () => {
     const game = loadLevel(level);
     const widths = [...game.nodes.values()].map((node) => [node.type, node.label, node.width]);
     expect(widths).toEqual([
-      ["INPUT", "A", 8],
-      ["INPUT", "B", 8],
+      ["INPUT", "A", 2],
+      ["INPUT", "B", 2],
       ["INPUT", "CIN", 1],
-      ["OUTPUT", "SUM", 8],
+      ["OUTPUT", "SUM", 2],
       ["OUTPUT", "COUT", 1],
     ]);
   });
 
-  test("supplies an 8-bit split and join in the Wiring section", () => {
+  test("supplies a 2-bit split and join in the Wiring section", () => {
     expect(wiring(level)).toEqual([
-      { type: "SPLIT", width: 8 },
-      { type: "JOIN", width: 8 },
+      { type: "SPLIT", width: 2 },
+      { type: "JOIN", width: 2 },
     ]);
   });
 
@@ -410,40 +410,41 @@ describe("the 8-bit adder level", () => {
     expect(truthTable(level)).toEqual([
       { inputs: [0, 0, 0], expected: [0, 0] },
       { inputs: [1, 1, 0], expected: [2, 0] },
-      { inputs: [100, 55, 0], expected: [155, 0] },
-      { inputs: [255, 1, 0], expected: [0, 1] },
-      { inputs: [255, 255, 1], expected: [255, 1] },
+      { inputs: [2, 1, 0], expected: [3, 0] },
+      { inputs: [3, 1, 0], expected: [0, 1] },
+      { inputs: [3, 3, 1], expected: [3, 1] },
     ]);
   });
 
-  test("a ripple-carry adder of eight full adders passes", () => {
+  test("a ripple-carry adder of two full adders passes", () => {
     const game = loadLevel(level);
     buildRippleAdder(game);
-    const result = checkLevel(game, ADD8);
+    const result = checkLevel(game, ADD2);
     expect(result.forbidden).toEqual([]);
-    expect(result.hidden).toEqual({ checked: 131_072 - 5, failed: [] });
+    expect(result.hidden).toEqual({ checked: 32 - 5, failed: [] });
     expect(result.passed).toBe(true);
   });
 
-  test("with the carry into bit 4 missing, it fails, and the failing rows are in the result", () => {
+  test("with the carry between the full adders missing, it fails, and the failing rows are in the result", () => {
     const game = loadLevel(level);
-    buildRippleAdder(game, 4);
-    const result = checkLevel(game, ADD8);
+    buildRippleAdder(game, true);
+    const result = checkLevel(game, ADD2);
     expect(result.passed).toBe(false);
     const wrong = result.rows.filter((row) => !matches(row.actual, row.expected));
     expect(wrong).toEqual([
-      { inputs: [255, 1, 0], expected: [0, 1], actual: [240, 0] },
-      { inputs: [255, 255, 1], expected: [255, 1], actual: [239, 1] },
+      { inputs: [1, 1, 0], expected: [2, 0], actual: [0, 0] },
+      { inputs: [3, 1, 0], expected: [0, 1], actual: [2, 0] },
+      { inputs: [3, 3, 1], expected: [3, 1], actual: [1, 1] },
     ]);
     expect(result.hidden.failed.length).toBeGreaterThan(0);
   });
 
   test("once solved, it's a part with bus pins that adds", () => {
-    expect(partsBin(ADD8 + 1)).toContain("8-BIT ADDER");
-    const add = kindOf(PARTS, "8-BIT ADDER");
-    expect([0, 1, 2].map((i) => add.pinWidth("in", i, 1))).toEqual([8, 8, 1]);
-    expect([0, 1].map((i) => add.pinWidth("out", i, 1))).toEqual([8, 1]);
-    expect(add.evaluate([200, 100, 1], 1)).toEqual([45, 1]);
+    expect(partsBin(ADD2 + 1)).toContain("2-BIT ADDER");
+    const add = kindOf(PARTS, "2-BIT ADDER");
+    expect([0, 1, 2].map((i) => add.pinWidth("in", i, 1))).toEqual([2, 2, 1]);
+    expect([0, 1].map((i) => add.pinWidth("out", i, 1))).toEqual([2, 1]);
+    expect(add.evaluate([3, 2, 1], 1)).toEqual([2, 1]);
   });
 });
 

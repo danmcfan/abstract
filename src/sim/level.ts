@@ -36,7 +36,7 @@ export interface Layer {
 export const LAYERS: Layer[] = [
   { number: 1, name: "NAND", floor: "the gate foundry", parts: "The one schematic Bitbox remembers" },
   { number: 2, name: "Basic gates", floor: "the logic line", parts: "NOT, AND, OR, XOR, MUX, DEMUX" },
-  { number: 3, name: "Arithmetic", floor: "adder assembly", parts: "Half adder, full adder, 8-bit adder" },
+  { number: 3, name: "Arithmetic", floor: "adder assembly", parts: "Half adder, full adder, 2-bit adder" },
   { number: 4, name: "ALU", floor: "the calculation shop", parts: "Add, subtract, and, or, xor, not; a zero test" },
   { number: 5, name: "Memory", floor: "the filing vault", parts: "Latch, flip-flop, register, register file, RAM" },
   {
@@ -125,23 +125,20 @@ export const LEVELS: Level[] = [
     target: ([a = 0, b = 0, cin = 0]) => [a ^ b ^ cin, (a & b) | (cin & (a ^ b))],
   },
   {
-    gate: "8-BIT ADDER",
-    goal: "Add A, B and CIN. SUM is the total, up to 255, and COUT is on when it goes past.",
+    gate: "2-BIT ADDER",
+    goal: "Add A, B and CIN. SUM is the total, up to 3, and COUT is on when it goes past.",
     layer: 3,
     inputs: ["A", "B", "CIN"],
     outputs: ["SUM", "COUT"],
-    widths: { A: 8, B: 8, SUM: 8 },
-    target: ([a = 0, b = 0, cin = 0]) => [(a + b + cin) % 256, a + b + cin >= 256 ? 1 : 0],
+    widths: { A: 2, B: 2, SUM: 2 },
+    target: ([a = 0, b = 0, cin = 0]) => [(a + b + cin) % 4, a + b + cin >= 4 ? 1 : 0],
     cases: [
       [0, 0, 0],
       [1, 1, 0],
-      [100, 55, 0],
-      [255, 1, 0],
-      [255, 255, 1],
+      [2, 1, 0],
+      [3, 1, 0],
+      [3, 3, 1],
     ],
-    // Eight full adders stacked between two splits and a join don't fit
-    // on the usual board.
-    grid: { width: 60, height: 60 },
   },
 ];
 
