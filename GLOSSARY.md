@@ -5,11 +5,11 @@ A logic-gate puzzle game: the player starts with NAND and builds every other par
 ## Progression
 
 **Layer**:
-A set of parts that are each built only from the layers below it (L1 NAND, L2 basic gates, L3 arithmetic, and so on up to L9, the door program). A layer is **built** when every level in it is solved, **in progress** when the player can play its first level but it isn't built yet, and **locked** otherwise.
+A set of parts that are each built only from the layers below it (L1 NAND, L2 basic gates, L3 arithmetic, and so on up to L9, the door program). Defined in `LAYERS` in `src/sim/level.ts`; each level names its layer. A layer is **built** when every level in it is solved, **in progress** when the player can play its first level but it isn't built yet, and **locked** otherwise.
 _Avoid_: tier, world, stage; complete or cleared (for a built layer)
 
 **Stack**:
-The screen that shows the nine layers from L1 at the bottom to L9 at the top, each with its floor, and where the player picks a level. Built layers are inked in and locked ones are drawn in dashed pencil.
+The screen that shows the nine layers from L1 at the bottom to L9 at the top, each with its floor, where the player opens a layer and picks one of its sheets. Built layers are inked in and locked ones are drawn in dashed pencil. Passing a layer's last level takes the elevator up to the next floor.
 _Avoid_: level select, map, menu
 
 **Floor**:
@@ -227,5 +227,5 @@ Whether sound cues play, switched with the Sound on/off button. Kept in the brow
 ## Saves
 
 **Save**:
-The player's progress, the board in progress and the story flags, kept in the browser (`src/sim/save.ts`). Continue resumes it; New Game erases it.
+The player's progress, the board left on each level and the story flags, kept in the browser (`src/sim/save.ts`). Continue resumes it; New Game erases it.
 _Avoid_: profile, slot, progress file

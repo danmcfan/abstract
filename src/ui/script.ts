@@ -31,7 +31,7 @@ const LEVELS: Partial<Record<NodeType, LevelScript>> = {
     solved: [
       { face: "happy", text: "Boom! The lamp stays on unless A and B are both on. That's a NAND gate." },
       { face: "amazed", text: "Here's the secret: every other chip can be built out of NANDs. Even a whole computer." },
-      { face: "idle", text: "NAND is in your parts bin now. Press Next level when you're ready." },
+      { face: "idle", text: "NAND is in your parts bin now. Press Up to the logic line when you're ready." },
     ],
   },
   NOT: {
@@ -96,6 +96,20 @@ const LEVELS: Partial<Record<NodeType, LevelScript>> = {
     ],
   },
 };
+
+// The first time the elevator reaches each floor, by layer number.
+const FLOORS: Record<number, Line> = {
+  2: { face: "amazed", text: "The logic line! Belts full of gates. Let's build some of our own." },
+  3: { face: "happy", text: "Adder assembly. Gates that count. Let's teach them to add." },
+  4: { face: "thinking", text: "The calculation shop. One part that does six jobs, built from what we have." },
+  5: { face: "thinking", text: "The filing vault. Our parts forget everything. Here they learn to remember." },
+  6: { face: "amazed", text: "The clock tower. Hear that ticking? The whole factory keeps time from here." },
+  7: { face: "idle", text: "The typing pool. Rows of old typewriters. Here we name our own instructions." },
+  8: { face: "amazed", text: "The control room. Every part we've built comes together up here." },
+  9: { face: "happy", text: "The exit hall. I can see the door! One program left to write." },
+};
+
+export const floor = (layer: number): Line[] => (FLOORS[layer] ? [FLOORS[layer]] : []);
 
 export const intro = (level: Level): Line[] => LEVELS[level.gate]?.intro ?? [];
 

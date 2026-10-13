@@ -11,6 +11,8 @@ import { definePart, mask, type Label, type NodeID, type NodeType, type Spec, ty
 export interface Level extends Spec {
   gate: NodeType;
   goal: string;
+  // The number of the layer the level belongs to.
+  layer: number;
   prebuilt?: boolean;
   // The rows the level panel shows, as input values, when the whole truth
   // table is too long to read. The test run checks the rest out of sight.
@@ -20,6 +22,28 @@ export interface Level extends Spec {
   grid?: Size;
 }
 
+// The stack the player climbs, bottom to top. Each layer is built from the
+// ones below it and happens on its own floor of the factory. Every layer is
+// listed, with its part names, before any of its levels exist.
+export interface Layer {
+  number: number;
+  name: string;
+  floor: string;
+  parts: string;
+}
+
+export const LAYERS: Layer[] = [
+  { number: 1, name: "NAND", floor: "the gate foundry", parts: "The one schematic Bitbox remembers" },
+  { number: 2, name: "Basic gates", floor: "the logic line", parts: "NOT, AND, OR, XOR, MUX, DEMUX" },
+  { number: 3, name: "Arithmetic", floor: "adder assembly", parts: "Half adder, full adder, 8-bit adder" },
+  { number: 4, name: "ALU", floor: "the calculation shop", parts: "Add, subtract, and, or, xor, not; a zero test" },
+  { number: 5, name: "Memory", floor: "the filing vault", parts: "Latch, flip-flop, register, register file, RAM" },
+  { number: 6, name: "Control", floor: "the clock tower", parts: "Constants, program counter, decoder, sequencer, clock speed" },
+  { number: 7, name: "Assembly", floor: "the typing pool", parts: "Name and number your own instruction set" },
+  { number: 8, name: "CPU", floor: "the control room", parts: "Fetch, decode, execute, in your instruction set" },
+  { number: 9, name: "The door program", floor: "the exit hall", parts: "Write it, run it, walk out" },
+];
+
 export const LEVELS: Level[] = [
   {
     gate: "NAND",
@@ -27,15 +51,17 @@ export const LEVELS: Level[] = [
     inputs: ["A", "B"],
     outputs: ["OUT"],
     target: ([a = 0, b = 0]) => [1 - (a & b)],
+    layer: 1,
     prebuilt: true,
   },
-  { gate: "NOT", goal: "Output is on when A is off.", inputs: ["A"], outputs: ["OUT"], target: ([a = 0]) => [1 - a] },
-  { gate: "AND", goal: "Output is on when A and B are both on.", inputs: ["A", "B"], outputs: ["OUT"], target: ([a = 0, b = 0]) => [a & b] },
-  { gate: "OR", goal: "Output is on when A or B is on.", inputs: ["A", "B"], outputs: ["OUT"], target: ([a = 0, b = 0]) => [a | b] },
-  { gate: "XOR", goal: "Output is on when exactly one of A and B is on.", inputs: ["A", "B"], outputs: ["OUT"], target: ([a = 0, b = 0]) => [a ^ b] },
+  { gate: "NOT", goal: "Output is on when A is off.", layer: 2, inputs: ["A"], outputs: ["OUT"], target: ([a = 0]) => [1 - a] },
+  { gate: "AND", goal: "Output is on when A and B are both on.", layer: 2, inputs: ["A", "B"], outputs: ["OUT"], target: ([a = 0, b = 0]) => [a & b] },
+  { gate: "OR", goal: "Output is on when A or B is on.", layer: 2, inputs: ["A", "B"], outputs: ["OUT"], target: ([a = 0, b = 0]) => [a | b] },
+  { gate: "XOR", goal: "Output is on when exactly one of A and B is on.", layer: 2, inputs: ["A", "B"], outputs: ["OUT"], target: ([a = 0, b = 0]) => [a ^ b] },
   {
     gate: "MUX",
     goal: "Output is A when SEL is off, and B when SEL is on.",
+    layer: 2,
     inputs: ["A", "B", "SEL"],
     outputs: ["OUT"],
     target: ([a = 0, b = 0, sel = 0]) => [sel ? b : a],
@@ -43,6 +69,7 @@ export const LEVELS: Level[] = [
   {
     gate: "DEMUX",
     goal: "D goes to Y0 when SEL is off, and to Y1 when SEL is on.",
+    layer: 2,
     inputs: ["D", "SEL"],
     outputs: ["Y0", "Y1"],
     target: ([d = 0, sel = 0]) => [d & (1 - sel), d & sel],
@@ -54,6 +81,40 @@ for (const level of LEVELS) definePart(level.gate, level);
 // Every solved level adds its gate; the first level hands you NAND.
 export function partsBin(levelIndex: number, levels = LEVELS): NodeType[] {
   return levels.slice(0, levelIndex).map((level) => level.gate);
+}
+
+// The levels that can be played: every solved level plus the next one.
+export function playableCount(solved: number, levels = LEVELS): number {
+  return Math.min(solved + 1, levels.length);
+}
+
+// The indexes of a layer's levels, in order.
+export function layerLevels(layer: number, levels = LEVELS): number[] {
+  return levels.flatMap((level, i) => (level.layer === layer ? [i] : []));
+}
+
+export type LayerState = "built" | "in progress" | "locked";
+
+// A layer is built once every level in it is solved, in progress once its
+// first level can be played, and locked otherwise, including while it has
+// no levels in the game.
+export function layerState(layer: number, solved: number, levels = LEVELS): LayerState {
+  const indexes = layerLevels(layer, levels);
+  if (indexes.length === 0) return "locked";
+  if (indexes.every((i) => i < solved)) return "built";
+  return indexes[0]! < playableCount(solved, levels) ? "in progress" : "locked";
+}
+
+export function layerOf(levelIndex: number, levels = LEVELS): Layer {
+  return LAYERS.find((layer) => layer.number === levels[levelIndex]!.layer)!;
+}
+
+// The layer a level leads up to: the next layer, if the level is the last
+// of its own and the next layer has a level in the game yet.
+export function floorAbove(levelIndex: number, levels = LEVELS): Layer | null {
+  const here = levels[levelIndex]!.layer;
+  const next = levels[levelIndex + 1];
+  return next && next.layer !== here ? layerOf(levelIndex + 1, levels) : null;
 }
 
 // How many signals a level's terminal carries.

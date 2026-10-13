@@ -34,7 +34,6 @@ export function placePart(type: NodeType, width = 1): void {
 export const levelIndex = read(() => session.levelIndex);
 export const level = read(() => session.level);
 export const solved = read(() => session.solved);
-export const unlockedCount = read(() => session.unlockedCount);
 export const testing = read(() => session.testing);
 export const currentRow = read(() => session.currentRow);
 export const rowResults = read(() => session.rowResults);
@@ -47,6 +46,12 @@ export const savedLevel = read(() => session.savedLevel);
 
 export function startLevel(index: number): void {
   session.start(index);
+  touch();
+}
+
+// Throws away the current level's board for a fresh one.
+export function clearBoard(): void {
+  session.clear();
   touch();
 }
 
@@ -67,6 +72,13 @@ export const hasFlag = (flag: string) => (version(), session.flags.has(flag));
 export function setFlag(flag: string): void {
   session.flags.add(flag);
   session.save();
+}
+
+// Runs speak() the first time only, remembering it with a story flag.
+export function once(flag: string, speak: () => void): void {
+  if (session.flags.has(flag)) return;
+  setFlag(flag);
+  speak();
 }
 
 // Steps through the truth table on the board so the player can watch each

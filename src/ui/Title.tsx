@@ -6,9 +6,9 @@ import { SoundButton } from "./SoundButton";
 import { hasSave, savedLevel, solved } from "./state";
 
 // The title sheet. With no saved game there's one button, Start. With one,
-// Continue picks it up and New Game starts over, after asking, since that
-// erases the save.
-export function Title(props: { onContinue: () => void; onNew: () => void }) {
+// Continue picks it up, The stack picks a level, and New Game starts over,
+// after asking, since that erases the save.
+export function Title(props: { onContinue: () => void; onStack: () => void; onNew: () => void }) {
   const [confirming, setConfirming] = createSignal(false);
   const [mood, setMood] = createSignal<Expression>("sleepy");
   const wake = () => setMood("happy");
@@ -67,6 +67,9 @@ export function Title(props: { onContinue: () => void; onNew: () => void }) {
                     <small class="block text-xs font-normal opacity-80">
                       {saved().prebuilt ? "Meet" : "Build"} {saved().gate}, level {savedLevel() + 1} of {LEVELS.length}
                     </small>
+                  </button>
+                  <button id="title-stack" class="btn btn-ghost" onMouseEnter={wake} onFocus={wake} onClick={() => props.onStack()}>
+                    The stack
                   </button>
                   <button id="new-game" class="btn btn-ghost" onClick={askToErase}>
                     New Game

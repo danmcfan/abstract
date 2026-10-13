@@ -17,6 +17,7 @@ function terminal(game: Game, type: NodeType, label: Label): NodeID {
 const FULL_ADDER: Level = {
   gate: "FULL" as NodeType,
   goal: "SUM is the low bit of A + B + CIN; COUT is the high bit.",
+  layer: 3,
   inputs: ["A", "B", "CIN"],
   outputs: ["SUM", "COUT"],
   target: ([a = 0, b = 0, cin = 0]) => [a ^ b ^ cin, (a & b) | (cin & (a ^ b))],
@@ -29,6 +30,7 @@ function adder(width: number, cases: number[][]): Level {
   return {
     gate: `ADD${width}` as NodeType,
     goal: "SUM and COUT are A + B + CIN.",
+    layer: 3,
     inputs: ["A", "B", "CIN"],
     outputs: ["SUM", "COUT"],
     widths: { A: width, B: width, SUM: width },
