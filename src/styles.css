@@ -17,6 +17,38 @@
   --color-dead: #a3b0c2;
   --color-pass: #23784a;
   --color-fail: #c0392b;
+  /* Backdrops on the Bitbox model sheet (src/dev/bitbox.tsx). */
+  --color-blueprint: #123a7c;
+  --color-slate: #8a94a6;
+  --color-soot: #111111;
+
+  /* The HUD switches from a top bar to a side panel here. src/ui/device.ts
+     repeats it as WIDE_MIN_WIDTH. */
+  --breakpoint-wide: 900px;
+
+  --text-tag: 9px;
+  --text-fine: 10px;
+  --text-label: 11px;
+  --text-note: 13px;
+  --text-copy: 15px;
+  --text-display: clamp(2.2rem, 8vw, 3.4rem);
+  --text-display--line-height: 0.95;
+  --tracking-label: 0.1em;
+  --tracking-stamp: 0.14em;
+  --shadow-glow: 0 0 6px var(--color-glow);
+
+  /* Title-sheet steps, the dialogue's four-or-so lines, and the floor list's
+     columns: badge, then text, indented past the badge and its gap. */
+  --spacing-indent: 1.2ch;
+  --spacing-indent-2: 2.4ch;
+  --spacing-dialogue: 6.6em;
+  --spacing-floor-text: calc(2.6rem + 1.6rem);
+  --grid-template-columns-floor: 2.6rem 1fr auto;
+  --grid-template-columns-title: auto 1fr;
+  --grid-template-columns-slider: 88px 1fr 56px;
+  --grid-template-columns-bench: 1fr 380px;
+  --grid-template-rows-bench: minmax(300px, 1fr) minmax(0, 45%);
+  --transition-property-elevator: top, height;
 }
 
 html,
@@ -44,6 +76,41 @@ body {
 :focus-visible {
   outline: 3px dashed var(--color-live);
   outline-offset: 3px;
+}
+
+/* Small squares of grid paper: the robot's video window, and the blueprint
+   backdrop on the model sheet. */
+@utility grid-paper {
+  background-image:
+    linear-gradient(rgba(47, 111, 196, 0.16) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(47, 111, 196, 0.16) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+@utility blueprint-grid {
+  background-color: var(--color-blueprint);
+  background-image:
+    linear-gradient(rgba(234, 242, 255, 0.14) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(234, 242, 255, 0.14) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* The hairline border on badges, chips and title-block cells. */
+@utility border-hair {
+  border-style: var(--tw-border-style);
+  border-width: 1.5px;
+}
+@utility border-t-hair {
+  border-top-style: var(--tw-border-style);
+  border-top-width: 1.5px;
+}
+@utility border-l-hair {
+  border-left-style: var(--tw-border-style);
+  border-left-width: 1.5px;
+}
+@utility border-b-hair {
+  border-bottom-style: var(--tw-border-style);
+  border-bottom-width: 1.5px;
 }
 
 /* Buttons from the vision board's parts bin: solid ink for the main action,
@@ -380,6 +447,7 @@ body {
   pointer-events: none;
 }
 #board .gate-label {
+  font-size: var(--label-size);
   font-weight: 700;
 }
 #board .terminal-label {
@@ -391,6 +459,12 @@ body {
 }
 #board .pin-label {
   font-size: 0.4px;
+}
+#board .pin-label.start {
+  text-anchor: start;
+}
+#board .pin-label.end {
+  text-anchor: end;
 }
 #board .pin {
   fill: var(--color-surface);

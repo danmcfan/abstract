@@ -71,7 +71,7 @@ function Gate(props: { node: Node }): JSX.Element {
   const bus = (side: Pin["side"], index: number): boolean => widthOf(props.node, { side, index }) > 1;
   return (
     <>
-      <For each={g.inLeads}>{(d, i) => <path class="lead in" classList={{ bus: bus("in", i()) }} d={d} />}</For>
+      <For each={g.inLeads}>{(d, i) => <path class="lead" classList={{ bus: bus("in", i()) }} d={d} />}</For>
       <For each={g.outLeads}>
         {(d, i) => <path class="lead out" classList={{ high: signal(i()), bus: bus("out", i()) }} d={d} />}
       </For>
@@ -80,14 +80,14 @@ function Gate(props: { node: Node }): JSX.Element {
       <Show when={g.bubble}>{(b) => <circle class="bubble" cx={b().cx} cy={b().cy} r={b().r} />}</Show>
       <Show when={g.label}>
         {(label) => (
-          <text class="gate-label" x={label().x} y={label().y} style={{ "font-size": `${label().size}px` }}>
+          <text class="gate-label" x={label().x} y={label().y} style={{ "--label-size": `${label().size}px` }}>
             {props.node.type}
           </text>
         )}
       </Show>
       <For each={g.pinLabels}>
         {(p) => (
-          <text class="pin-label" x={p.x} y={p.y} style={{ "text-anchor": p.anchor }}>
+          <text class={p.anchor === "start" ? "pin-label start" : "pin-label end"} x={p.x} y={p.y}>
             {p.text}
           </text>
         )}
@@ -126,7 +126,7 @@ function Lamp(props: { name: string; width: number; height: number }): JSX.Eleme
       <text class="terminal-label small" x={x()} y={props.height - 0.72}>
         {props.name}
       </text>
-      <path class="lead in" d={`M 0 ${y()} H ${x() - r}`} />
+      <path class="lead" d={`M 0 ${y()} H ${x() - r}`} />
       <circle class="bulb" cx={x()} cy={y()} r={r} />
       <path
         class="filament"
@@ -157,7 +157,7 @@ function BitRow(props: { node: Node }): JSX.Element {
         {props.node.label}
       </text>
       <path
-        class={`lead bus ${isInput ? "out" : "in"}`}
+        class={isInput ? "lead bus out" : "lead bus"}
         classList={{ high: value() !== 0 }}
         d={isInput ? `M ${width - 1} ${y} H ${width}` : `M 0 ${y} H 1`}
       />
@@ -167,7 +167,7 @@ function BitRow(props: { node: Node }): JSX.Element {
           const x = bitCell(bits, bit) + 0.5;
           return isInput ? (
             <rect
-              class="bit switch"
+              class="bit"
               classList={{ high: on() }}
               x={x - 0.36}
               y={y - 0.36}

@@ -27,22 +27,17 @@ const LIGHTS: Record<string, Lighting> = {
   },
 };
 
-// Backgrounds behind the canvas, and the solid colour each one snapshots on.
-const BACKDROPS: Record<string, { style: JSX.CSSProperties; color: string }> = {
-  paper: { style: {}, color: "#f5f8fc" },
-  white: { style: { background: "#ffffff" }, color: "#ffffff" },
-  blueprint: {
-    style: {
-      "background-color": "#123a7c",
-      "background-image":
-        "linear-gradient(rgba(234,242,255,.14) 1px, transparent 1px), linear-gradient(90deg, rgba(234,242,255,.14) 1px, transparent 1px)",
-      "background-size": "24px 24px",
-    },
-    color: "#123a7c",
-  },
-  void: { style: { background: "#0a2150" }, color: "#0a2150" },
-  grey: { style: { background: "#8a94a6" }, color: "#8a94a6" },
-  black: { style: { background: "#111111" }, color: "#111111" },
+// Backgrounds behind the canvas, the swatch for each, and the solid colour
+// each one snapshots on (the theme colour from src/styles.css, as the canvas
+// needs it).
+type Backdrop = { class: string; swatch: string; color: string };
+const BACKDROPS: Record<string, Backdrop> = {
+  paper: { class: "", swatch: "bg-paper", color: "#f5f8fc" },
+  white: { class: "bg-surface", swatch: "bg-surface", color: "#ffffff" },
+  blueprint: { class: "blueprint-grid", swatch: "bg-blueprint", color: "#123a7c" },
+  void: { class: "bg-void", swatch: "bg-void", color: "#0a2150" },
+  grey: { class: "bg-slate", swatch: "bg-slate", color: "#8a94a6" },
+  black: { class: "bg-soot", swatch: "bg-soot", color: "#111111" },
 };
 
 const VIEWS: View[] = ["game", "close", "front", "side", "back", "top", "low"];
@@ -82,7 +77,7 @@ const lightingFor = (name: string): Lighting => {
   if (lighting === undefined) throw new Error(`no lighting preset named ${name}`);
   return lighting;
 };
-const backdropFor = (name: string): { style: JSX.CSSProperties; color: string } => {
+const backdropFor = (name: string): Backdrop => {
   const backdrop = BACKDROPS[name];
   if (backdrop === undefined) throw new Error(`no backdrop named ${name}`);
   return backdrop;
@@ -199,8 +194,8 @@ function ModelSheet(): JSX.Element {
   });
 
   return (
-    <div class="fixed inset-0 grid grid-rows-[minmax(300px,1fr)_minmax(0,45%)] text-ink-deep md:grid-cols-[1fr_380px] md:grid-rows-1">
-      <div class="relative min-h-0" style={backdropFor(backdrop()).style}>
+    <div class="fixed inset-0 grid grid-rows-bench text-ink-deep md:grid-cols-bench md:grid-rows-1">
+      <div class={`relative min-h-0 ${backdropFor(backdrop()).class}`}>
         <div
           ref={(el) => {
             host = el;
@@ -209,10 +204,13 @@ function ModelSheet(): JSX.Element {
           class="absolute inset-0"
         />
         <div
-          class="pointer-events-none absolute top-3 left-4 text-xs"
-          classList={{ "text-paper": ["blueprint", "void", "black"].includes(backdrop()) }}
+          class={
+            ["blueprint", "void", "black"].includes(backdrop())
+              ? "pointer-events-none absolute top-3 left-4 text-xs text-paper"
+              : "pointer-events-none absolute top-3 left-4 text-xs"
+          }
         >
-          <p class="font-bold tracking-[0.14em] uppercase">Dwg LOA-B01 · Bitbox model sheet</p>
+          <p class="font-bold tracking-stamp uppercase">Dwg LOA-B01 · Bitbox model sheet</p>
           <p class="mt-1 opacity-70">Drag to orbit · scroll to zoom · right-drag to pan</p>
           <p class="opacity-70">1–8 expression · space pause · T talk · R restart</p>
         </div>
@@ -390,7 +388,7 @@ function ModelSheet(): JSX.Element {
               tweak({ rim });
             }}
           />
-          <div class="mt-2 grid grid-cols-3 gap-1.5 text-[11px]">
+          <div class="mt-2 grid grid-cols-3 gap-1.5 text-label">
             <Swatch
               label="Fill"
               value={lighting().fillColor}
@@ -426,8 +424,7 @@ function ModelSheet(): JSX.Element {
                   }}
                 >
                   <span
-                    class="mr-1 inline-block size-2.5 border border-ink align-[-1px]"
-                    style={{ background: backdropFor(name).color }}
+                    class={`relative top-px mr-1 inline-block size-2.5 border border-ink ${backdropFor(name).swatch}`}
                   />
                   {name}
                 </Choice>
@@ -471,7 +468,7 @@ function ModelSheet(): JSX.Element {
         </Section>
 
         <Section title="Pose">
-          <p class="mb-2 text-[11px] text-pencil">
+          <p class="mb-2 text-label text-pencil">
             <Show when={held()} fallback="Following the clip. Drag a slider to freeze and pose by hand.">
               Posed by hand.
             </Show>
@@ -511,7 +508,7 @@ function ModelSheet(): JSX.Element {
                 <For each={["leftArm", "rightArm"] as const}>
                   {(side) => (
                     <>
-                      <p class="mt-3 text-[11px] font-bold tracking-wider text-pencil uppercase">
+                      <p class="mt-3 text-label font-bold tracking-wider text-pencil uppercase">
                         {side === "leftArm" ? "Left arm (mitt)" : "Right arm (claw)"}
                       </p>
                       <For each={ARM}>
@@ -544,8 +541,8 @@ function ModelSheet(): JSX.Element {
 
 function Section(props: { title: string; children: JSX.Element }): JSX.Element {
   return (
-    <section class="border-b-[1.5px] border-ink px-4 py-3">
-      <h2 class="mb-2 text-[11px] font-bold tracking-[0.14em] text-pencil uppercase">{props.title}</h2>
+    <section class="border-b-hair border-ink px-4 py-3">
+      <h2 class="mb-2 text-label font-bold tracking-stamp text-pencil uppercase">{props.title}</h2>
       {props.children}
     </section>
   );
@@ -554,8 +551,7 @@ function Section(props: { title: string; children: JSX.Element }): JSX.Element {
 function Choice(props: { on: boolean; onClick: () => void; children: JSX.Element }): JSX.Element {
   return (
     <button
-      class="truncate border-[1.5px] border-ink px-1.5 py-1 text-left text-[11px]"
-      classList={{ "bg-ink text-paper": props.on, "bg-surface text-ink hover:bg-wash": !props.on }}
+      class={`truncate border-hair border-ink px-1.5 py-1 text-left text-label ${props.on ? "bg-ink text-paper" : "bg-surface text-ink hover:bg-wash"}`}
       onClick={() => {
         props.onClick();
       }}
@@ -575,7 +571,7 @@ function Slider(props: {
   onInput: (v: number) => void;
 }): JSX.Element {
   return (
-    <label class="mt-1.5 grid grid-cols-[88px_1fr_56px] items-center gap-2 text-xs">
+    <label class="mt-1.5 grid grid-cols-slider items-center gap-2 text-xs">
       <span class="truncate">{props.label}</span>
       <input
         type="range"
@@ -616,7 +612,7 @@ function Swatch(props: { label: string; value: string; onInput: (v: string) => v
     <label class="flex flex-col items-center gap-0.5">
       <input
         type="color"
-        class="h-6 w-full cursor-pointer border-[1.5px] border-ink"
+        class="h-6 w-full cursor-pointer border-hair border-ink"
         value={props.value}
         onInput={(e) => {
           props.onInput(e.currentTarget.value);

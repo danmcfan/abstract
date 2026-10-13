@@ -4,11 +4,16 @@ The review step reads this file. `bun run verify` already enforces the rules a s
 
 - Three.js is imported only in `src/robot/`, and `src/sim/` imports only other sim modules (`src/boundaries.test.ts`).
 - Dev pages and Three.js stay out of the first load, and every chunk is under 500 kB (`scripts/check-bundle.ts`).
-- Types check under the strict `tsconfig.json`, Oxlint passes with no warnings (`.oxlintrc.json`, including the Solid rules), Prettier finds nothing to change, and knip finds no unused files, exports or dependencies.
+- Types check under the strict `tsconfig.json`, Oxlint passes with no warnings (`.oxlintrc.json`, including the Solid rules and `@shadcn/lint`'s design-system rules), Prettier finds nothing to change, and knip finds no unused files, exports or dependencies.
 - No comment switches a check off: `eslint-disable`, `oxlint-disable`, `@ts-ignore`, `@ts-expect-error`, `@ts-nocheck` and `prettier-ignore` all fail (`scripts/check-escapes.ts`).
 - Tests pass, and the playthrough solves every level with no page errors.
 
 **Fix the code, not the rule.** A change that loosens `tsconfig.json`, `.oxlintrc.json`, `knip.json` or the check scripts to get code through is a finding. Those files are in CODEOWNERS.
+
+## Styling
+
+- **Tailwind classes go in `class`, never in `classList`.** `@shadcn/lint` reads `class` but not Solid's `classList`, so a utility there skips every design-system check. `classList` only toggles state classes that `src/styles.css` defines, such as `high` or `shake`.
+- **A new value is a token.** A size, colour or spacing the theme lacks goes in `@theme` (or an `@utility`) in `src/styles.css` with a name, not in a class as an arbitrary value. Values that change at runtime reach CSS through a custom property (`style={{ "--car-top": ... }}`), not a style property.
 
 ## Game rules
 

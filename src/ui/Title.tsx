@@ -35,15 +35,15 @@ export function Title(props: { onContinue: () => void; onStack: () => void; onNe
 
   return (
     <main class="fixed inset-0 grid place-items-center overflow-y-auto p-4 text-ink-deep">
-      <div class="pop relative w-full max-w-[760px] border-[3px]! border-double! sheet">
+      <div class="pop relative w-full max-w-190 border-3! border-double! sheet">
         <SoundButton class="absolute top-3 right-3" />
-        <div class="grid items-center gap-2 p-6 pb-2 sm:grid-cols-[auto_1fr] sm:p-8 sm:pb-2">
+        <div class="grid items-center gap-2 p-6 pb-2 sm:grid-cols-title sm:p-8 sm:pb-2">
           <div>
             <p class="text-xs text-pencil">Dwg LOA-000, title sheet</p>
-            <h1 class="mt-2 text-[clamp(2.2rem,8vw,3.4rem)] leading-[0.95] font-bold tracking-tight text-ink">
+            <h1 class="mt-2 text-display font-bold tracking-tight text-ink">
               <span class="block border-b-2 border-ink pb-1.5">Layers</span>
-              <span class="block border-b-2 border-dashed border-ink py-1.5 pl-[1.2ch]">of</span>
-              <span class="block pt-1.5 pl-[2.4ch]">Abstraction</span>
+              <span class="block border-b-2 border-dashed border-ink py-1.5 pl-indent">of</span>
+              <span class="block pt-1.5 pl-indent-2">Abstraction</span>
             </h1>
 
             <div class="mt-7 mb-6 flex flex-col items-start gap-3.5" onMouseLeave={doze}>
@@ -71,7 +71,7 @@ export function Title(props: { onContinue: () => void; onStack: () => void; onNe
                       role="alertdialog"
                       aria-label="Start a new game?"
                     >
-                      <p class="mb-3 text-[13px]">Start over? Your saved game will be erased.</p>
+                      <p class="mb-3 text-note">Start over? Your saved game will be erased.</p>
                       <div class="flex flex-wrap gap-3">
                         <button
                           id="erase"
@@ -122,7 +122,7 @@ export function Title(props: { onContinue: () => void; onStack: () => void; onNe
               </Show>
             </div>
           </div>
-          <RobotScreen expression={mood()} class="mx-auto aspect-square w-full max-w-[260px]" />
+          <RobotScreen expression={mood()} class="mx-auto aspect-square w-full max-w-65" />
         </div>
         <TitleBlock built={hasSave() ? solved() : 0} />
       </div>
@@ -132,8 +132,8 @@ export function Title(props: { onContinue: () => void; onStack: () => void; onNe
 
 // The drawing's title block, as on the vision board.
 function TitleBlock(props: { built: number }): JSX.Element {
-  const cell = "border-t-[1.5px] border-l-[1.5px] border-ink px-3 py-1.5 first:border-l-0";
-  const head = "block text-[10px] text-pencil";
+  const cell = "border-t-hair border-l-hair border-ink px-3 py-1.5 first:border-l-0";
+  const head = "block text-fine text-pencil";
   return (
     <div class="grid grid-cols-3 text-xs">
       <div class={cell}>

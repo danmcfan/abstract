@@ -66,7 +66,7 @@ export function Stack(props: {
 
   return (
     <main id="stack" class="fixed inset-0 z-30 overflow-y-auto bg-paper/95 p-4 text-ink-deep">
-      <div class="pop mx-auto my-4 w-full max-w-[760px] sheet">
+      <div class="pop mx-auto my-4 w-full max-w-190 sheet">
         <header class="flex items-center justify-between gap-4 border-b-2 border-ink px-5 py-3">
           <div>
             <p class="text-xs text-pencil">Dwg LOA-001: each layer is built from the ones below it.</p>
@@ -90,8 +90,8 @@ export function Stack(props: {
           />
           <div
             id="elevator"
-            class="absolute left-5 flex w-6 items-center justify-center border-2 border-ink bg-glow/40 transition-[top,height] duration-700 ease-in-out"
-            style={{ top: `${car().top}px`, height: `${car().height}px` }}
+            class="absolute top-(--car-top) left-5 flex h-(--car-height) w-6 items-center justify-center border-2 border-ink bg-glow/40 transition-elevator duration-700 ease-in-out"
+            style={{ "--car-top": `${car().top}px`, "--car-height": `${car().height}px` }}
             aria-hidden="true"
           >
             <span class="h-3/5 w-0 border-l-2 border-ink" />
@@ -118,7 +118,7 @@ export function Stack(props: {
                     data-state={state()}
                   >
                     <button
-                      class="grid w-full grid-cols-[2.6rem_1fr_auto] items-center gap-x-3 px-3.5 py-1.5 text-left enabled:cursor-pointer enabled:hover:bg-wash/60"
+                      class="grid w-full grid-cols-floor items-center gap-x-3 px-3.5 py-1.5 text-left enabled:cursor-pointer enabled:hover:bg-wash/60"
                       data-layer={layer.number}
                       disabled={locked()}
                       aria-expanded={locked() ? undefined : isOpen()}
@@ -128,20 +128,18 @@ export function Stack(props: {
                     >
                       <span class={`text-xs ${locked() ? "text-pencil" : "font-bold text-ink"}`}>L{layer.number}</span>
                       <span>
-                        <span
-                          class={`block text-[15px] leading-snug font-bold ${locked() ? "text-pencil" : "text-ink"}`}
-                        >
+                        <span class={`block text-copy leading-snug font-bold ${locked() ? "text-pencil" : "text-ink"}`}>
                           {layer.name}
                         </span>
-                        <span class="block text-[13px] leading-snug text-pencil">{layer.parts}</span>
-                        <span class="block font-hand text-[15px] leading-snug text-ink">Floor: {layer.floor}</span>
+                        <span class="block text-note leading-snug text-pencil">{layer.parts}</span>
+                        <span class="block font-hand text-copy leading-snug text-ink">Floor: {layer.floor}</span>
                       </span>
-                      <span class={`border-[1.5px] px-2 py-0.5 text-xs whitespace-nowrap ${BADGE[state()]}`}>
+                      <span class={`border-hair px-2 py-0.5 text-xs whitespace-nowrap ${BADGE[state()]}`}>
                         {state()}
                       </span>
                     </button>
                     <Show when={isOpen()}>
-                      <div class="flex flex-wrap gap-2.5 px-3.5 pb-3.5 pl-[calc(2.6rem+1.6rem)]">
+                      <div class="flex flex-wrap gap-2.5 px-3.5 pb-3.5 pl-floor-text">
                         <For each={layerLevels(layer.number)}>
                           {(i) => {
                             const level = LEVELS[i];
@@ -165,8 +163,8 @@ export function Stack(props: {
                                   props.onPick(i);
                                 }}
                               >
-                                <span class="text-[10px] text-pencil">SH {pad(i + 1)}</span>
-                                <span class="flex items-center gap-1.5 text-[13px] font-bold">
+                                <span class="text-fine text-pencil">SH {pad(i + 1)}</span>
+                                <span class="flex items-center gap-1.5 text-note font-bold">
                                   <GateIcon type={level.gate} class="h-5 w-7" />
                                   {level.gate}
                                 </span>
