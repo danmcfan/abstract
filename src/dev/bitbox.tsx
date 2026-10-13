@@ -27,18 +27,22 @@ const LIGHTS: Record<string, Lighting> = {
   },
 };
 
-// Backgrounds behind the canvas, the swatch for each, and the solid colour
-// each one snapshots on (the theme colour from src/styles.css, as the canvas
-// needs it).
-type Backdrop = { class: string; swatch: string; color: string };
+// Backgrounds behind the canvas, each named by the theme colour (from
+// src/styles.css) its swatch shows and its snapshot is filled with.
+type Backdrop = { class: string; swatch: string; token: string };
 const BACKDROPS: Record<string, Backdrop> = {
-  paper: { class: "", swatch: "bg-paper", color: "#f5f8fc" },
-  white: { class: "bg-surface", swatch: "bg-surface", color: "#ffffff" },
-  blueprint: { class: "blueprint-grid", swatch: "bg-blueprint", color: "#123a7c" },
-  void: { class: "bg-void", swatch: "bg-void", color: "#0a2150" },
-  grey: { class: "bg-slate", swatch: "bg-slate", color: "#8a94a6" },
-  black: { class: "bg-soot", swatch: "bg-soot", color: "#111111" },
+  paper: { class: "", swatch: "bg-paper", token: "paper" },
+  white: { class: "bg-surface", swatch: "bg-surface", token: "surface" },
+  blueprint: { class: "blueprint-grid", swatch: "bg-blueprint", token: "blueprint" },
+  void: { class: "bg-void", swatch: "bg-void", token: "void" },
+  grey: { class: "bg-slate", swatch: "bg-slate", token: "slate" },
+  black: { class: "bg-soot", swatch: "bg-soot", token: "soot" },
 };
+// The canvas needs the colour itself, so read the token rather than copy it.
+const backdropColor = (name: string): string =>
+  getComputedStyle(document.documentElement)
+    .getPropertyValue(`--color-${backdropFor(name).token}`)
+    .trim();
 
 const VIEWS: View[] = ["game", "close", "front", "side", "back", "top", "low"];
 
@@ -172,7 +176,7 @@ function ModelSheet(): JSX.Element {
   const snapshot = (): void => {
     if (viewer === undefined) return;
     const a = document.createElement("a");
-    a.href = viewer.snapshot(backdropFor(backdrop()).color);
+    a.href = viewer.snapshot(backdropColor(backdrop()));
     a.download = `bitbox-${expression()}-${preset()}-${view()}.png`;
     a.click();
   };
@@ -204,11 +208,7 @@ function ModelSheet(): JSX.Element {
           class="absolute inset-0"
         />
         <div
-          class={
-            ["blueprint", "void", "black"].includes(backdrop())
-              ? "pointer-events-none absolute top-3 left-4 text-xs text-paper"
-              : "pointer-events-none absolute top-3 left-4 text-xs"
-          }
+          class={`pointer-events-none absolute top-3 left-4 text-xs ${["blueprint", "void", "black"].includes(backdrop()) ? "text-paper" : ""}`}
         >
           <p class="font-bold tracking-stamp uppercase">Dwg LOA-B01 · Bitbox model sheet</p>
           <p class="mt-1 opacity-70">Drag to orbit · scroll to zoom · right-drag to pan</p>
