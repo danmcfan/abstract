@@ -39,10 +39,14 @@ const BACKDROPS: Record<string, Backdrop> = {
   black: { class: "bg-soot", swatch: "bg-soot", token: "soot" },
 };
 // The canvas needs the colour itself, so read the token rather than copy it.
-const backdropColor = (name: string): string =>
-  getComputedStyle(document.documentElement)
-    .getPropertyValue(`--color-${backdropFor(name).token}`)
-    .trim();
+// Tailwind only emits theme colours a class uses, so a missing one throws
+// rather than snapshotting on black.
+const backdropColor = (name: string): string => {
+  const { token } = backdropFor(name);
+  const color = getComputedStyle(document.documentElement).getPropertyValue(`--color-${token}`).trim();
+  if (color === "") throw new Error(`no theme colour --color-${token}`);
+  return color;
+};
 
 const VIEWS: View[] = ["game", "close", "front", "side", "back", "top", "low"];
 
