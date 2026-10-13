@@ -1,8 +1,9 @@
 import { For, Show, createMemo, createSignal, onCleanup, onMount, untrack } from "solid-js";
-import { pinPosition, widthOf, type Pin } from "../sim/circuit";
+import { pinPosition, widthOf, type EdgeID, type Pin } from "../sim/circuit";
 import { createGestures, type Gestures } from "../sim/gesture";
 import type { Size } from "../sim/grid";
 import { createRouter } from "../sim/route";
+import { WIDE_MIN_WIDTH } from "./device";
 import { NodeView } from "./NodeView";
 import { current, mutate, testing } from "./state";
 import { wirePath } from "./wirePath";
@@ -14,6 +15,10 @@ import { wirePath } from "./wirePath";
 const BOARD_MARGIN = 1.5;
 const VIEW_MARGIN = 1;
 const GAP = 16;
+// How long ink takes to run along a newly connected wire; matches the ink
+// animation in styles.css.
+const INK_MS = 200;
+const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 let svg: SVGSVGElement | undefined;
 
@@ -74,6 +79,16 @@ export function Board() {
     }),
   );
 
+  // Wires the player just connected, still being inked over their pencil line.
+  const [inking, setInking] = createSignal<ReadonlySet<EdgeID>>(new Set());
+  const inkNewWires = (firstNew: EdgeID) => {
+    if (still) return;
+    const fresh = [...current().edges.keys()].filter((id) => id >= firstNew);
+    if (fresh.length === 0) return;
+    setInking((ids) => new Set([...ids, ...fresh]));
+    setTimeout(() => setInking((ids) => new Set([...ids].filter((id) => !fresh.includes(id)))), INK_MS);
+  };
+
   const isEdgeHigh = (id: number) => !!current().edges.get(id)?.value;
   const isPinHigh = (pin: Pin) => !!current().nodes.get(pin.node)?.signals[pin.index];
   const preview = () => {
@@ -89,7 +104,11 @@ export function Board() {
     handle(event, (p) => gestures.down(p, event.button));
     if (gestures.preview || gestures.dragging) svg!.setPointerCapture(event.pointerId);
   };
-  const onPointerUp = (event: PointerEvent) => handle(event, (p) => gestures.up(p));
+  const onPointerUp = (event: PointerEvent) => {
+    const firstNew = current().nextEdgeID;
+    handle(event, (p) => gestures.up(p));
+    inkNewWires(firstNew);
+  };
   const onContextMenu = (event: MouseEvent) => {
     event.preventDefault();
     handle(event, (p) => gestures.contextMenu(p));
@@ -147,8 +166,16 @@ export function Board() {
       <g class="wires">
         <For each={wires()}>
           {(wire) => (
-            <g class="wire" classList={{ high: isEdgeHigh(wire.id), unrouted: !wire.route.routed, bus: wire.width > 1 }} data-edge={wire.id}>
-              <path class="core" d={wire.d} />
+            <g
+              class="wire"
+              classList={{ high: isEdgeHigh(wire.id), unrouted: !wire.route.routed, bus: wire.width > 1, inking: inking().has(wire.id) }}
+              data-edge={wire.id}
+            >
+              <Show when={inking().has(wire.id)}>
+                <path class="pencil" d={wire.d} />
+              </Show>
+              {/* A unit path length lets the ink animation run any wire in the same time. */}
+              <path class="core" d={wire.d} pathLength={inking().has(wire.id) ? 1 : undefined} />
               <path class="flow" d={wire.d} />
               <Show when={wire.width > 1}>
                 <BusMark at={wire.route.points[0]!} width={wire.width} />
@@ -208,7 +235,7 @@ function fitViewBox(grid: Size): string {
   const h = window.innerHeight;
   const panel = document.getElementById("level-panel")?.getBoundingClientRect();
   const bin = document.getElementById("parts-bin")?.getBoundingClientRect();
-  const wide = w >= 900;
+  const wide = w >= WIDE_MIN_WIDTH;
   const inset = {
     left: wide && panel ? panel.right + GAP : 0,
     right: wide ? GAP : 0,

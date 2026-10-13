@@ -21,8 +21,7 @@ export function current(): Game {
 }
 
 export function mutate(change: (game: Game) => void): void {
-  change(session.game);
-  session.save();
+  session.edit(change);
   touch();
 }
 
@@ -35,6 +34,7 @@ export const currentRow = read(() => session.currentRow);
 export const rowResults = read(() => session.rowResults);
 export const tableRows = read(() => session.tableRows);
 export const result = read(() => session.result);
+export const stamped = read(() => session.stamped);
 
 export const hasSave = read(() => session.hasSave);
 export const savedLevel = read(() => session.savedLevel);

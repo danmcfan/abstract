@@ -3,7 +3,8 @@ import { bitOf, inputCount, nodeSize, outputCount, partSpec, pinOffset, type Nod
 // Gates are drawn as their schematic symbols: AND is a D, OR a curved
 // shield, XOR an OR with an extra back line, NOT a triangle, and the
 // inverted gates add a bubble. A part with no symbol is a box with its pin
-// names inside. A split or join is a bar with its bus on one side and a
+// names inside; DEMUX's box flares out towards its outputs, the way the
+// signal fans out. A split or join is a bar with its bus on one side and a
 // numbered single-signal pin for each bit on the other. Paths are in
 // node-local grid cells, sized to the node, with leads running out to where
 // its pins sit.
@@ -87,12 +88,13 @@ function box(type: NodeType, width: number, height: number): Glyph {
   const spec = partSpec(type);
   const left = 1;
   const right = width - 1;
+  const flare = type === "DEMUX" ? 0.3 : 0;
   const ins = Array.from({ length: inputCount(type) }, (_, i) => pinOffset(type, "in", i));
   const outs = Array.from({ length: outputCount(type) }, (_, i) => pinOffset(type, "out", i));
   return {
     width,
     height,
-    body: `M ${left} ${TOP} H ${right} V ${height - TOP} H ${left} Z`,
+    body: `M ${left} ${TOP + flare} L ${right} ${TOP - flare} V ${height - TOP + flare} L ${left} ${height - TOP - flare} Z`,
     inLeads: ins.map((y) => `M 0 ${y} H ${left}`),
     outLeads: outs.map((y) => `M ${right} ${y} H ${width}`),
     label: { x: width / 2, y: height / 2, size: 0.5 },
