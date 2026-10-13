@@ -5,8 +5,12 @@ A logic-gate puzzle game: the player starts with NAND and builds every other par
 ## Progression
 
 **Layer**:
-A set of parts that are each built only from the layers below it (L1 NAND, L2 basic gates, L3 arithmetic, and so on up to L9, the door program). The level-select screen is the layer stack.
-_Avoid_: tier, world, stage
+A set of parts that are each built only from the layers below it (L1 NAND, L2 basic gates, L3 arithmetic, and so on up to L9, the door program). A layer is **built** when every level in it is solved, **in progress** when the player can play its first level but it isn't built yet, and **locked** otherwise.
+_Avoid_: tier, world, stage; complete or cleared (for a built layer)
+
+**Stack**:
+The screen that shows the nine layers from L1 at the bottom to L9 at the top, each with its floor, and where the player picks a level. Built layers are inked in and locked ones are drawn in dashed pencil.
+_Avoid_: level select, map, menu
 
 **Floor**:
 The place in the factory where a layer happens, such as "adder assembly" for L3. It's the story's name for a layer, never a separate unit of progress.
@@ -60,7 +64,7 @@ _Avoid_: propagate, tick, update
 
 **Unstable**:
 A board that never settles, because a loop keeps flipping its own signal (a NOT wired to itself). An unstable board fails its test run.
-_Avoid_: oscillating, broken
+_Avoid_: oscillating, broken, short circuit
 
 **Bus**:
 A wire that carries several signals at once, up to 8, drawn thicker and marked with its width. A pin can be a bus pin, and a bus only connects pins of the same width.
@@ -118,6 +122,9 @@ _Avoid_: frequency, tempo
 The part built in L8 that runs a program one instruction at a time. Its signals are 8 wide everywhere: data, registers and addresses.
 _Avoid_: processor, computer (for the part)
 
+**Bit**:
+A memory part that keeps one signal and takes in D on a tick only while LOAD is on. Eight bits make a register.
+
 **Register**:
 A memory part that keeps one 8-signal value. The CPU has four, R0 to R3.
 
@@ -160,7 +167,7 @@ The memory, 256 instructions long, that holds the program the CPU runs, filled f
 _Avoid_: ROM, code memory
 
 **RAM**:
-The memory part, built in L5 from registers, that keeps 8 values the program reads and writes. It holds data, never the program.
+The memory part, built in L5 from two register files, that keeps 8 values the program reads and writes. It holds data, never the program.
 _Avoid_: memory (alone), storage
 
 **Device**:
@@ -212,7 +219,7 @@ The dev-only page (`bitbox.html`) for orbiting, lighting and posing Bitbox.
 
 **Sound cue**:
 A short sound the game makes, generated in the browser rather than played from a file, for something the player does or sees: a switch click, a relay click when a wire connects, a tick per truth table row, a stamp when a test run ends, a typewriter key for each letter Bitbox types. Code asks for one by name (`src/sim/sound.ts`).
-_Avoid_: sound effect, SFX, sample
+_Avoid_: sound effect, SFX, sample, jingle
 
 **Sound setting**:
 Whether sound cues play, switched with the Sound on/off button. Kept in the browser apart from the save, so New Game doesn't change it.

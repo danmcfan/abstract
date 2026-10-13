@@ -1,7 +1,7 @@
 import { Show, createEffect, createSignal, on, onCleanup } from "solid-js";
 import { typeLetter } from "../sim/sound";
 import { sound } from "./sound";
-import { advance, hush, speech } from "./speech";
+import { advance, hush, reaction, speech } from "./speech";
 import { RobotScreen } from "./RobotScreen";
 
 const TYPE_MS = 24;
@@ -12,11 +12,13 @@ const GRID_PAPER = {
 };
 
 // The robot's popup: a little video window of it pulling a face, and what
-// it's saying, typed out. It sits over the board without blocking play.
+// it's saying, typed out. It sits over the board without blocking play. A
+// reaction with no line shows just the video window, for a moment.
 export function Dialogue() {
   const [shown, setShown] = createSignal(0);
   const text = () => speech()?.line.text ?? "";
   const typing = () => shown() < text().length;
+  const face = () => reaction() ?? speech()?.line.face ?? "idle";
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   let timer: ReturnType<typeof setInterval> | undefined;
@@ -53,46 +55,49 @@ export function Dialogue() {
   });
 
   return (
-    <Show when={speech()}>
-      {(s) => (
-        <section
-          id="dialogue"
-          aria-label="Bitbox"
-          class="sheet pop fixed right-3 bottom-[84px] left-3 z-40 text-ink-deep sm:left-auto sm:w-[460px] min-[900px]:right-5"
-        >
-          <header class="flex items-center justify-between bg-ink py-1 pr-1 pl-3 text-[11px] tracking-[0.14em] text-paper uppercase">
-            <span>
-              <span class="mr-1.5 inline-block size-2 rounded-full bg-glow align-middle shadow-[0_0_6px_var(--color-glow)]" />
-              Bitbox
-            </span>
-            <button id="dialog-close" class="px-2 text-sm leading-none hover:text-glow" aria-label="Close" onClick={hush}>
-              ✕
-            </button>
-          </header>
-          <div class="flex gap-3 p-3">
-            <div class="relative size-[124px] shrink-0 border-2 border-ink bg-paper sm:size-[140px]" style={GRID_PAPER}>
-              <RobotScreen expression={s().line.face} talking={typing()} shot="close" class="size-full" />
-              <span class="pointer-events-none absolute top-0.5 left-1.5 text-[9px] tracking-widest text-pencil">CAM 01</span>
-            </div>
-            <div class="flex min-w-0 flex-1 flex-col">
-              <p class="min-h-[6.6em] cursor-pointer text-[15px] leading-snug" aria-live="polite" onClick={next}>
-                {text().slice(0, shown())}
-                <Show when={!typing()}>
-                  <span class="caret" />
-                </Show>
-              </p>
-              <div class="mt-auto flex items-center justify-between pt-2">
-                <span class="text-xs text-pencil">
-                  {s().index + 1} / {s().count}
-                </span>
-                <button id="dialog-next" class="btn btn-sm" onClick={next}>
-                  {s().index + 1 < s().count ? "Next ▸" : "Got it"}
-                </button>
-              </div>
-            </div>
+    <Show when={speech() || reaction()}>
+      <section
+        id="dialogue"
+        aria-label="Bitbox"
+        class="sheet pop fixed right-3 bottom-[84px] z-40 text-ink-deep min-[900px]:right-5"
+        classList={{ "left-3 sm:left-auto sm:w-[460px]": !!speech() }}
+      >
+        <header class="flex items-center justify-between bg-ink py-1 pr-1 pl-3 text-[11px] tracking-[0.14em] text-paper uppercase">
+          <span>
+            <span class="mr-1.5 inline-block size-2 rounded-full bg-glow align-middle shadow-[0_0_6px_var(--color-glow)]" />
+            Bitbox
+          </span>
+          <button id="dialog-close" class="px-2 text-sm leading-none hover:text-glow" aria-label="Close" onClick={hush}>
+            ✕
+          </button>
+        </header>
+        <div class="flex gap-3 p-3">
+          <div class="relative size-[124px] shrink-0 border-2 border-ink bg-paper sm:size-[140px]" style={GRID_PAPER}>
+            <RobotScreen expression={face()} talking={typing()} shot="close" class="size-full" />
+            <span class="pointer-events-none absolute top-0.5 left-1.5 text-[9px] tracking-widest text-pencil">CAM 01</span>
           </div>
-        </section>
-      )}
+          <Show when={speech()}>
+            {(s) => (
+              <div class="flex min-w-0 flex-1 flex-col">
+                <p class="min-h-[6.6em] cursor-pointer text-[15px] leading-snug" aria-live="polite" onClick={next}>
+                  {text().slice(0, shown())}
+                  <Show when={!typing()}>
+                    <span class="caret" />
+                  </Show>
+                </p>
+                <div class="mt-auto flex items-center justify-between pt-2">
+                  <span class="text-xs text-pencil">
+                    {s().index + 1} / {s().count}
+                  </span>
+                  <button id="dialog-next" class="btn btn-sm" onClick={next}>
+                    {s().index + 1 < s().count ? "Next ▸" : "Got it"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </Show>
+        </div>
+      </section>
     </Show>
   );
 }

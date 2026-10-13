@@ -5,6 +5,8 @@ import { LEVELS } from "./sim/level";
 import type { NodeID } from "./sim/node";
 import "./styles.css";
 import { Board, toScreen } from "./ui/Board";
+import { DesktopNotice } from "./ui/DesktopNotice";
+import { noticeDismissal, watchSmallTouch } from "./ui/device";
 import { Dialogue } from "./ui/Dialogue";
 import { listenForFirstGesture } from "./ui/sound";
 import { hush, say } from "./ui/speech";
@@ -21,6 +23,8 @@ const jump = import.meta.env.DEV && requested >= 0 && requested < LEVELS.length;
 if (jump) startLevel(requested);
 
 function App() {
+  const smallTouch = watchSmallTouch((query) => window.matchMedia(query));
+  const notice = noticeDismissal(() => localStorage);
   const [screen, setScreen] = createSignal<"title" | "play">(jump ? "play" : "title");
   const play = (begin: () => void) => {
     begin();
@@ -32,21 +36,23 @@ function App() {
   };
 
   return (
-    <Show
-      when={screen() === "play"}
-      fallback={
-        <Title
-          onContinue={() =>
-            play(() => {
-              continueGame();
-              if (hasFlag(`intro:${level().gate}`)) say(script.welcomeBack(level()));
-            })
-          }
-          onNew={() => play(newGame)}
-        />
-      }
-    >
-      <Play onMenu={menu} />
+    <Show when={!smallTouch() || notice.dismissed()} fallback={<DesktopNotice onContinue={notice.dismiss} />}>
+      <Show
+        when={screen() === "play"}
+        fallback={
+          <Title
+            onContinue={() =>
+              play(() => {
+                continueGame();
+                if (hasFlag(`intro:${level().gate}`)) say(script.welcomeBack(level()));
+              })
+            }
+            onNew={() => play(newGame)}
+          />
+        }
+      >
+        <Play onMenu={menu} />
+      </Show>
     </Show>
   );
 }

@@ -12,6 +12,7 @@ import {
   result,
   rowResults,
   runTest,
+  stamped,
   startLevel,
   testing,
   unlockedCount,
@@ -40,6 +41,7 @@ export function Hud(props: { onMenu: () => void }) {
     <div class="text-sm leading-normal text-ink-deep">
       <section
         id="level-panel"
+        classList={{ shake: stamped() }}
         class="sheet fixed top-3 right-3 left-3 p-3 min-[900px]:top-5 min-[900px]:right-auto min-[900px]:left-5 min-[900px]:w-[290px] min-[900px]:p-4"
       >
         <div class="flex w-fit max-w-full border-2 border-ink">
@@ -55,32 +57,39 @@ export function Hud(props: { onMenu: () => void }) {
         </div>
 
         <div class="mt-3 flex items-end gap-3 min-[900px]:block">
-          <table class="w-full max-w-[260px] border-collapse text-center text-[13px] tabular-nums">
-            <thead>
-              <tr class="text-ink">
-                <For each={[...level().inputs, ...level().outputs]}>{(label) => <th class="border-[1.5px] border-ink px-2 py-0.5">{label}</th>}</For>
-                <th class="w-12 border-[1.5px] border-ink px-1 py-0.5 text-xs font-normal text-pencil">test</th>
-              </tr>
-            </thead>
-            <tbody>
-              <For each={rows()}>
-                {(row, i) => {
-                  const actual = () => rowResults()[i()];
-                  const ok = () => matches(actual() ?? [], row.expected);
-                  return (
-                    <tr class={currentRow() === i() ? "bg-wash font-bold" : ""}>
-                      <For each={[...row.inputs, ...row.expected]}>{(value) => <td class="border-[1.5px] border-ink px-2 py-0.5">{bit(value)}</td>}</For>
-                      <td class="border-[1.5px] border-ink px-1 py-0.5" title={actual() === undefined || ok() ? undefined : `got ${bits(actual()!)}`}>
-                        <Show when={actual() !== undefined} fallback={<span class="text-pencil/50">·</span>}>
-                          <span class={ok() ? "text-pass" : "text-fail"}>{ok() ? "✓" : `✗${bits(actual()!)}`}</span>
-                        </Show>
-                      </td>
-                    </tr>
-                  );
-                }}
-              </For>
-            </tbody>
-          </table>
+          <div class="relative w-full max-w-[260px]">
+            <table class="w-full border-collapse text-center text-[13px] tabular-nums">
+              <thead>
+                <tr class="text-ink">
+                  <For each={[...level().inputs, ...level().outputs]}>{(label) => <th class="border-[1.5px] border-ink px-2 py-0.5">{label}</th>}</For>
+                  <th class="w-12 border-[1.5px] border-ink px-1 py-0.5 text-xs font-normal text-pencil">test</th>
+                </tr>
+              </thead>
+              <tbody>
+                <For each={rows()}>
+                  {(row, i) => {
+                    const actual = () => rowResults()[i()];
+                    const ok = () => matches(actual() ?? [], row.expected);
+                    return (
+                      <tr class={currentRow() === i() ? "bg-wash font-bold" : ""}>
+                        <For each={[...row.inputs, ...row.expected]}>{(value) => <td class="border-[1.5px] border-ink px-2 py-0.5">{bit(value)}</td>}</For>
+                        <td class="border-[1.5px] border-ink px-1 py-0.5" title={actual() === undefined || ok() ? undefined : `got ${bits(actual()!)}`}>
+                          <Show when={actual() !== undefined} fallback={<span class="text-pencil/50">·</span>}>
+                            <span class={ok() ? "text-pass" : "text-fail"}>{ok() ? "✓" : `✗${bits(actual()!)}`}</span>
+                          </Show>
+                        </td>
+                      </tr>
+                    );
+                  }}
+                </For>
+              </tbody>
+            </table>
+            <Show when={stamped()}>
+              <span id="stamp" class="stamp">
+                PASSED
+              </span>
+            </Show>
+          </div>
 
           <div class="shrink-0 min-[900px]:mt-3.5 min-[900px]:flex min-[900px]:items-center min-[900px]:gap-3">
             <button id="test" class="btn" disabled={testing()} onClick={() => void runTest()}>
@@ -101,6 +110,7 @@ export function Hud(props: { onMenu: () => void }) {
             Next level ▸
           </button>
         </Show>
+        <RoughInk />
       </section>
 
       <nav class="fixed top-3 right-3 flex gap-1.5 max-[899px]:top-auto max-[899px]:right-auto max-[899px]:bottom-3 max-[899px]:left-3 min-[900px]:top-5 min-[900px]:right-5">
@@ -148,5 +158,20 @@ export function Hud(props: { onMenu: () => void }) {
         </For>
       </section>
     </div>
+  );
+}
+
+// Roughens the stamp's edges and leaves gaps in its ink, the way a rubber
+// stamp prints.
+function RoughInk() {
+  return (
+    <svg class="absolute size-0" aria-hidden="true">
+      <filter id="rough-ink" x="-10%" y="-20%" width="120%" height="140%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="4" result="noise" />
+        <feDisplacementMap in="SourceGraphic" in2="noise" scale="2.5" xChannelSelector="R" yChannelSelector="G" result="rough" />
+        <feColorMatrix in="noise" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -1.6 1.6" result="speckle" />
+        <feComposite in="rough" in2="speckle" operator="in" />
+      </filter>
+    </svg>
   );
 }
