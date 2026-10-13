@@ -9,5 +9,6 @@
 /package.json @danmcfan
 /scripts/check-escapes.ts @danmcfan
 /scripts/check-bundle.ts @danmcfan
+/vite.config.ts @danmcfan
 /.github/ @danmcfan
 /CODING_STANDARDS.md @danmcfan

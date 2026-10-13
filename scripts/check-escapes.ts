@@ -3,11 +3,11 @@
 // the check on any comment that would silence a rule.
 import { Glob } from "bun";
 
-const ESCAPES = /(?:eslint|oxlint)-disable|@ts-(?:ignore|expect-error|nocheck)|prettier-ignore/u;
+const ESCAPES = /(?:eslint|oxlint)(?:-disable|-enable|\s)|@ts-(?:ignore|expect-error|nocheck)|prettier-ignore/u;
 const SELF = "scripts/check-escapes.ts";
 
 const found: string[] = [];
-for await (const path of new Glob("{src,scripts}/**/*.{ts,tsx}").scan(".")) {
+for await (const path of new Glob("{src/**/*,scripts/**/*,*}.{ts,tsx,js,css,html}").scan(".")) {
   if (path === SELF) continue;
   const lines = (await Bun.file(path).text()).split("\n");
   lines.forEach((line, index) => {
