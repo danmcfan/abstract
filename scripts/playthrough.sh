@@ -52,7 +52,7 @@ wire() {
   drag $(pin "$1" out "${4:-0}") $(pin "$2" in "${3:-0}")
 }
 
-# Closes the robot's popup if it's up, so it can't cover the board.
+# Closes Bitbox's line if one is up, so the popup over the stack can't cover it.
 hush() { agent-browser eval "document.querySelector('#dialog-close')?.click()" >/dev/null; }
 
 # Fails the run with a message unless a JS expression is true.
@@ -168,7 +168,7 @@ climb() {
   stop_recording
 }
 
-# After every level: the last one, the HUD, the saved boards and the title.
+# After every level: the last one, the menu bar, the saved boards and the title.
 finish() {
   local count=$1 floor number
   # The last level has no way on until its layer's next level exists.
@@ -176,11 +176,11 @@ finish() {
   check 2 "$count"
   expect "!document.querySelector('#up') && !document.querySelector('#next')" "no way on from the last level"
 
-  # The HUD button opens the stack on the current layer, and each level keeps
+  # The menu bar's button opens the stack on the current layer, and each level keeps
   # its board: going back to the level before finds it still wired.
   number=$(js "__abstract.layerOf($count - 1).number")
   floor=$(js "__abstract.layerOf($count - 1).floor" | tr -d '"')
-  expect "document.querySelector('#open-stack').textContent.includes('L$number · $floor')" "the HUD names the current layer"
+  expect "document.querySelector('#open-stack').textContent.includes('L$number · $floor')" "the menu bar names the current layer"
   ab click "#open-stack"; sleep 0.8; hush
   layer "$number" built
   agent-browser screenshot "$OUT/stack-built.png" >/dev/null

@@ -326,7 +326,7 @@ const welcomeBack = (level: Level): Line[] => [
 
 // On the notice that shows instead of the game: on a touch device, which
 // never plays, and on a desktop window too small to fit the sheet.
-export const smallScreen: Line = {
+export const touchScreen: Line = {
   face: "worried",
   text: "This board's too small for fingers. Come find me on a desktop.",
 };

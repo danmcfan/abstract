@@ -44,7 +44,7 @@ Pull requests run `bun run verify` (`.github/workflows/check.yml`). Every push t
   - `route.ts`: grid routing for wires.
   - `gesture.ts`: turns pointer input into circuit edits.
   - `level.ts`: level definitions. `session.ts`: progress through them. `save.ts`: the saved game.
-- `src/ui/`: SolidJS components. `Title.tsx` is the title sheet; `Board.tsx` draws the circuit as SVG and handles input; `Hud.tsx` is the overlay (level, truth table, parts bin); `Dialogue.tsx` is the robot's popup, and `script.ts` is everything it says.
+- `src/ui/`: SolidJS components. `Title.tsx` is the title sheet; `Board.tsx` draws the circuit as SVG and handles input; `Sheet.tsx` has the menu bar, the brief and the parts bin; `Dialogue.tsx` is Bitbox's desk, and `script.ts` is everything it says.
 - `src/robot/`: the robot in 3D. `robot.ts` builds it, `clips.ts` poses it for each expression, `face.ts` draws its screen, `stage.ts` renders it in the game, and `viewer.ts` renders it on the model sheet.
 - `docs/vision/board.html`: the vision board, the reference for the look, the robot and the story. Open it in a browser.
 - `docs/adr/`: architecture decisions, such as drawing the board in 2D SVG.

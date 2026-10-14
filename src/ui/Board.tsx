@@ -260,10 +260,14 @@ function snapshot(g: Gestures): Pick<Gestures, "hoveredNode" | "hoveredPin" | "p
   return { hoveredNode: g.hoveredNode, hoveredPin: g.hoveredPin, preview: g.preview };
 }
 
-// A viewBox that fits the whole board, centred, into an SVG of this size.
+// A viewBox that fits the whole board, centred and as large as it fits, into
+// an SVG of this size.
 function fitViewBox(grid: Size, view: Size): string {
-  const span = Math.max(grid.width, grid.height) + (BOARD_MARGIN + VIEW_MARGIN) * 2;
-  const unitsPerPixel = span / Math.max(1, Math.min(view.width, view.height));
+  const margin = (BOARD_MARGIN + VIEW_MARGIN) * 2;
+  const unitsPerPixel = Math.max(
+    (grid.width + margin) / Math.max(1, view.width),
+    (grid.height + margin) / Math.max(1, view.height),
+  );
   const x = grid.width / 2 - (view.width / 2) * unitsPerPixel;
   const y = grid.height / 2 - (view.height / 2) * unitsPerPixel;
   return `${x} ${y} ${view.width * unitsPerPixel} ${view.height * unitsPerPixel}`;

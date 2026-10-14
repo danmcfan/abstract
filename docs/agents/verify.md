@@ -33,7 +33,7 @@ scripts/with-server.sh bash -c 'agent-browser open "${BASE_URL}?level=2" && agen
 To record motion, wrap the steps in `agent-browser record start evidence/<what>.webm "${BASE_URL}?level=2"` and `agent-browser record stop`. Recording opens the URL itself; navigating during a recording freezes the video.
 
 - `?level=N` (dev only) skips the title and opens level N, numbered from 1.
-- `window.__abstract` (dev only, defined in `src/main.tsx`) has the board (`game`, `nodes()`), the whole line Bitbox is saying (`saying`, which the popup may still be typing out) and the screen position of any node, pin or board cell (`nodeScreen`, `pinScreen`, `boardScreen`).
+- `window.__abstract` (dev only, defined in `src/main.tsx`) has the board (`game`, `nodes()`), the whole line Bitbox is saying (`saying`, which Bitbox may still be typing out) and the screen position of any node, pin or board cell (`nodeScreen`, `pinScreen`, `boardScreen`).
 - Buttons have stable selectors: `button[data-gate=NOT]` in the parts bin, `#test` (Run test), `#next`, `#status`, `#dialog-close`.
 
 ## The model sheet

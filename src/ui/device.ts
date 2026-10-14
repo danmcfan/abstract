@@ -6,7 +6,8 @@ import { createSignal, type Accessor } from "solid-js";
 export const MIN_WIDTH = 1100;
 export const MIN_HEIGHT = 700;
 
-export const SMALL_QUERY = `(width < ${MIN_WIDTH}px) or (height < ${MIN_HEIGHT}px)`;
+// In max- form rather than range syntax, which older Safari ignores.
+export const SMALL_QUERY = `(max-width: ${MIN_WIDTH - 0.02}px), (max-height: ${MIN_HEIGHT - 0.02}px)`;
 // A touch-first device, phone or tablet, at any size.
 export const TOUCH_QUERY = "(pointer: coarse)";
 

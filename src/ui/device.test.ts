@@ -36,7 +36,7 @@ function fakeMedia(initial: Record<string, boolean>): {
 
 test("the game needs a window at least 1100 by 700", () => {
   expect([MIN_WIDTH, MIN_HEIGHT]).toEqual([1100, 700]);
-  expect(SMALL_QUERY).toBe("(width < 1100px) or (height < 700px)");
+  expect(SMALL_QUERY).toBe("(max-width: 1099.98px), (max-height: 699.98px)");
 });
 
 test("a touch-first device is blocked whatever its size", () => {

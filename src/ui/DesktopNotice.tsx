@@ -8,7 +8,7 @@ import type { Line } from "./speech";
 // Shown instead of the game anywhere it doesn't play: on a touch device,
 // for good, and on a desktop window until it's made big enough.
 export function DesktopNotice(props: { screen: Exclude<Screen, "desktop"> }): JSX.Element {
-  const line = (): Line => (props.screen === "touch" ? script.smallScreen : script.smallWindow);
+  const line = (): Line => (props.screen === "touch" ? script.touchScreen : script.smallWindow);
   return (
     <main id="desktop-notice" class="fixed inset-0 grid place-items-center overflow-y-auto p-4 text-ink-deep">
       <div class="pop w-full max-w-105 border-3! border-double! p-6 sheet">

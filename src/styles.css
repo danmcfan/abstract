@@ -20,6 +20,8 @@
   /* The backdrop the sheets are pinned on, and more backdrops for the
      Bitbox model sheet (src/dev/bitbox.tsx), beside paper, surface and void. */
   --color-blueprint: #123a7c;
+  /* The shadow a sheet casts on the blueprint. */
+  --color-pinned-shadow: rgba(5, 20, 50, 0.35);
   --color-slate: #8a94a6;
   --color-soot: #111111;
 
@@ -158,7 +160,7 @@ body {
 @utility sheet {
   background: var(--color-surface);
   border: 2px solid var(--color-ink);
-  box-shadow: 5px 5px 0 rgba(5, 20, 50, 0.35);
+  box-shadow: 5px 5px 0 var(--color-pinned-shadow);
 }
 
 .caret::after {
@@ -182,7 +184,7 @@ body {
 }
 /* After every passing test run a PASSED stamp comes down on the truth
    table, and the sheet shakes as it lands. The rough edge is the
-   #rough-ink filter in Hud.tsx. */
+   #rough-ink filter in Sheet.tsx. */
 .stamp {
   position: absolute;
   top: 50%;
@@ -240,7 +242,7 @@ body {
   user-select: none;
 }
 #board .plate-shadow {
-  fill: rgba(5, 20, 50, 0.35);
+  fill: var(--color-pinned-shadow);
 }
 #board .plate {
   fill: var(--color-surface);

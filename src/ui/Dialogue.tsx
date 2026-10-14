@@ -14,10 +14,32 @@ const TYPE_MS = 24;
 const text = (): string => speech()?.line.text ?? "";
 const face = (): Expression => reaction() ?? speech()?.line.face ?? "idle";
 
+// The classes for each way the window shows: docked in the desk, popped up
+// with a line, or popped up with just a face.
+interface Look {
+  section: string;
+  body: string;
+  camera: string;
+  text: string;
+}
+const DOCKED: Look = {
+  section: "flex min-h-0 flex-col text-ink-deep sheet",
+  body: "flex min-h-0 flex-1 gap-3 p-2.5",
+  camera: "aspect-square h-full",
+  text: "text-note",
+};
+const POPUP: Look = {
+  section: "pop fixed right-5 bottom-5 z-40 w-115 text-ink-deep sheet",
+  body: "flex gap-3 p-3",
+  camera: "size-35",
+  text: "min-h-dialogue text-copy",
+};
+const FACE_ONLY: Look = { ...POPUP, section: "pop fixed right-5 bottom-5 z-40 text-ink-deep sheet" };
+
 export function Dialogue(props: { docked?: boolean }): JSX.Element {
-  const place = (): string => {
-    if (props.docked === true) return "flex min-h-0 flex-col text-ink-deep sheet";
-    return `pop fixed right-5 bottom-5 z-40 text-ink-deep sheet ${speech() === null ? "" : "w-115"}`;
+  const look = (): Look => {
+    if (props.docked === true) return DOCKED;
+    return speech() === null ? FACE_ONLY : POPUP;
   };
   const [shown, setShown] = createSignal(0);
   const typing = (): boolean => shown() < text().length;
@@ -58,7 +80,7 @@ export function Dialogue(props: { docked?: boolean }): JSX.Element {
 
   return (
     <Show when={props.docked === true || speech() !== null || reaction() !== null}>
-      <section id="dialogue" aria-label="Bitbox" class={place()}>
+      <section id="dialogue" aria-label="Bitbox" class={look().section}>
         <header class="flex items-center justify-between bg-ink py-1 pr-1 pl-3 text-label tracking-stamp text-paper uppercase">
           <span>
             <span class="mr-1.5 inline-block size-2 rounded-full bg-glow align-middle shadow-glow" />
@@ -75,10 +97,8 @@ export function Dialogue(props: { docked?: boolean }): JSX.Element {
             </button>
           </Show>
         </header>
-        <div class={props.docked === true ? "flex min-h-0 flex-1 gap-3 p-2.5" : "flex gap-3 p-3"}>
-          <div
-            class={`relative shrink-0 border-2 border-ink bg-paper grid-paper ${props.docked === true ? "aspect-square h-full" : "size-35"}`}
-          >
+        <div class={look().body}>
+          <div class={`relative shrink-0 border-2 border-ink bg-paper grid-paper ${look().camera}`}>
             <RobotScreen expression={face()} talking={typing()} shot="close" class="size-full" />
             <span class="pointer-events-none absolute top-0.5 left-1.5 text-tag tracking-widest text-pencil">
               CAM 01
@@ -89,10 +109,7 @@ export function Dialogue(props: { docked?: boolean }): JSX.Element {
               <div class="flex min-w-0 flex-1 flex-col">
                 {/* A mouse shortcut for Next; the keyboard has Enter and the Next button. */}
                 <div role="presentation" class="min-h-0 overflow-y-auto" onClick={next}>
-                  <p
-                    class={`cursor-pointer leading-snug ${props.docked === true ? "text-note" : "min-h-dialogue text-copy"}`}
-                    aria-live="polite"
-                  >
+                  <p class={`cursor-pointer leading-snug ${look().text}`} aria-live="polite">
                     {text().slice(0, shown())}
                     <Show when={!typing()}>
                       <span class="caret" />

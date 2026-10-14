@@ -9,7 +9,7 @@ import { watchScreen } from "./ui/device";
 import { Dialogue } from "./ui/Dialogue";
 import { listenForFirstGesture } from "./ui/sound";
 import { hush, speak, speech } from "./ui/speech";
-import { Brief, MenuBar, PartsBin } from "./ui/Hud";
+import { Brief, MenuBar, PartsBin } from "./ui/Sheet";
 import { Stack } from "./ui/Stack";
 import { current, driver, session } from "./ui/state";
 import { Title } from "./ui/Title";
