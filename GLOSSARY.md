@@ -95,6 +95,10 @@ _Avoid_: chip, component, tool
 The parts available on a level: NAND plus every part from an earlier solved level. Using anything else fails the test.
 _Avoid_: toolbox, inventory, palette
 
+**OP**:
+The 3-signal input that tells an ALU which job to do. Its top signal picks arithmetic (off) or logic (on). In arithmetic, the ones place means subtract: 0 add, 1 subtract. In logic, the low two signals pick the job: 4 and, 5 or, 6 xor, 7 not A. OP 2 and 3 do nothing.
+_Avoid_: opcode (an instruction's number, which the player chooses)
+
 **Schematic**:
 How a part is built from other parts. Bitbox remembers one schematic, NAND, and the player draws the rest.
 _Avoid_: blueprint, recipe

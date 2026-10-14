@@ -194,31 +194,55 @@ const LEVELS: Partial<Record<NodeType, LevelScript>> = {
       { face: "happy", text: "So I built that one too. There's a MUX8 in your parts bin!" },
     ],
   },
-  "ZERO TEST": {
+  MUX4: {
     intro: [
-      { face: "idle", text: "Sometimes we just need to know: is this number zero?" },
-      { face: "thinking", text: "ZERO lights up only when every signal of A is off." },
+      { face: "idle", text: "A MUX picks one of two. This one picks one of four." },
+      { face: "thinking", text: "SEL is a 2-signal bus. Its number, 0 to 3, says which input wins." },
     ],
     hint: [
-      { face: "thinking", text: "Split A. If any signal is on, the number isn't zero." },
-      { face: "thinking", text: "OR the signals together in pairs, until one wire is left." },
-      { face: "thinking", text: "That wire says 'not zero'. Flip it with a NOT." },
+      { face: "thinking", text: "Split SEL. Its ones place picks A or B, and C or D." },
+      { face: "thinking", text: "That's two MUXes. A third MUX, on SEL's top signal, picks between them." },
       CONTROLS,
     ],
-    solved: [{ face: "happy", text: "Zero test, done! A computer asks that question all the time." }],
+    solved: [{ face: "happy", text: "MUX4, done! Three MUXes, and it picks from four." }],
+  },
+  "ADD/SUB": {
+    intro: [
+      { face: "idle", text: "Adding is easy now. Let's teach it to subtract too." },
+      { face: "thinking", text: "When SUB is on, add NOT B instead of B." },
+      { face: "idle", text: "With a carry in, that's A minus B. Trust me, the numbers work out." },
+    ],
+    hint: [
+      { face: "thinking", text: "XOR flips a signal when its other input is on. Use one on B and SUB." },
+      { face: "thinking", text: "Then a full adder: A, the flipped B and CIN." },
+      CONTROLS,
+    ],
+    solved: [{ face: "happy", text: "Add and subtract, done! One switch tells it which." }],
+  },
+  "LOGIC UNIT": {
+    intro: [{ face: "idle", text: "Now the gates' jobs. SEL picks one: 0 AND, 1 OR, 2 XOR, 3 NOT A." }],
+    hint: [
+      { face: "thinking", text: "Do every job side by side: an AND, an OR, an XOR and a NOT." },
+      { face: "thinking", text: "Then let your MUX4 pick the answer, with SEL on its SEL." },
+      CONTROLS,
+    ],
+    solved: [{ face: "happy", text: "Logic unit, done! Four jobs, one part." }],
   },
   "ALU SLICE": {
     intro: [
       { face: "amazed", text: "This is the big one. One part that does six jobs." },
-      { face: "idle", text: "OP is a 3-signal bus. Its number says which job to do." },
-      { face: "idle", text: "0 adds, 1 subtracts, 2 is AND, 3 is OR, 4 is XOR, 5 is NOT A." },
-      { face: "thinking", text: "We start with a slice: the whole thing for one signal." },
+      { face: "idle", text: "OP is a 3-signal bus. Its top signal says arithmetic or logic." },
+      { face: "idle", text: "0 adds and 1 subtracts. 4 is AND, 5 is OR, 6 is XOR, 7 is NOT A." },
+      { face: "thinking", text: "OP 2 and 3 do nothing at all. OUT and COUT stay off." },
     ],
     hint: [
-      { face: "thinking", text: "Build every job side by side. Then MUXes pick the answer." },
-      { face: "thinking", text: "Split OP. Its bottom pin, the ones place, picks between pairs of jobs." },
-      { face: "thinking", text: "Subtract is add with B flipped. XOR B with OP's ones place first." },
-      { face: "thinking", text: "COUT only counts for add and subtract. Keep it off for the rest." },
+      { face: "thinking", text: "Split OP. Its ones place goes to ADD/SUB's SUB." },
+      { face: "thinking", text: "Join OP's low two signals into the logic unit's SEL." },
+      { face: "thinking", text: "A MUX on OP's top signal picks arithmetic or logic." },
+      {
+        face: "thinking",
+        text: "Arithmetic only counts while OP's top two signals are off. Keep OUT and COUT off for 2 and 3.",
+      },
       CONTROLS,
     ],
     solved: [{ face: "happy", text: "ALU slice, done! Eight of these in a chain make the real thing." }],
@@ -227,7 +251,6 @@ const LEVELS: Partial<Record<NodeType, LevelScript>> = {
     intro: [
       { face: "happy", text: "Time to build an ALU. One slice for each signal." },
       { face: "idle", text: "We'll start with 2 signals, like the adder." },
-      { face: "idle", text: "ZERO tests A, not OUT. Later, the CPU uses it to decide where to jump." },
     ],
     hint: [
       { face: "thinking", text: "Split A and B. Each slice gets one signal of each, and all of OP." },
@@ -236,7 +259,6 @@ const LEVELS: Partial<Record<NodeType, LevelScript>> = {
         face: "thinking",
         text: "Subtract needs a carry in at the bottom, and add needs none. OP's ones place tells them apart.",
       },
-      { face: "thinking", text: "For ZERO, do what the zero test does, on A's two signals: OR them, then NOT." },
       CONTROLS,
     ],
     solved: [
