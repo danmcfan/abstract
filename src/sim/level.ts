@@ -1,4 +1,4 @@
-import { newGame, nodeKind, placeNode, setInputs, simulate, wire, type Game } from "./circuit";
+import { newGame, nodeKind, placeNode, setInputs, simulate, wire, type Game, type Pin } from "./circuit";
 import { DEFAULT_GRID, type Size } from "./grid";
 import { partsFrom, type Combinational, type Memory, type Parts, type Pins, type Spec } from "./kind";
 import { mask, type Label, type Node, type NodeID, type NodeType, type Value } from "./node";
@@ -43,9 +43,23 @@ interface LevelInfo {
   // The part solving the level adds to the bin, when it isn't the gate the
   // level builds: a narrow bus level can hand over the full-width part.
   gives?: Part;
+  // The board the level means the player to build. Every level but a
+  // prebuilt one has one, so a test can solve it and the playthrough can
+  // play it.
+  solution?: Solution;
 }
 
 type Part = Spec & { gate: NodeType };
+
+// An intended solution, as a player builds it: nodes dropped on board
+// cells, then wires. A wire runs from an output pin to an input pin. Each
+// end names a terminal by its label, or a node the solution places by its
+// name, with ":n" for its nth pin on that side; a bare name is pin 0. A
+// split or join gives its bus width.
+interface Solution {
+  nodes: { name: string; type: NodeType; x: number; y: number; width?: number }[];
+  wires: [from: string, to: string][];
+}
 
 // The stack the player climbs, bottom to top. Each layer is built from the
 // ones below it and happens on its own floor of the factory. Every layer is
@@ -91,6 +105,15 @@ export const LEVELS: Level[] = [
     inputs: ["A"],
     outputs: ["OUT"],
     target: ([a = 0]) => [1 - a],
+    // A NAND with both inputs tied together.
+    solution: {
+      nodes: [{ name: "nand", type: "NAND", x: 22, y: 20 }],
+      wires: [
+        ["A", "nand:0"],
+        ["A", "nand:1"],
+        ["nand", "OUT"],
+      ],
+    },
   },
   {
     gate: "AND",
@@ -99,6 +122,19 @@ export const LEVELS: Level[] = [
     inputs: ["A", "B"],
     outputs: ["OUT"],
     target: ([a = 0, b = 0]) => [a & b],
+    // A NAND, then a NOT.
+    solution: {
+      nodes: [
+        { name: "nand", type: "NAND", x: 16, y: 21 },
+        { name: "not", type: "NOT", x: 28, y: 21 },
+      ],
+      wires: [
+        ["A", "nand:0"],
+        ["B", "nand:1"],
+        ["nand", "not"],
+        ["not", "OUT"],
+      ],
+    },
   },
   {
     gate: "OR",
@@ -107,6 +143,21 @@ export const LEVELS: Level[] = [
     inputs: ["A", "B"],
     outputs: ["OUT"],
     target: ([a = 0, b = 0]) => [a | b],
+    // NOT A NAND NOT B.
+    solution: {
+      nodes: [
+        { name: "notA", type: "NOT", x: 15, y: 13 },
+        { name: "notB", type: "NOT", x: 15, y: 30 },
+        { name: "nand", type: "NAND", x: 28, y: 21 },
+      ],
+      wires: [
+        ["A", "notA"],
+        ["B", "notB"],
+        ["notA", "nand:0"],
+        ["notB", "nand:1"],
+        ["nand", "OUT"],
+      ],
+    },
   },
   {
     gate: "XOR",
@@ -115,6 +166,27 @@ export const LEVELS: Level[] = [
     inputs: ["A", "B"],
     outputs: ["OUT"],
     target: ([a = 0, b = 0]) => [a ^ b],
+    // Four NANDs: NAND A and B, NAND that with each input, then NAND the two
+    // results.
+    solution: {
+      nodes: [
+        { name: "first", type: "NAND", x: 12, y: 21 },
+        { name: "left", type: "NAND", x: 22, y: 13 },
+        { name: "right", type: "NAND", x: 22, y: 29 },
+        { name: "last", type: "NAND", x: 32, y: 21 },
+      ],
+      wires: [
+        ["A", "first:0"],
+        ["B", "first:1"],
+        ["A", "left:0"],
+        ["first", "left:1"],
+        ["first", "right:0"],
+        ["B", "right:1"],
+        ["left", "last:0"],
+        ["right", "last:1"],
+        ["last", "OUT"],
+      ],
+    },
   },
   {
     gate: "MUX",
@@ -123,6 +195,25 @@ export const LEVELS: Level[] = [
     inputs: ["A", "B", "SEL"],
     outputs: ["OUT"],
     target: ([a = 0, b = 0, sel = 0]) => [sel ? b : a],
+    // (A AND NOT SEL) OR (B AND SEL).
+    solution: {
+      nodes: [
+        { name: "not", type: "NOT", x: 12, y: 28 },
+        { name: "andA", type: "AND", x: 20, y: 10 },
+        { name: "andB", type: "AND", x: 20, y: 24 },
+        { name: "or", type: "OR", x: 30, y: 17 },
+      ],
+      wires: [
+        ["SEL", "not"],
+        ["A", "andA:0"],
+        ["not", "andA:1"],
+        ["B", "andB:0"],
+        ["SEL", "andB:1"],
+        ["andA", "or:0"],
+        ["andB", "or:1"],
+        ["or", "OUT"],
+      ],
+    },
   },
   {
     gate: "DEMUX",
@@ -131,6 +222,23 @@ export const LEVELS: Level[] = [
     inputs: ["D", "SEL"],
     outputs: ["Y0", "Y1"],
     target: ([d = 0, sel = 0]) => [d & (1 - sel), d & sel],
+    // Y0 is D AND NOT SEL, and Y1 is D AND SEL.
+    solution: {
+      nodes: [
+        { name: "not", type: "NOT", x: 14, y: 21 },
+        { name: "and0", type: "AND", x: 26, y: 12 },
+        { name: "and1", type: "AND", x: 26, y: 28 },
+      ],
+      wires: [
+        ["SEL", "not"],
+        ["D", "and0:0"],
+        ["not", "and0:1"],
+        ["D", "and1:0"],
+        ["SEL", "and1:1"],
+        ["and0", "Y0"],
+        ["and1", "Y1"],
+      ],
+    },
   },
   {
     gate: "HALF ADDER",
@@ -139,6 +247,21 @@ export const LEVELS: Level[] = [
     inputs: ["A", "B"],
     outputs: ["SUM", "COUT"],
     target: ([a = 0, b = 0]) => [a ^ b, a & b],
+    // SUM is A XOR B, and COUT is A AND B.
+    solution: {
+      nodes: [
+        { name: "xor", type: "XOR", x: 22, y: 12 },
+        { name: "and", type: "AND", x: 22, y: 28 },
+      ],
+      wires: [
+        ["A", "xor:0"],
+        ["B", "xor:1"],
+        ["A", "and:0"],
+        ["B", "and:1"],
+        ["xor", "SUM"],
+        ["and", "COUT"],
+      ],
+    },
   },
   {
     gate: "FULL ADDER",
@@ -147,6 +270,24 @@ export const LEVELS: Level[] = [
     inputs: ["A", "B", "CIN"],
     outputs: ["SUM", "COUT"],
     target: ([a = 0, b = 0, cin = 0]) => [a ^ b ^ cin, (a & b) | (cin & (a ^ b))],
+    // Two half adders, with their carries ORed.
+    solution: {
+      nodes: [
+        { name: "first", type: "HALF ADDER", x: 14, y: 14 },
+        { name: "second", type: "HALF ADDER", x: 26, y: 20 },
+        { name: "or", type: "OR", x: 34, y: 30 },
+      ],
+      wires: [
+        ["A", "first:0"],
+        ["B", "first:1"],
+        ["first", "second:0"],
+        ["CIN", "second:1"],
+        ["second", "SUM"],
+        ["first:1", "or:0"],
+        ["second:1", "or:1"],
+        ["or", "COUT"],
+      ],
+    },
   },
   {
     gate: "2-BIT ADDER",
@@ -172,6 +313,32 @@ export const LEVELS: Level[] = [
       widths: { A: 8, B: 8, SUM: 8 },
       target: ([a = 0, b = 0, cin = 0]) => [(a + b + cin) % 256, a + b + cin >= 256 ? 1 : 0],
     },
+    // A ripple carry: split A and B, stack two full adders with the ones place
+    // at the bottom by CIN, chain the low COUT into the high CIN, and join the
+    // SUMs.
+    solution: {
+      nodes: [
+        { name: "splitA", type: "SPLIT", x: 12, y: 9, width: 2 },
+        { name: "splitB", type: "SPLIT", x: 12, y: 31, width: 2 },
+        { name: "join", type: "JOIN", x: 34, y: 16, width: 2 },
+        { name: "ones", type: "FULL ADDER", x: 22, y: 28 },
+        { name: "twos", type: "FULL ADDER", x: 22, y: 14 },
+      ],
+      wires: [
+        ["A", "splitA"],
+        ["B", "splitB"],
+        ["splitA:1", "ones:0"],
+        ["splitB:1", "ones:1"],
+        ["CIN", "ones:2"],
+        ["ones", "join:1"],
+        ["splitA:0", "twos:0"],
+        ["splitB:0", "twos:1"],
+        ["ones:1", "twos:2"],
+        ["twos", "join:0"],
+        ["join", "SUM"],
+        ["twos:1", "COUT"],
+      ],
+    },
   },
   {
     gate: "2-BIT MUX",
@@ -196,6 +363,29 @@ export const LEVELS: Level[] = [
       widths: { A: 8, B: 8, OUT: 8 },
       target: ([a = 0, b = 0, sel = 0]) => [sel ? b : a],
     },
+    // A MUX per signal, with SEL on both, joined in order.
+    solution: {
+      nodes: [
+        { name: "splitA", type: "SPLIT", x: 12, y: 9, width: 2 },
+        { name: "splitB", type: "SPLIT", x: 12, y: 31, width: 2 },
+        { name: "join", type: "JOIN", x: 34, y: 20, width: 2 },
+        { name: "mux0", type: "MUX", x: 23, y: 14 },
+        { name: "mux1", type: "MUX", x: 23, y: 28 },
+      ],
+      wires: [
+        ["A", "splitA"],
+        ["B", "splitB"],
+        ["splitA:0", "mux0:0"],
+        ["splitB:0", "mux0:1"],
+        ["SEL", "mux0:2"],
+        ["mux0", "join:0"],
+        ["splitA:1", "mux1:0"],
+        ["splitB:1", "mux1:1"],
+        ["SEL", "mux1:2"],
+        ["mux1", "join:1"],
+        ["join", "OUT"],
+      ],
+    },
   },
   {
     gate: "ZERO TEST",
@@ -207,6 +397,40 @@ export const LEVELS: Level[] = [
     target: ([a = 0]) => [a === 0 ? 1 : 0],
     grid: { width: 60, height: 45 },
     cases: [[0], [1], [16], [128], [255]],
+    // OR A's signals together in pairs, down to one wire that's on when A
+    // isn't zero, and NOT it.
+    solution: {
+      nodes: [
+        { name: "split", type: "SPLIT", x: 17, y: 22, width: 8 },
+        { name: "or0", type: "OR", x: 26, y: 10 },
+        { name: "or1", type: "OR", x: 26, y: 18 },
+        { name: "or2", type: "OR", x: 26, y: 26 },
+        { name: "or3", type: "OR", x: 26, y: 34 },
+        { name: "or4", type: "OR", x: 35, y: 14 },
+        { name: "or5", type: "OR", x: 35, y: 30 },
+        { name: "or6", type: "OR", x: 43, y: 22 },
+        { name: "not", type: "NOT", x: 51, y: 22 },
+      ],
+      wires: [
+        ["A", "split"],
+        ["split:0", "or0:0"],
+        ["split:1", "or0:1"],
+        ["split:2", "or1:0"],
+        ["split:3", "or1:1"],
+        ["split:4", "or2:0"],
+        ["split:5", "or2:1"],
+        ["split:6", "or3:0"],
+        ["split:7", "or3:1"],
+        ["or0", "or4:0"],
+        ["or1", "or4:1"],
+        ["or2", "or5:0"],
+        ["or3", "or5:1"],
+        ["or4", "or6:0"],
+        ["or5", "or6:1"],
+        ["or6", "not"],
+        ["not", "ZERO"],
+      ],
+    },
   },
   {
     gate: "ALU SLICE",
@@ -229,6 +453,66 @@ export const LEVELS: Level[] = [
       [1, 1, 1, 6],
       [1, 1, 1, 7],
     ],
+    // Work out every job side by side, and MUX on OP to pick one. The full
+    // adder adds A to B XOR OP's ones place, so OP 1 subtracts, and COUT is
+    // the carry only while OP's top two signals are off.
+    solution: {
+      nodes: [
+        { name: "op", type: "SPLIT", x: 14, y: 50, width: 3 },
+        { name: "flip", type: "XOR", x: 14, y: 26 },
+        { name: "adder", type: "FULL ADDER", x: 23, y: 12 },
+        { name: "and", type: "AND", x: 23, y: 25 },
+        { name: "or", type: "OR", x: 23, y: 31 },
+        { name: "xor", type: "XOR", x: 23, y: 37 },
+        { name: "notA", type: "NOT", x: 23, y: 43 },
+        { name: "pick23", type: "MUX", x: 32, y: 28 },
+        { name: "pick45", type: "MUX", x: 32, y: 40 },
+        { name: "notMid", type: "NOT", x: 32, y: 48 },
+        { name: "any", type: "OR", x: 32, y: 54 },
+        { name: "low", type: "MUX", x: 41, y: 16 },
+        { name: "high", type: "AND", x: 41, y: 42 },
+        { name: "none", type: "NOT", x: 41, y: 54 },
+        { name: "result", type: "MUX", x: 50, y: 18 },
+        { name: "carry", type: "AND", x: 50, y: 38 },
+      ],
+      wires: [
+        ["OP", "op"],
+        ["B", "flip:0"],
+        ["op:2", "flip:1"],
+        ["A", "adder:0"],
+        ["flip", "adder:1"],
+        ["CIN", "adder:2"],
+        ["A", "and:0"],
+        ["B", "and:1"],
+        ["A", "or:0"],
+        ["B", "or:1"],
+        ["A", "xor:0"],
+        ["B", "xor:1"],
+        ["A", "notA"],
+        ["and", "pick23:0"],
+        ["or", "pick23:1"],
+        ["op:2", "pick23:2"],
+        ["xor", "pick45:0"],
+        ["notA", "pick45:1"],
+        ["op:2", "pick45:2"],
+        ["op:1", "notMid"],
+        ["op:1", "any:0"],
+        ["op:0", "any:1"],
+        ["adder", "low:0"],
+        ["pick23", "low:1"],
+        ["op:1", "low:2"],
+        ["pick45", "high:0"],
+        ["notMid", "high:1"],
+        ["any", "none"],
+        ["low", "result:0"],
+        ["high", "result:1"],
+        ["op:0", "result:2"],
+        ["adder:1", "carry:0"],
+        ["none", "carry:1"],
+        ["result", "OUT"],
+        ["carry", "COUT"],
+      ],
+    },
   },
   {
     gate: "2-BIT ALU",
@@ -258,6 +542,41 @@ export const LEVELS: Level[] = [
       outputs: ["OUT", "ZERO"],
       widths: { A: 8, B: 8, OP: 3, OUT: 8 },
       target: aluTarget(8),
+    },
+    // Two slices in a chain, the ones place at the bottom, the low COUT into
+    // the high CIN. The bottom CIN is OP's ones place: on for subtract, off
+    // for add. ZERO ORs A's two signals and NOTs them, up by A.
+    solution: {
+      nodes: [
+        { name: "splitA", type: "SPLIT", x: 12, y: 8, width: 2 },
+        { name: "splitB", type: "SPLIT", x: 12, y: 20, width: 2 },
+        { name: "op", type: "SPLIT", x: 12, y: 34, width: 3 },
+        { name: "join", type: "JOIN", x: 34, y: 19, width: 2 },
+        { name: "any", type: "OR", x: 23, y: 3 },
+        { name: "none", type: "NOT", x: 32, y: 3 },
+        { name: "ones", type: "ALU SLICE", x: 23, y: 26 },
+        { name: "twos", type: "ALU SLICE", x: 23, y: 12 },
+      ],
+      wires: [
+        ["A", "splitA"],
+        ["B", "splitB"],
+        ["OP", "op"],
+        ["splitA:1", "ones:0"],
+        ["splitB:1", "ones:1"],
+        ["op:2", "ones:2"],
+        ["OP", "ones:3"],
+        ["ones", "join:1"],
+        ["splitA:0", "twos:0"],
+        ["splitB:0", "twos:1"],
+        ["ones:1", "twos:2"],
+        ["OP", "twos:3"],
+        ["twos", "join:0"],
+        ["splitA:0", "any:0"],
+        ["splitA:1", "any:1"],
+        ["any", "none"],
+        ["join", "OUT"],
+        ["none", "ZERO"],
+      ],
     },
   },
 ];
@@ -388,6 +707,35 @@ export function loadLevel(level: Level, parts = PARTS): Game {
     }
   }
   return game;
+}
+
+// The pins a level's solution wires together, once its nodes are on the
+// board as the given nodes, in the solution's order.
+export function solutionWires(game: Game, level: Level, ids: NodeID[]): { from: Pin; to: Pin }[] {
+  const nodes = level.solution?.nodes ?? [];
+  const pin = (end: string, side: Pin["side"]): Pin => {
+    const [name = "", index = "0"] = end.split(":");
+    const own = nodes.findIndex((n) => n.name === name);
+    const terminal = side === "out" ? "input" : "output";
+    const node =
+      own >= 0
+        ? ids[own]
+        : [...game.nodes.values()].find((n) => nodeKind(game, n).terminal === terminal && n.label === name)?.id;
+    if (node === undefined) throw new Error(`${level.gate}'s solution has no ${end}`);
+    return { node, side, index: Number(index) };
+  };
+  return (level.solution?.wires ?? []).map(([from, to]) => ({ from: pin(from, "out"), to: pin(to, "in") }));
+}
+
+// Builds a level's solution onto its board.
+export function buildSolution(game: Game, level: Level): void {
+  const ids = (level.solution?.nodes ?? []).map(
+    (node) => placed(placeNode(game, node.type, node, "", node.width ?? 1)).id,
+  );
+  for (const { from, to } of solutionWires(game, level, ids)) {
+    if (wire(game, from, to) === null)
+      throw new Error(`${level.gate}'s solution can't wire ${from.node} to ${to.node}`);
+  }
 }
 
 // A fresh board always has room for a level's own parts.

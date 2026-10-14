@@ -19,7 +19,7 @@ The review step reads this file. `bun run verify` already enforces the rules a s
 
 - **Rules live in `src/sim/`.** Anything that decides what happens in the game (wiring, signals, levels, test runs, saves) belongs in a plain TypeScript sim module with a `bun test` next to it. A component that works out game logic for itself is a finding.
 - **The board changes only through circuit commands.** Outside `src/sim/circuit.ts`, code calls `placeNode`, `wire`, `setInput` and the rest; it never edits `game.nodes` or `game.edges` directly. In the UI, every change goes through `mutate()` in `src/ui/state.ts`.
-- **A new level is a complete level.** It needs its entry in `LEVELS`, a test of its truth table, Bitbox's intro, hint and solved lines in `src/ui/script.ts`, and steps in `scripts/playthrough.sh` that solve it. Its intended solution uses only parts from earlier levels ([ADR 5](docs/adr/0005-parts-only-from-earlier-levels.md)).
+- **A new level is a complete level.** It needs its entry in `LEVELS`, its intended `solution` in that entry, a test of its truth table, and Bitbox's intro, hint and solved lines in `src/ui/script.ts`. Its intended solution uses only parts from earlier levels ([ADR 5](docs/adr/0005-parts-only-from-earlier-levels.md)); `bun test` builds every solution and fails one that doesn't pass.
 - **Old saves keep loading.** A change to `SaveData` or the board format has to read saves written before it, the way `parseSave` and the legacy key do in `src/sim/save.ts`. A save that can't be read must load as no save, never as a crash.
 
 ## Robot

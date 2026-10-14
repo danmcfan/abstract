@@ -63,14 +63,14 @@ sheet() { ab click "button[data-level=\"$1\"]"; sleep 0.5; hush; }
 # Runs the test and waits for it to end. A test run's length is its row
 # count times the step time, so a fixed sleep races it on a slow machine:
 # this waits at least the given seconds, then polls until the run is over,
-# giving up 15 seconds later.
+# giving up 30 seconds later.
 check() {
   hush
   ab click "#test"
   sleep "$1"
   local status tries=0
   status=$(js "document.querySelector('#status').textContent")
-  while [[ $status == *Testing* && $tries -lt 60 ]]; do
+  while [[ $status == *Testing* && $tries -lt 120 ]]; do
     sleep 0.25
     tries=$((tries + 1))
     status=$(js "document.querySelector('#status').textContent")
@@ -85,212 +85,73 @@ ab set viewport 1280 800
 agent-browser record restart "$OUT/playthrough.webm" "${BASE}?level=1" >/dev/null
 until [[ $(js "typeof __abstract") == *object* ]]; do sleep 0.5; done
 
-# Level 1: NAND comes wired; just test it. It's L1's only level, so passing
-# leads up to L2 through the stack, where Bitbox names the floor.
-check 3 1
-expect "document.querySelector('#up').textContent.includes('Up to the logic line')" "level 1 leads up to the logic line"
-ab click "#up"; sleep 1.2
-expect "!!__abstract.saying?.includes('logic line')" "Bitbox names the new floor"
-hush
-expect "document.querySelector('[data-layer=\"1\"]').parentElement.dataset.state === 'built'" "L1 is built"
-expect "document.querySelector('[data-layer=\"2\"]').parentElement.dataset.state === 'in progress'" "L2 is in progress"
-expect "document.querySelector('[data-layer=\"3\"]').parentElement.dataset.state === 'locked'" "L3 is locked"
-agent-browser screenshot "$OUT/stack-up.png" >/dev/null
+# Builds the open level's intended solution, from its entry in LEVELS, with
+# real drags: each node from the parts bin to its cell, then each wire.
+solve() {
+  local parts wires part type x y width ids=()
+  IFS=';' read -ra parts <<<"$(js "__abstract.solution.nodes.map(p => [p.type, p.x, p.y, p.width ?? ''].join('|')).join(';')" | tr -d '"')"
+  for part in "${parts[@]}"; do
+    IFS='|' read -r type x y width <<<"$part"
+    ids+=("$(add "$type" "$x" "$y" "$width")")
+  done
+  IFS=';' read -ra wires <<<"$(js "__abstract.solutionWires([$(IFS=,; echo "${ids[*]}")]).map(w => [w.from.node, w.to.node, w.to.index, w.from.index].join(' ')).join(';')" | tr -d '"')"
+  for part in "${wires[@]}"; do
+    # shellcheck disable=SC2086
+    wire $part
+  done
+}
 
-# Level 2: NOT is a NAND with both inputs tied together.
-sheet 2
-A=$(terminal INPUT A); O=$(terminal OUTPUT OUT)
-N=$(add NAND 22 20)
-wire "$A" "$N" 0; wire "$A" "$N" 1; wire "$N" "$O"
-check 2 2
+# Fails the run unless the stack shows layer $1 in state $2.
+layer() {
+  expect "document.querySelector('[data-layer=\"$1\"]').parentElement.dataset.state === '$2'" "L$1 is $2"
+}
 
-# Level 3: AND is NAND followed by NOT. A stray gate goes on first, to try
-# Clear.
-ab click "#next"; sleep 0.5; hush
-add NOT 28 10 >/dev/null
-ab click "#clear"; ab click "#clear-confirm"
-expect "__abstract.nodes().length === 3" "Clear leaves only the terminals"
-A=$(terminal INPUT A); B=$(terminal INPUT B); O=$(terminal OUTPUT OUT)
-N=$(add NAND 16 21); T=$(add NOT 28 21)
-wire "$A" "$N" 0; wire "$B" "$N" 1; wire "$N" "$T"; wire "$T" "$O"
-check 3 3
+# Level 1: NAND comes wired; just test it.
+check 2 1
 
-# Level 4: OR is NOT A NAND NOT B.
-ab click "#next"; sleep 0.5; hush
-A=$(terminal INPUT A); B=$(terminal INPUT B); O=$(terminal OUTPUT OUT)
-TA=$(add NOT 15 13); TB=$(add NOT 15 30); N=$(add NAND 28 21)
-wire "$A" "$TA"; wire "$B" "$TB"; wire "$TA" "$N" 0; wire "$TB" "$N" 1; wire "$N" "$O"
-check 3 4
-
-# Level 5: XOR is four NANDs: NAND A and B, NAND that with each input, then
-# NAND the two results.
-ab click "#next"; sleep 0.5; hush
-A=$(terminal INPUT A); B=$(terminal INPUT B); O=$(terminal OUTPUT OUT)
-N=$(add NAND 12 21); NA=$(add NAND 22 13); NB=$(add NAND 22 29); NO=$(add NAND 32 21)
-wire "$A" "$N" 0; wire "$B" "$N" 1
-wire "$A" "$NA" 0; wire "$N" "$NA" 1; wire "$N" "$NB" 0; wire "$B" "$NB" 1
-wire "$NA" "$NO" 0; wire "$NB" "$NO" 1; wire "$NO" "$O"
-check 3 5
-
-# Level 6: MUX is (A AND NOT SEL) OR (B AND SEL).
-ab click "#next"; sleep 0.5; hush
-A=$(terminal INPUT A); B=$(terminal INPUT B); S=$(terminal INPUT SEL); O=$(terminal OUTPUT OUT)
-T=$(add NOT 12 28); GA=$(add AND 20 10); GB=$(add AND 20 24); R=$(add OR 30 17)
-wire "$S" "$T"; wire "$A" "$GA" 0; wire "$T" "$GA" 1; wire "$B" "$GB" 0; wire "$S" "$GB" 1
-wire "$GA" "$R" 0; wire "$GB" "$R" 1; wire "$R" "$O"
-check 5 6
-
-# Level 7: DEMUX is Y0 = D AND NOT SEL, Y1 = D AND SEL.
-ab click "#next"; sleep 0.5; hush
-D=$(terminal INPUT D); S=$(terminal INPUT SEL); Y0=$(terminal OUTPUT Y0); Y1=$(terminal OUTPUT Y1)
-T=$(add NOT 14 21); G0=$(add AND 26 12); G1=$(add AND 26 28)
-wire "$S" "$T"; wire "$D" "$G0" 0; wire "$T" "$G0" 1; wire "$D" "$G1" 0; wire "$S" "$G1" 1
-wire "$G0" "$Y0"; wire "$G1" "$Y1"
-check 4 7
-
-# DEMUX ends L2, so passing leads up to adder assembly.
-expect "document.querySelector('#up').textContent.includes('Up to adder assembly')" "level 7 leads up to adder assembly"
-ab click "#up"; sleep 1.2
-expect "!!__abstract.saying?.includes('Adder assembly')" "Bitbox names the new floor"
-hush
-expect "document.querySelector('[data-layer=\"3\"]').parentElement.dataset.state === 'in progress'" "L3 is in progress"
-sheet 8
-
-# Level 8: a half adder is SUM = A XOR B, COUT = A AND B.
-A=$(terminal INPUT A); B=$(terminal INPUT B); S=$(terminal OUTPUT SUM); C=$(terminal OUTPUT COUT)
-X=$(add XOR 22 12); G=$(add AND 22 28)
-wire "$A" "$X" 0; wire "$B" "$X" 1; wire "$A" "$G" 0; wire "$B" "$G" 1
-wire "$X" "$S"; wire "$G" "$C"
-check 3 8
-
-# Level 9: a full adder is two half adders, with their carries ORed.
-ab click "#next"; sleep 0.5; hush
-A=$(terminal INPUT A); B=$(terminal INPUT B); CI=$(terminal INPUT CIN)
-S=$(terminal OUTPUT SUM); C=$(terminal OUTPUT COUT)
-H1=$(add "HALF ADDER" 14 14); H2=$(add "HALF ADDER" 26 20); R=$(add OR 34 30)
-wire "$A" "$H1" 0; wire "$B" "$H1" 1; wire "$H1" "$H2" 0; wire "$CI" "$H2" 1
-wire "$H2" "$S"
-wire "$H1" "$R" 0 1; wire "$H2" "$R" 1 1
-wire "$R" "$C"
-check 5 9
-
-# Level 10: a 2-bit adder is a ripple carry. Split A and B, stack two full
-# adders with the ones place at the bottom by CIN, chain the low COUT into
-# the high CIN, and join the SUMs.
-ab click "#next"; sleep 0.5; hush
-A=$(terminal INPUT A); B=$(terminal INPUT B); CI=$(terminal INPUT CIN)
-S=$(terminal OUTPUT SUM); C=$(terminal OUTPUT COUT)
-SA=$(add SPLIT 12 9); SB=$(add SPLIT 12 31); J=$(add JOIN 34 16)
-wire "$A" "$SA"; wire "$B" "$SB"
-CARRY=$CI; CARRY_PIN=0
-for bit in 0 1; do
-  pin=$((1 - bit))
-  F=$(add "FULL ADDER" 22 $((14 + pin * 14)))
-  wire "$SA" "$F" 0 "$pin"; wire "$SB" "$F" 1 "$pin"; wire "$CARRY" "$F" 2 "$CARRY_PIN"
-  wire "$F" "$J" "$pin" 0
-  CARRY=$F; CARRY_PIN=1
+# Every other level: go on to it, build its solution and test it. Passing a
+# layer's last level leads up through the stack, where Bitbox names the new
+# floor.
+COUNT=$(js "__abstract.levelCount")
+for ((n = 2; n <= COUNT; n++)); do
+  if [[ $(js "!!document.querySelector('#up')") == true ]]; then
+    floor=$(js "__abstract.layerOf($n - 1).floor" | tr -d '"')
+    number=$(js "__abstract.layerOf($n - 1).number")
+    expect "document.querySelector('#up').textContent.includes('Up to $floor')" "level $((n - 1)) leads up to $floor"
+    ab click "#up"; sleep 1.2
+    expect "!!__abstract.saying?.toLowerCase().includes('${floor#the }')" "Bitbox names $floor"
+    hush
+    layer $((number - 1)) built
+    layer "$number" "in progress"
+    if ((number < 9)); then layer $((number + 1)) locked; fi
+    agent-browser screenshot "$OUT/stack-up-L$number.png" >/dev/null
+    sheet "$n"
+  else
+    ab click "#next"; sleep 0.5; hush
+  fi
+  # On level 3, a stray gate goes on first, to try Clear.
+  if ((n == 3)); then
+    add NOT 28 10 >/dev/null
+    ab click "#clear"; ab click "#clear-confirm"
+    expect "__abstract.nodes().length === 3" "Clear leaves only the terminals"
+  fi
+  solve
+  check 2 "$n"
 done
-wire "$J" "$S"; wire "$CARRY" "$C" 0 1
-check 3 10
 
-# The 2-bit adder ends L3, so passing leads up to the calculation shop.
-expect "document.querySelector('#up').textContent.includes('Up to the calculation shop')" "level 10 leads up to the calculation shop"
-ab click "#up"; sleep 1.2
-expect "!!__abstract.saying?.includes('calculation shop')" "Bitbox names the new floor"
-hush
-expect "document.querySelector('[data-layer=\"3\"]').parentElement.dataset.state === 'built'" "L3 is built"
-expect "document.querySelector('[data-layer=\"4\"]').parentElement.dataset.state === 'in progress'" "L4 is in progress"
-sheet 11
-
-# Level 11: a 2-bit MUX is a MUX per signal. Split A and B, give each pair
-# of signals a MUX with SEL on both, and join the outputs in order.
-A=$(terminal INPUT A); B=$(terminal INPUT B); SEL=$(terminal INPUT SEL); O=$(terminal OUTPUT OUT)
-SA=$(add SPLIT 12 9); SB=$(add SPLIT 12 31); J=$(add JOIN 34 20)
-wire "$A" "$SA"; wire "$B" "$SB"
-for pin in 0 1; do
-  M=$(add MUX 23 $((14 + pin * 14)))
-  wire "$SA" "$M" 0 "$pin"; wire "$SB" "$M" 1 "$pin"; wire "$SEL" "$M" 2
-  wire "$M" "$J" "$pin"
-done
-wire "$J" "$O"
-check 3 11
-
-# Level 12: the zero test ORs A's signals together in pairs, down to one
-# wire that's on when A isn't zero, and NOTs it.
-ab click "#next"; sleep 0.5; hush
-A=$(terminal INPUT A); Z=$(terminal OUTPUT ZERO)
-SP=$(add SPLIT 17 22)
-wire "$A" "$SP"
-R=()
-for i in 0 1 2 3; do
-  R[i]=$(add OR 26 $((10 + i * 8)))
-  wire "$SP" "${R[i]}" 0 $((2 * i)); wire "$SP" "${R[i]}" 1 $((2 * i + 1))
-done
-R4=$(add OR 35 14); R5=$(add OR 35 30); R6=$(add OR 43 22); N=$(add NOT 51 22)
-wire "${R[0]}" "$R4" 0; wire "${R[1]}" "$R4" 1; wire "${R[2]}" "$R5" 0; wire "${R[3]}" "$R5" 1
-wire "$R4" "$R6" 0; wire "$R5" "$R6" 1; wire "$R6" "$N"; wire "$N" "$Z"
-check 3 12
-
-# Level 13: the ALU slice works out every job side by side and MUXes on OP
-# pick one. The full adder adds A to B XOR OP's ones place, so OP 1
-# subtracts, and COUT is the carry only while OP's top two signals are off.
-ab click "#next"; sleep 0.5; hush
-A=$(terminal INPUT A); B=$(terminal INPUT B); CI=$(terminal INPUT CIN); OP=$(terminal INPUT OP)
-O=$(terminal OUTPUT OUT); C=$(terminal OUTPUT COUT)
-SP=$(add SPLIT 14 50 3)
-FLIP=$(add XOR 14 26); F=$(add "FULL ADDER" 23 12)
-GA=$(add AND 23 25); GO=$(add OR 23 31); GX=$(add XOR 23 37); NA=$(add NOT 23 43)
-P23=$(add MUX 32 28); P45=$(add MUX 32 40); N1=$(add NOT 32 48); ANY=$(add OR 32 54)
-LOW=$(add MUX 41 16); HIGH=$(add AND 41 42); NONE=$(add NOT 41 54)
-RES=$(add MUX 50 18); CO=$(add AND 50 38)
-wire "$OP" "$SP"
-wire "$B" "$FLIP" 0; wire "$SP" "$FLIP" 1 2
-wire "$A" "$F" 0; wire "$FLIP" "$F" 1; wire "$CI" "$F" 2
-wire "$A" "$GA" 0; wire "$B" "$GA" 1; wire "$A" "$GO" 0; wire "$B" "$GO" 1
-wire "$A" "$GX" 0; wire "$B" "$GX" 1; wire "$A" "$NA"
-wire "$GA" "$P23" 0; wire "$GO" "$P23" 1; wire "$SP" "$P23" 2 2
-wire "$GX" "$P45" 0; wire "$NA" "$P45" 1; wire "$SP" "$P45" 2 2
-wire "$SP" "$N1" 0 1; wire "$SP" "$ANY" 0 1; wire "$SP" "$ANY" 1 0
-wire "$F" "$LOW" 0; wire "$P23" "$LOW" 1; wire "$SP" "$LOW" 2 1
-wire "$P45" "$HIGH" 0; wire "$N1" "$HIGH" 1; wire "$ANY" "$NONE"
-wire "$LOW" "$RES" 0; wire "$HIGH" "$RES" 1; wire "$SP" "$RES" 2 0
-wire "$F" "$CO" 0 1; wire "$NONE" "$CO" 1
-wire "$RES" "$O"; wire "$CO" "$C"
-check 7 13
-
-# Level 14: a 2-bit ALU is two slices in a chain, the ones place at the
-# bottom, the low COUT into the high CIN. The bottom CIN is OP's ones place:
-# on for subtract, off for add. ZERO ORs A's two signals and NOTs them, up
-# by A.
-ab click "#next"; sleep 0.5; hush
-A=$(terminal INPUT A); B=$(terminal INPUT B); OP=$(terminal INPUT OP)
-O=$(terminal OUTPUT OUT); Z=$(terminal OUTPUT ZERO)
-SA=$(add SPLIT 12 8 2); SB=$(add SPLIT 12 20 2); SO=$(add SPLIT 12 34 3)
-J=$(add JOIN 34 19 2); ANY=$(add OR 23 3); NONE=$(add NOT 32 3)
-wire "$A" "$SA"; wire "$B" "$SB"; wire "$OP" "$SO"
-CARRY=$SO; CARRY_PIN=2
-for bit in 0 1; do
-  pin=$((1 - bit))
-  S=$(add "ALU SLICE" 23 $((12 + pin * 14)))
-  wire "$SA" "$S" 0 "$pin"; wire "$SB" "$S" 1 "$pin"; wire "$CARRY" "$S" 2 "$CARRY_PIN"; wire "$OP" "$S" 3
-  wire "$S" "$J" "$pin" 0
-  CARRY=$S; CARRY_PIN=1
-done
-wire "$SA" "$ANY" 0 0; wire "$SA" "$ANY" 1 1; wire "$ANY" "$NONE"
-wire "$J" "$O"; wire "$NONE" "$Z"
-check 7 14
-
-# The 2-bit ALU ends L4, and L5 has no levels yet, so there's no way up.
-expect "!document.querySelector('#up') && !document.querySelector('#next')" "no way up from the last level"
+# The last level has no way on until its layer's next level exists.
+expect "!document.querySelector('#up') && !document.querySelector('#next')" "no way on from the last level"
 
 # The HUD button opens the stack on the current layer, and each level keeps
-# its board: going back to the zero test finds it still wired.
-expect "document.querySelector('#open-stack').textContent.includes('L4 · the calculation shop')" "the HUD names the current layer"
+# its board: going back to the level before finds it still wired.
+number=$(js "__abstract.layerOf($COUNT - 1).number")
+floor=$(js "__abstract.layerOf($COUNT - 1).floor" | tr -d '"')
+expect "document.querySelector('#open-stack').textContent.includes('L$number · $floor')" "the HUD names the current layer"
 ab click "#open-stack"; sleep 0.8; hush
-expect "document.querySelector('[data-layer=\"4\"]').parentElement.dataset.state === 'built'" "L4 is built"
+layer "$number" built
 agent-browser screenshot "$OUT/stack-built.png" >/dev/null
-sheet 12
-expect "__abstract.levelIndex === 11 && __abstract.game.edges.size === 17" "the zero test keeps its board"
+sheet $((COUNT - 1))
+expect "__abstract.levelIndex === $((COUNT - 2)) && __abstract.game.edges.size === __abstract.solution.wires.length" "level $((COUNT - 1)) keeps its board"
 
 # The title offers the stack once there's a save.
 ab click "#menu"; sleep 0.5
