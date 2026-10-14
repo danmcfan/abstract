@@ -1,7 +1,7 @@
 import { Show, createSignal, type JSX } from "solid-js";
 import { render } from "solid-js/web";
 import { pinPosition, type Pin } from "./sim/circuit";
-import { LEVELS } from "./sim/level";
+import { layerOf, LEVELS, solutionWires } from "./sim/level";
 import type { Node, NodeID } from "./sim/node";
 import { Board, toScreen } from "./ui/Board";
 import { DesktopNotice } from "./ui/DesktopNotice";
@@ -128,6 +128,15 @@ if (import.meta.env.DEV) {
       get saying() {
         return speech()?.line.text ?? null;
       },
+      levelCount: LEVELS.length,
+      // The layer level index i belongs to, for checks on the stack.
+      layerOf: (i: number) => layerOf(i),
+      // The open level's intended solution, and its wires once its parts
+      // are on the board as the given nodes, so the playthrough can build it.
+      get solution() {
+        return level().solution ?? null;
+      },
+      solutionWires: (ids: NodeID[]) => solutionWires(current(), level(), ids),
       nodes: () => [...current().nodes.values()].map(({ id, type, label, isHigh }) => ({ id, type, label, isHigh })),
       pinScreen: (id: NodeID, side: Pin["side"], index = 0) => {
         const p = pinPosition(current(), node(id), side, index);

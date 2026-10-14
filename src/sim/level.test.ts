@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { newGame, pinPosition, placeNode, setInput, tick, wire, type Game, type Pin } from "./circuit";
 import {
+  buildSolution,
   checkLevel,
   floorAbove,
   hasClock,
@@ -12,6 +13,7 @@ import {
   matches,
   partsBin,
   PARTS,
+  solutionWires,
   testTable,
   truthTable,
   wiring,
@@ -47,81 +49,54 @@ function levelGame(index: number): { game: Game; a: NodeID; b: NodeID; sel: Node
 
 const levelIndex = (type: NodeType): number => LEVELS.findIndex((level) => level.gate === type);
 
+describe("each level's intended solution", () => {
+  const unbuilt = LEVELS.flatMap((level, index) => (level.prebuilt === true ? [] : [{ level, index }]));
+
+  test("every level the player builds has one", () => {
+    expect(unbuilt.filter(({ level }) => level.solution === undefined).map(({ level }) => level.gate)).toEqual([]);
+  });
+
+  // Passing includes using only the parts bin and the level's Wiring (ADR 5).
+  test.each(unbuilt.map(({ level, index }) => [level.gate, index] as const))(
+    "%s builds onto its board and passes",
+    (_, index) => {
+      const game = loadLevel(LEVELS[index]!);
+      buildSolution(game, LEVELS[index]!);
+      const result = checkLevel(game, index);
+      expect(result.forbidden).toEqual([]);
+      expect(result.passed).toBe(true);
+    },
+  );
+
+  test("a wire names a terminal by its label and a part by its name, with :n for its nth pin", () => {
+    const level: Level = {
+      ...LEVELS[1]!,
+      solution: {
+        parts: [{ name: "nand", type: "NAND", x: 22, y: 20 }],
+        wires: [
+          ["A", "nand"],
+          ["A", "nand:1"],
+          ["nand", "OUT"],
+        ],
+      },
+    };
+    const game = loadLevel(level);
+    const nand = placeNode(game, "NAND", { x: 22, y: 20 })!.id;
+    const a = terminal(game, "INPUT", "A");
+    expect(solutionWires(game, level, [nand])).toEqual([
+      { from: out(a), to: inp(nand, 0) },
+      { from: out(a), to: inp(nand, 1) },
+      { from: out(nand), to: inp(terminal(game, "OUTPUT", "OUT")) },
+    ]);
+  });
+});
+
 describe("solutions", () => {
   test("the NAND level comes wired and passes as is", () => {
     const { game } = levelGame(0);
     expect([...game.nodes.values()].map((node) => node.type)).toContain("NAND");
     expect(game.edges.size).toBe(3);
     expect(checkLevel(game, 0).passed).toBe(true);
-  });
-
-  test("NOT from one NAND", () => {
-    const { game, a, o } = levelGame(1);
-    const nand = gate(game, "NAND");
-    wire(game, out(a), inp(nand, 0));
-    wire(game, out(a), inp(nand, 1));
-    wire(game, out(nand), inp(o));
-    expect(checkLevel(game, 1).passed).toBe(true);
-  });
-
-  test("AND from NAND then NOT", () => {
-    const { game, a, b, o } = levelGame(2);
-    const nand = gate(game, "NAND");
-    const not = gate(game, "NOT");
-    wire(game, out(a), inp(nand, 0));
-    wire(game, out(b), inp(nand, 1));
-    wire(game, out(nand), inp(not));
-    wire(game, out(not), inp(o));
-    expect(checkLevel(game, 2).passed).toBe(true);
-  });
-
-  test("OR from two NOTs into a NAND", () => {
-    const { game, a, b, o } = levelGame(3);
-    const notA = gate(game, "NOT");
-    const notB = gate(game, "NOT");
-    const nand = gate(game, "NAND");
-    wire(game, out(a), inp(notA));
-    wire(game, out(b), inp(notB));
-    wire(game, out(notA), inp(nand, 0));
-    wire(game, out(notB), inp(nand, 1));
-    wire(game, out(nand), inp(o));
-    expect(checkLevel(game, 3).passed).toBe(true);
-  });
-
-  test("XOR from four NANDs", () => {
-    const { game, a, b, o } = levelGame(4);
-    const first = gate(game, "NAND");
-    const left = gate(game, "NAND");
-    const right = gate(game, "NAND");
-    const last = gate(game, "NAND");
-    wire(game, out(a), inp(first, 0));
-    wire(game, out(b), inp(first, 1));
-    wire(game, out(a), inp(left, 0));
-    wire(game, out(first), inp(left, 1));
-    wire(game, out(first), inp(right, 0));
-    wire(game, out(b), inp(right, 1));
-    wire(game, out(left), inp(last, 0));
-    wire(game, out(right), inp(last, 1));
-    wire(game, out(last), inp(o));
-    expect(checkLevel(game, 4).passed).toBe(true);
-  });
-
-  test("MUX from A AND NOT SEL, OR B AND SEL", () => {
-    const index = levelIndex("MUX");
-    const { game, a, b, sel, o } = levelGame(index);
-    const not = gate(game, "NOT");
-    const andA = gate(game, "AND");
-    const andB = gate(game, "AND");
-    const or = gate(game, "OR");
-    wire(game, out(sel), inp(not));
-    wire(game, out(a), inp(andA, 0));
-    wire(game, out(not), inp(andA, 1));
-    wire(game, out(b), inp(andB, 0));
-    wire(game, out(sel), inp(andB, 1));
-    wire(game, out(andA), inp(or, 0));
-    wire(game, out(andB), inp(or, 1));
-    wire(game, out(or), inp(o));
-    expect(checkLevel(game, index).passed).toBe(true);
   });
 });
 
@@ -203,23 +178,6 @@ describe("the DEMUX level", () => {
       { inputs: [1, 0], expected: [1, 0] },
       { inputs: [1, 1], expected: [0, 1] },
     ]);
-  });
-
-  test("D AND NOT SEL, and D AND SEL, passes", () => {
-    const game = loadLevel(LEVELS[index]!);
-    const d = terminal(game, "INPUT", "D");
-    const sel = terminal(game, "INPUT", "SEL");
-    const not = gate(game, "NOT");
-    const and0 = gate(game, "AND");
-    const and1 = gate(game, "AND");
-    wire(game, out(sel), inp(not));
-    wire(game, out(d), inp(and0, 0));
-    wire(game, out(not), inp(and0, 1));
-    wire(game, out(d), inp(and1, 0));
-    wire(game, out(sel), inp(and1, 1));
-    wire(game, out(and0), inp(terminal(game, "OUTPUT", "Y0")));
-    wire(game, out(and1), inp(terminal(game, "OUTPUT", "Y1")));
-    expect(checkLevel(game, index).passed).toBe(true);
   });
 
   test("once solved, DEMUX is a part with two output pins that does what its level asks", () => {
@@ -313,21 +271,6 @@ describe("the adder levels", () => {
     ]);
   });
 
-  test("an XOR and an AND make a half adder", () => {
-    const game = loadLevel(HALF_ADDER);
-    const a = terminal(game, "INPUT", "A");
-    const b = terminal(game, "INPUT", "B");
-    const xor = gate(game, "XOR");
-    const and = gate(game, "AND");
-    for (const g of [xor, and]) {
-      wire(game, out(a), inp(g, 0));
-      wire(game, out(b), inp(g, 1));
-    }
-    wire(game, out(xor), inp(terminal(game, "OUTPUT", "SUM")));
-    wire(game, out(and), inp(terminal(game, "OUTPUT", "COUT")));
-    expect(checkLevel(game, HALF).passed).toBe(true);
-  });
-
   test("the full adder adds A, B and CIN into SUM and COUT", () => {
     const level = LEVELS[full]!;
     expect(level.inputs).toEqual(["A", "B", "CIN"]);
@@ -335,22 +278,6 @@ describe("the adder levels", () => {
     expect(truthTable(level).map((row) => row.expected)).toEqual(
       [0, 1, 1, 2, 1, 2, 2, 3].map((total) => [total & 1, total >> 1]),
     );
-  });
-
-  test("two half adders and an OR make a full adder", () => {
-    const game = loadLevel(LEVELS[full]!);
-    const first = gate(game, "HALF ADDER");
-    const second = gate(game, "HALF ADDER");
-    const or = gate(game, "OR");
-    wire(game, out(terminal(game, "INPUT", "A")), inp(first, 0));
-    wire(game, out(terminal(game, "INPUT", "B")), inp(first, 1));
-    wire(game, out(first, 0), inp(second, 0));
-    wire(game, out(terminal(game, "INPUT", "CIN")), inp(second, 1));
-    wire(game, out(first, 1), inp(or, 0));
-    wire(game, out(second, 1), inp(or, 1));
-    wire(game, out(second, 0), inp(terminal(game, "OUTPUT", "SUM")));
-    wire(game, out(or), inp(terminal(game, "OUTPUT", "COUT")));
-    expect(checkLevel(game, full).passed).toBe(true);
   });
 });
 
