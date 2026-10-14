@@ -6,7 +6,7 @@ import { createRouter } from "../sim/route";
 import { WIDE_MIN_WIDTH } from "./device";
 import { NodeView } from "./NodeView";
 import { sound } from "./sound";
-import { current, mutate, testing } from "./state";
+import { current, mutate, session } from "./state";
 import { wirePath } from "./wirePath";
 
 // A drafting sheet drawn in SVG. The viewBox is in grid cells, so one user
@@ -63,7 +63,7 @@ export function Board(): JSX.Element {
     hud.disconnect();
   });
 
-  const gestures = createGestures({ game: current, edit: mutate, locked: testing, sound });
+  const gestures = createGestures({ game: current, edit: mutate, locked: () => session().testing, sound });
   // The gesture module is plain state; mirror it into signals after each event.
   const [view, setView] = createSignal(snapshot(gestures), { equals: false });
   const hovered = (): number | null => view().hoveredNode;

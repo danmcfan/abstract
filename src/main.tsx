@@ -8,11 +8,10 @@ import { DesktopNotice } from "./ui/DesktopNotice";
 import { noticeDismissal, watchSmallTouch } from "./ui/device";
 import { Dialogue } from "./ui/Dialogue";
 import { listenForFirstGesture } from "./ui/sound";
-import { hush, say, speech } from "./ui/speech";
+import { hush, speak, speech } from "./ui/speech";
 import { Hud } from "./ui/Hud";
-import * as script from "./ui/script";
 import { Stack } from "./ui/Stack";
-import { continueGame, current, hasFlag, level, levelIndex, newGame, once, startLevel } from "./ui/state";
+import { current, driver, session } from "./ui/state";
 import { Title } from "./ui/Title";
 import { useTutorial } from "./ui/tutorial";
 
@@ -20,7 +19,10 @@ import { useTutorial } from "./ui/tutorial";
 const params = new URLSearchParams(location.search);
 const requested = Number(params.get("level")) - 1;
 const jump = import.meta.env.DEV && requested >= 0 && requested < LEVELS.length;
-if (jump) startLevel(requested);
+if (jump)
+  driver.change(() => {
+    session().start(requested);
+  });
 
 // The stack opens over the board, which stays as it was underneath, or over
 // the title, which it returns to. Arriving from the floor below, it names
@@ -45,17 +47,17 @@ function App(): JSX.Element {
   const openStack = (arrive?: number): void => {
     hush();
     setStack({ arrive });
-    if (arrive !== undefined && arrive !== 0)
-      once(`floor:${arrive}`, () => {
-        say(script.floor(arrive));
-      });
+    if (arrive !== undefined) speak(session().arrive(arrive));
   };
   // Picking the level already on the board leaves it alone, test result
   // and all.
   const pick = (index: number): void => {
     hush();
     setStack(null);
-    if (index !== levelIndex()) startLevel(index);
+    if (index !== session().levelIndex)
+      driver.change(() => {
+        session().start(index);
+      });
     setScreen("play");
   };
   const closeStack = (): void => {
@@ -69,16 +71,24 @@ function App(): JSX.Element {
         <Title
           onContinue={() => {
             play(() => {
-              continueGame();
-              if (hasFlag(`intro:${level().gate}`)) say(script.welcomeBack(level()));
+              driver.change(() => {
+                session().resume();
+              });
+              speak(session().welcome());
             });
           }}
           onStack={() => {
-            continueGame();
+            driver.change(() => {
+              session().resume();
+            });
             openStack();
           }}
           onNew={() => {
-            play(newGame);
+            play(() => {
+              driver.change(() => {
+                session().reset();
+              });
+            });
           }}
         />
       </Show>
@@ -122,10 +132,10 @@ if (import.meta.env.DEV) {
         return current();
       },
       get levelIndex() {
-        return levelIndex();
+        return session().levelIndex;
       },
       get gate() {
-        return level().gate;
+        return session().level.gate;
       },
       // The whole line Bitbox is on, however much of it is typed out yet.
       get saying() {
@@ -137,9 +147,9 @@ if (import.meta.env.DEV) {
       // The open level's intended solution, and its wires once its nodes
       // are on the board as the given nodes, so the playthrough can build it.
       get solution() {
-        return level().solution ?? null;
+        return session().level.solution ?? null;
       },
-      solutionWires: (ids: NodeID[]) => solutionWires(current(), level(), ids),
+      solutionWires: (ids: NodeID[]) => solutionWires(current(), session().level, ids),
       nodes: () => [...current().nodes.values()].map(({ id, type, label, isHigh }) => ({ id, type, label, isHigh })),
       pinScreen: (id: NodeID, side: Pin["side"], index = 0) => {
         const p = pinPosition(current(), node(id), side, index);

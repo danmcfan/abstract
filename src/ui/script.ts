@@ -1,5 +1,6 @@
 import type { Level } from "../sim/level";
 import type { NodeType } from "../sim/node";
+import type { Cue } from "../sim/story";
 import type { Line } from "./speech";
 
 // Everything the robot says. It talks in short lines, one idea each.
@@ -283,7 +284,7 @@ const FLOORS: Record<number, Line> = {
   9: { face: "happy", text: "The exit hall. I can see the door! One program left to write." },
 };
 
-export const floor = (layer: number): Line[] => (FLOORS[layer] ? [FLOORS[layer]] : []);
+const floor = (layer: number): Line[] => (FLOORS[layer] ? [FLOORS[layer]] : []);
 
 export const intro = (level: Level): Line[] => LEVELS[level.gate]?.intro ?? [];
 
@@ -299,21 +300,21 @@ export const help = (level: Level): Line[] => [
   ...(LEVELS[level.gate]?.hint ?? [CONTROLS]),
 ];
 
-export const failed: Line[] = [
+const failed: Line[] = [
   { face: "error", text: "Bzzt! Some rows don't match. The ✗ marks show which ones." },
   { face: "idle", text: "Flip the switches yourself to see what your circuit really does." },
 ];
 
-export const unstable: Line[] = [
+const unstable: Line[] = [
   { face: "error", text: "Bzzt! A loop on your board keeps flipping its own signal, so it never settles." },
   { face: "idle", text: "Look for a wire that feeds a gate's output back into it." },
 ];
 
-export const forbidden = (types: NodeType[]): Line[] => [
+const forbidden = (types: NodeType[]): Line[] => [
   { face: "worried", text: `${types.join(" and ")} isn't allowed on this level yet. Stick to the parts in the bin.` },
 ];
 
-export const welcomeBack = (level: Level): Line[] => [
+const welcomeBack = (level: Level): Line[] => [
   {
     face: "happy",
     text:
@@ -328,3 +329,32 @@ export const smallScreen: Line = {
   face: "worried",
   text: "This board's too small for fingers. Come find me on a desktop.",
 };
+
+// Bitbox's lines for something the session says he speaks to.
+export function lines(cue: Exclude<Cue, { react: string }>): Line[] {
+  let said: Line[];
+  switch (cue.say) {
+    case "intro":
+      said = intro(cue.level);
+      break;
+    case "welcome back":
+      said = welcomeBack(cue.level);
+      break;
+    case "floor":
+      said = floor(cue.layer);
+      break;
+    case "solved":
+      said = solved(cue.level);
+      break;
+    case "failed":
+      said = failed;
+      break;
+    case "forbidden":
+      said = forbidden(cue.parts);
+      break;
+    case "unstable":
+      said = unstable;
+      break;
+  }
+  return said;
+}

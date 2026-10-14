@@ -3,14 +3,14 @@ import { LEVELS, type Level } from "../sim/level";
 import type { Expression } from "../robot/expression";
 import { RobotScreen } from "./RobotScreen";
 import { SoundButton } from "./SoundButton";
-import { hasSave, savedLevel, solved } from "./state";
+import { session } from "./state";
 
 // The title sheet. With no saved game there's one button, Start. With one,
 // Continue picks it up, The stack picks a level, and New Game starts over,
 // after asking, since that erases the save.
 function saved(): Level {
-  const level = LEVELS[savedLevel()];
-  if (level === undefined) throw new Error(`The save points at a missing level ${savedLevel()}`);
+  const level = LEVELS[session().savedLevel];
+  if (level === undefined) throw new Error(`The save points at a missing level ${session().savedLevel}`);
   return level;
 }
 
@@ -48,7 +48,7 @@ export function Title(props: { onContinue: () => void; onStack: () => void; onNe
 
             <div class="mt-7 mb-6 flex flex-col items-start gap-3.5" onMouseLeave={doze}>
               <Show
-                when={hasSave()}
+                when={session().hasSave}
                 fallback={
                   <button
                     id="start"
@@ -100,7 +100,7 @@ export function Title(props: { onContinue: () => void; onStack: () => void; onNe
                   >
                     Continue
                     <small class="block text-xs font-normal opacity-80">
-                      {saved().prebuilt === true ? "Meet" : "Build"} {saved().gate}, level {savedLevel() + 1} of{" "}
+                      {saved().prebuilt === true ? "Meet" : "Build"} {saved().gate}, level {session().savedLevel + 1} of{" "}
                       {LEVELS.length}
                     </small>
                   </button>
@@ -124,7 +124,7 @@ export function Title(props: { onContinue: () => void; onStack: () => void; onNe
           </div>
           <RobotScreen expression={mood()} class="mx-auto aspect-square w-full max-w-65" />
         </div>
-        <TitleBlock built={hasSave() ? solved() : 0} />
+        <TitleBlock built={session().hasSave ? session().solved : 0} />
       </div>
     </main>
   );

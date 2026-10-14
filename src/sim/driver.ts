@@ -1,0 +1,95 @@
+import type { Session } from "./session";
+
+// Runs a task every so many milliseconds until the returned function cancels
+// it. The game passes setInterval; tests pass one they fire by hand.
+export interface Scheduler {
+  every(ms: number, task: () => void): () => void;
+}
+
+// How long a test run waits between rows.
+export const TEST_STEP_MS = 600;
+// How long Run waits between ticks of the clock.
+export const CLOCK_MS = 500;
+
+// Moves a session along in time: steps a test run through its rows, and
+// ticks the clock over and over while Run is on. Everything that changes the
+// level or board goes through here too, so a new board stops whatever was
+// timed on the old one. It calls changed() after every change it makes.
+export class Driver {
+  private stopClock: (() => void) | null = null;
+  private stopTest: (() => void) | null = null;
+
+  private readonly session: Session;
+  private readonly scheduler: Scheduler;
+  private readonly changed: () => void;
+
+  constructor(session: Session, scheduler: Scheduler, changed: () => void) {
+    this.session = session;
+    this.scheduler = scheduler;
+    this.changed = changed;
+  }
+
+  // Whether Run is ticking the clock.
+  get running(): boolean {
+    return this.stopClock !== null;
+  }
+
+  // Applies a change that opens, clears or swaps the board, stopping the
+  // clock and any test run's steps first.
+  change(apply: () => void): void {
+    this.pause();
+    this.stopTest?.();
+    this.stopTest = null;
+    apply();
+    this.changed();
+  }
+
+  // Steps through the truth table on the board so the player can watch each
+  // row, then records the result.
+  test(): void {
+    this.pause();
+    if (!this.session.beginTest()) return;
+    this.stopTest?.();
+    this.stopTest = null;
+    this.changed();
+    if (!this.step()) return;
+    this.stopTest = this.scheduler.every(TEST_STEP_MS, () => {
+      if (this.step()) return;
+      this.stopTest?.();
+      this.stopTest = null;
+    });
+  }
+
+  // Ticks the level's clock once, by hand.
+  tick(): void {
+    if (this.session.tick()) this.changed();
+  }
+
+  // Run ticks the clock over and over so the player can watch the board
+  // change, until Pause, a test run or another board stops it.
+  toggleClock(): void {
+    if (this.running) {
+      this.pause();
+      return;
+    }
+    this.stopClock = this.scheduler.every(CLOCK_MS, () => {
+      this.tick();
+    });
+    this.tick();
+    this.changed();
+  }
+
+  private pause(): void {
+    if (!this.stopClock) return;
+    this.stopClock();
+    this.stopClock = null;
+    this.changed();
+  }
+
+  // Shows the next row, or ends the run. Either way the panel changes.
+  private step(): boolean {
+    const shown = this.session.step();
+    this.changed();
+    return shown;
+  }
+}
