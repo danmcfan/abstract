@@ -36,10 +36,14 @@ board() { js "(p => Math.round(p.x) + ' ' + Math.round(p.y))(__abstract.boardScr
 terminal() { js "__abstract.nodes().find(n => n.type === '$1' && n.label === '$2').id"; }
 newest() { js "Math.max(...__abstract.nodes().map(n => n.id))"; }
 
-# Adds a gate from the toolbox and drags it to board cell (x, y). A split or
-# join takes its bus width as a fourth argument, when the bin has more than one.
+# Adds a gate from the parts bin and drags it to board cell (x, y). A split
+# or join takes its bus width as a fourth argument, when the bin has more than
+# one. The bin pages sideways, so its card is brought fully into view first,
+# as a player would page to it.
 add() {
-  ab click "button[data-gate=\"$1\"]${4:+[data-width=\"$4\"]}"
+  local card="button[data-gate=\"$1\"]${4:+[data-width=\"$4\"]}"
+  ab eval "document.querySelector('$card').scrollIntoView({ inline: 'nearest', block: 'nearest' })"
+  ab click "$card"
   local id; id=$(newest)
   # shellcheck disable=SC2046
   drag $(body "$id") $(board "$2" "$3")

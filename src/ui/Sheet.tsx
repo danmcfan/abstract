@@ -1,4 +1,4 @@
-import { For, Match, Show, Switch, createEffect, createSignal, on, type JSX } from "solid-js";
+import { For, Match, Show, Switch, createEffect, createSignal, on, onCleanup, onMount, type JSX } from "solid-js";
 import { CLOCK, hasClock, layerOf, type Layer, partGiven, partsBin, terminalWidth, wiring } from "../sim/level";
 import type { Value } from "../sim/node";
 import { say } from "./speech";
@@ -55,7 +55,7 @@ export function MenuBar(props: { onMenu: () => void; onStack: (arrive?: number) 
       <h1 class="flex items-center px-3 text-lg font-bold text-ink">
         {session().level.prebuilt === true ? "Meet" : "Build"} {session().level.gate}
       </h1>
-      <nav class="ml-auto flex items-center gap-1.5 px-2">
+      <nav class="ml-auto flex items-center gap-2.5 py-1.5 pr-3 pl-2">
         <button
           id="open-stack"
           class="btn btn-sm btn-ghost"
@@ -287,55 +287,145 @@ export function Brief(props: { onStack: (arrive?: number) => void }): JSX.Elemen
 }
 
 export function PartsBin(): JSX.Element {
+  let shelf: HTMLDivElement | undefined;
+  const [canBack, setCanBack] = createSignal(false);
+  const [canOn, setCanOn] = createSignal(false);
+  // The arrows only show when the bin holds more than fits.
+  const arrow = (): string => `${BIN_ARROW} ${canBack() || canOn() ? "" : "invisible"}`;
+  const measure = (): void => {
+    if (!shelf) return;
+    setCanBack(shelf.scrollLeft > 1);
+    setCanOn(shelf.scrollLeft + shelf.clientWidth < shelf.scrollWidth - 1);
+  };
+  // Moves the shelf one column of cards along, to the next column's left
+  // edge, so the bin never stops halfway through a card.
+  let stepping = false;
+  const step = (direction: 1 | -1): void => {
+    if (!shelf) return;
+    // Every edge is measured from the first card's, which sits at the left
+    // with the shelf scrolled all the way back.
+    const cards = [...shelf.querySelectorAll<HTMLElement>("[data-gate]")];
+    const edges = cards.map((card) => card.offsetLeft - (cards[0]?.offsetLeft ?? 0));
+    const from = shelf.scrollLeft;
+    const target =
+      direction > 0 ? edges.find((edge) => edge > from + 1) : Math.max(...edges.filter((edge) => edge < from - 1));
+    if (target === undefined || !Number.isFinite(target)) return;
+    stepping = true;
+    shelf.scrollTo({ left: target, behavior: "smooth" });
+  };
+  // A level changes the parts on the shelf, so it starts again from the left.
+  createEffect(
+    on(
+      () => session().levelIndex,
+      (): void => {
+        shelf?.scrollTo({ left: 0 });
+        measure();
+      },
+    ),
+  );
+  onMount(() => {
+    const resized = new ResizeObserver(measure);
+    if (shelf) resized.observe(shelf);
+    onCleanup(() => {
+      resized.disconnect();
+    });
+  });
+
   return (
     <section id="parts-bin" class="flex min-h-0 min-w-0 flex-col text-ink-deep sheet">
       <span class="shrink-0 border-b-2 border-ink px-3 py-1 text-label tracking-label text-pencil uppercase">
         Parts bin
       </span>
-      <div class="flex min-h-0 flex-1 flex-wrap content-start items-start gap-2 overflow-y-auto p-2">
-        <For
-          each={partsBin(session().levelIndex)}
-          fallback={<span class="self-center px-1 text-xs text-pencil">Empty, for now</span>}
+      <div class="flex min-h-0 flex-1">
+        <button
+          id="bin-back"
+          class={arrow()}
+          aria-label="Earlier parts"
+          disabled={!canBack()}
+          onClick={() => {
+            step(-1);
+          }}
         >
-          {(type) => (
-            <button
-              class={PART_CARD}
-              data-gate={type}
-              disabled={session().testing}
-              onClick={() => {
-                placePart(type);
-              }}
-            >
-              <GateIcon type={type} class="h-6 w-10 shrink-0" />
-              {type}
-            </button>
-          )}
-        </For>
-        {/* Split and join are wiring the level supplies, not parts, so they
-            sit apart at the end, and only on levels with buses. */}
-        <Show when={wiring(session().level).length > 0}>
-          <span class="self-stretch border-l-2 border-dashed border-ink" aria-hidden="true" />
-          <For each={wiring(session().level)}>
-            {(w) => (
+          ‹
+        </button>
+        {/* Two rows of cards that fill a column at a time, so the bin pages
+            sideways. A vertical mouse wheel steps it one column too. */}
+        <div
+          ref={(el) => {
+            shelf = el;
+          }}
+          class="relative grid min-w-0 flex-1 scrollbar-none auto-cols-min grid-flow-col grid-rows-2 content-center gap-2 overflow-x-auto p-2"
+          onScroll={measure}
+          onScrollEnd={() => {
+            stepping = false;
+          }}
+          onWheel={(event) => {
+            if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+            event.preventDefault();
+            if (!stepping) step(event.deltaY > 0 ? 1 : -1);
+          }}
+        >
+          <For
+            each={partsBin(session().levelIndex)}
+            fallback={
+              <span class="row-span-2 self-center px-1 text-xs whitespace-nowrap text-pencil">Empty, for now</span>
+            }
+          >
+            {(type) => (
               <button
                 class={PART_CARD}
-                data-gate={w.type}
-                data-width={w.width}
+                data-gate={type}
                 disabled={session().testing}
                 onClick={() => {
-                  placePart(w.type, w.width);
+                  placePart(type);
                 }}
               >
-                <GateIcon type={w.type} width={Math.min(w.width, 4)} class="h-6 w-10 shrink-0" />
-                {`${w.type} ${w.width}`}
+                <GateIcon type={type} class="h-6 w-10 shrink-0" />
+                {type}
               </button>
             )}
           </For>
-        </Show>
+          {/* Split and join are wiring the level supplies, not parts, so they
+              sit apart at the end, from a fresh column, and only on levels
+              with buses. */}
+          <Show when={wiring(session().level).length > 0}>
+            <span class="row-span-2 border-l-2 border-dashed border-ink" aria-hidden="true" />
+            <For each={wiring(session().level)}>
+              {(w) => (
+                <button
+                  class={PART_CARD}
+                  data-gate={w.type}
+                  data-width={w.width}
+                  disabled={session().testing}
+                  onClick={() => {
+                    placePart(w.type, w.width);
+                  }}
+                >
+                  <GateIcon type={w.type} width={Math.min(w.width, 4)} class="h-6 w-10 shrink-0" />
+                  {`${w.type} ${w.width}`}
+                </button>
+              )}
+            </For>
+          </Show>
+        </div>
+        <button
+          id="bin-on"
+          class={arrow()}
+          aria-label="More parts"
+          disabled={!canOn()}
+          onClick={() => {
+            step(1);
+          }}
+        >
+          ›
+        </button>
       </div>
     </section>
   );
 }
+
+const BIN_ARROW =
+  "w-7 shrink-0 text-xl font-bold text-ink hover:bg-wash disabled:cursor-default disabled:text-dead disabled:hover:bg-transparent";
 
 // A part in the bin, drawn as a little card with its symbol over its name.
 const PART_CARD =

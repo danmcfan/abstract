@@ -37,7 +37,7 @@ The grid the player builds a circuit on, with its nodes and wires. In code it's 
 _Avoid_: canvas, workspace, breadboard
 
 **Sheet**:
-The drafting sheet the whole screen is drawn as: white paper panels in blue ink, pinned on a blueprint-blue grid. Each level's sheet is numbered ("SH 04").
+The drafting sheet the whole screen is drawn as: white paper panels in blue ink, pinned on white grid paper. Each level's sheet is numbered ("SH 04").
 
 **Menu bar**:
 The strip across the top of the sheet with the sheet number, the level's name, and the level select, help, sound and menu buttons.
