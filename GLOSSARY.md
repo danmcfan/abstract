@@ -143,7 +143,7 @@ A memory part that keeps one 8-signal value. The CPU has four, R0 to R3.
 The four registers as one part, which gives two registers' values and writes one register in the same tick.
 
 **ALU**:
-The part, built in L4, that does one of six operations (add, subtract, and, or, xor, not) on two 8-signal values, chosen by its OP input. Its ZERO output is on when its A input is 0, whatever the operation. It is built from eight **ALU slices**, each the ALU for one signal.
+The part, built in L4, that does one of six operations (add, subtract, and, or, xor, not) on two 8-signal values, chosen by its OP input. It is built from eight **ALU slices**, each the ALU for one signal.
 _Avoid_: calculator, math unit
 
 **Program counter**:

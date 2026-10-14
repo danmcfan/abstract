@@ -16,9 +16,10 @@ Issue #51 splits the slice into parts the player builds first: an add/subtract u
 
 Each signal of OP has one job:
 
-- The **top** signal picks arithmetic (off) or logic (on). It drives the slice's last MUX, and COUT is the carry AND NOT top.
+- The **top** signal picks arithmetic (off) or logic (on). It drives the slice's last MUX.
 - The **ones** place is subtract in arithmetic: it flips B and, at the bottom of a chain of slices, is the carry in.
 - In logic, the **low two** signals are the logic unit's SEL.
+- Arithmetic counts only while the top two signals are off, so the slice gates ADD/SUB's sum and carry with NOT (top OR mid), and COUT is the carry only for add and subtract.
 
 So: 0 add, 1 subtract, 4 and, 5 or, 6 xor, 7 not A. OP 2 and 3 do nothing.
 
@@ -28,6 +29,6 @@ So: 0 add, 1 subtract, 4 and, 5 or, 6 xor, 7 not A. OP 2 and 3 do nothing.
 
 ## Consequences
 
-- The ALU slice is about 6 parts: a split on OP, ADD/SUB, LOGIC UNIT, a MUX, a NOT and an AND.
+- The ALU slice is 7 parts plus a split on OP and a join for SEL: ADD/SUB, LOGIC UNIT, a MUX, and an OR, a NOT and two ANDs that keep OP 2 and 3 at nothing. The level's Wiring gives the 2-bit join, since its terminals have no 2-signal bus.
 - The ALU SLICE and 2-BIT ALU levels changed their truth tables, so their revisions are bumped and players solve them again ([ADR 8](0008-new-or-changed-levels-are-played.md)).
 - The unused values sit in the middle (2 and 3), not at the end. The player numbers their own instructions ([ADR 7](0007-player-numbers-the-instructions.md)), so the CPU maps them to OP and never has to use 2 or 3.

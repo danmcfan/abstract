@@ -157,6 +157,47 @@ describe("the L4 parts", () => {
   });
 });
 
+// The 2-bit MUX's intended solution: split A and B, a MUX for each signal
+// with SEL on both, and join the outputs.
+function buildMux2(game: Game): void {
+  const place = placer(game);
+  const splitA = place("SPLIT", 12, 9, 2);
+  const splitB = place("SPLIT", 12, 22, 2);
+  const join = place("JOIN", 34, 18, 2);
+  wire(game, terminal(game, "INPUT", "A"), inp(splitA));
+  wire(game, terminal(game, "INPUT", "B"), inp(splitB));
+  for (let pin = 0; pin < 2; pin++) {
+    const mux = place("MUX", 24, 12 + pin * 12);
+    wire(game, out(splitA, pin), inp(mux, 0));
+    wire(game, out(splitB, pin), inp(mux, 1));
+    wire(game, terminal(game, "INPUT", "SEL"), inp(mux, 2));
+    wire(game, out(mux), inp(join, pin));
+  }
+  wire(game, out(join), terminal(game, "OUTPUT", "OUT"));
+}
+
+describe("the 2-bit MUX level", () => {
+  const index = levelIndex("2-BIT MUX");
+  const level = LEVELS[index]!;
+
+  test("chooses between 2-signal buses with one SEL, using a 2-bit split and join", () => {
+    expect(level.widths).toEqual({ A: 2, B: 2, OUT: 2 });
+    expect(wiring(level)).toEqual([
+      { type: "SPLIT", width: 2 },
+      { type: "JOIN", width: 2 },
+    ]);
+  });
+
+  test("two MUXes between a split and a join pass", () => {
+    const game = loadLevel(level);
+    buildMux2(game);
+    const result = checkLevel(game, index);
+    expect(result.forbidden).toEqual([]);
+    expect(result.hidden.failed).toEqual([]);
+    expect(result.passed).toBe(true);
+  });
+});
+
 // The 2-bit ALU's intended solution: two ALU slices in a chain, the ones
 // place at the bottom, the low COUT into the high CIN. The first CIN is OP's
 // ones signal, so it's on for subtract (and only matters for add and
