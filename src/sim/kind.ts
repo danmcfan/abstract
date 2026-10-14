@@ -1,5 +1,5 @@
 import type { Size } from "./grid";
-import { bitOf, mask, type Label, type NodeType, type Value } from "./node";
+import { bitOf, mask, type Label, type NodeType, type State, type Value } from "./node";
 
 // What a node kind is, all in one place: its pins and their widths, its
 // size, what it computes, what the player can do with it, and how it's
@@ -17,11 +17,12 @@ export interface NodeKind {
   size: (width: number) => Size;
   // One value per output pin. Terminals have no logic of their own: the
   // board sets an input's signals and lights an output from its wire. A
-  // memory part's outputs come from its state alone.
-  evaluate: (inputs: Value[], width: number, state?: Value) => Value[];
+  // memory part's outputs come from its state, and from inputs that only
+  // pick which of it to show.
+  evaluate: (inputs: Value[], width: number, state?: State) => Value[];
   // A memory part's next state, from its inputs and its state. Other kinds
   // keep no state.
-  next?: (inputs: Value[], state: Value) => Value;
+  next?: (inputs: Value[], state: State) => State;
   // One end of the level's truth table: an input the board sets, or an
   // output it reads.
   terminal?: "input" | "output";
@@ -64,13 +65,14 @@ export interface Combinational {
   memory?: never;
 }
 
-// A memory part keeps a state on its node, 0 when a board loads. Its
+// A memory part keeps a state on its node, all 0 when a board loads. Its
 // outputs come from its state, and its inputs change the state, so the
 // level decides when it takes in a value: a flip-flop keeps the clock it
-// last saw in its state, to tell when the clock turns on.
+// last saw in its state, to tell when the clock turns on. Inputs can pick
+// which of the state the outputs show, as a register file's ASEL does.
 export interface Memory {
-  next: (inputs: Value[], state: Value) => Value;
-  outputs: (state: Value) => Value[];
+  next: (inputs: Value[], state: State) => State;
+  outputs: (state: State, inputs: Value[]) => Value[];
 }
 
 // The parts a board can hold, by name.
@@ -174,8 +176,8 @@ function partKind(type: NodeType, spec: Spec): NodeKind {
     outputCount: () => spec.outputs.length,
     pinWidth: (side, index) => widthOf((side === "in" ? spec.inputs : spec.outputs)[index]),
     size: () => size,
-    evaluate: (inputs, _width, state = 0) => {
-      const values = spec.memory ? spec.memory.outputs(state) : spec.target(inputs);
+    evaluate: (inputs, _width, state = []) => {
+      const values = spec.memory ? spec.memory.outputs(state, inputs) : spec.target(inputs);
       for (let i = 0; i < values.length; i++) values[i] = mask(values[i] ?? 0, outputWidths[i] ?? 1);
       return values;
     },

@@ -118,11 +118,11 @@ const LATCH: Level = {
   outputs: ["Q"],
   memory: {
     next: ([s = 1, r = 1], state) => {
-      if (s === 0) return 1;
-      if (r === 0) return 0;
+      if (s === 0) return [1];
+      if (r === 0) return [0];
       return state;
     },
-    outputs: (state) => [state],
+    outputs: ([q = 0]) => [q],
   },
   steps: [
     { inputs: [0, 1], expected: [1] },
@@ -140,8 +140,8 @@ const FLIP_FLOP: Level = {
   inputs: ["D", "CLK"],
   outputs: ["Q"],
   memory: {
-    next: ([d = 0, clk = 0], state) => (clk && !(state >> 1) ? d : state & 1) | (clk << 1),
-    outputs: (state) => [state & 1],
+    next: ([d = 0, clk = 0], [q = 0, seen = 0]) => [clk && !seen ? d : q, clk],
+    outputs: ([q = 0]) => [q],
   },
   steps: [
     { inputs: [1, 0], expected: [0] },

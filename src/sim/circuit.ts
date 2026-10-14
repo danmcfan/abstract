@@ -1,6 +1,6 @@
 import { DEFAULT_GRID, overlaps, snap, type Rect, type Size } from "./grid";
 import { kindOf, pinOffset, type NodeKind, type Parts } from "./kind";
-import { mask, MAX_WIDTH, type Label, type Node, type NodeID, type NodeType, type Value } from "./node";
+import { mask, MAX_WIDTH, type Label, type Node, type NodeID, type NodeType, type State, type Value } from "./node";
 
 // The board: nodes, the wires between them, and the signals on both. Every
 // command leaves the circuit settled, so readers never see stale signals.
@@ -73,7 +73,7 @@ export function placeNode(
   if (!Number.isInteger(width) || width < 1 || width > MAX_WIDTH) return null;
   const rect = freeRect(game, kindOf(game.parts, type).size(width), center);
   if (!rect) return null;
-  const node: Node = { id: game.nextNodeID++, type, label, rect, width, isHigh: false, signals: [], state: 0 };
+  const node: Node = { id: game.nextNodeID++, type, label, rect, width, isHigh: false, signals: [], state: [] };
   game.nodes.set(node.id, node);
   settle(game);
   return node;
@@ -155,11 +155,11 @@ export function tick(game: Game, clock: NodeID): void {
 }
 
 // Puts every node but the input terminals back to off and every memory
-// part's state back to 0, then settles, so what happens next doesn't hang
+// part's state back to all 0, then settles, so what happens next doesn't hang
 // on what happened before. simulate starts from the same place.
 export function restart(game: Game): void {
   for (const node of game.nodes.values()) {
-    node.state = 0;
+    node.state = [];
     if (nodeKind(game, node).terminal !== "input") node.signals = [];
   }
   settle(game);
@@ -309,7 +309,7 @@ function plan(game: Game): Plan {
 interface Signals {
   outputs: Value[][];
   inputs: Value[][];
-  states: Value[];
+  states: State[];
 }
 
 // One pass over a plan, changing signals in place. Input terminals take
@@ -323,12 +323,12 @@ function pass(steps: Step[], signals: Signals, source: (node: Node) => Value): b
     const values: Value[] = [];
     for (const w of wires) values.push(w ? (signals.outputs[w.from]?.[w.edge.fromIndex] ?? 0) : 0);
     signals.inputs[i] = values;
-    const state = signals.states[i] ?? 0;
+    const state = signals.states[i] ?? [];
     const outputs =
       kind.terminal === "input" ? [mask(source(node), node.width)] : kind.evaluate(values, node.width, state);
     if (kind.next) {
       const next = kind.next(values, state);
-      if (next !== state) changed = true;
+      if (next.length !== state.length || next.some((value, j) => value !== state[j])) changed = true;
       signals.states[i] = next;
     }
     const old = signals.outputs[i] ?? [];
@@ -366,7 +366,7 @@ function settle(game: Game): void {
   game.stable = run(board, signals, (node) => node.signals[0] ?? 0);
   steps.forEach(({ node, kind, inputs: wires }, i) => {
     node.signals = signals.outputs[i] ?? [];
-    node.state = signals.states[i] ?? 0;
+    node.state = signals.states[i] ?? [];
     const into = signals.inputs[i] ?? [];
     wires.forEach((w, pin) => {
       if (w) w.edge.value = into[pin] ?? 0;
@@ -391,7 +391,7 @@ export function simulate(
   const signals: Signals = {
     outputs: board.steps.map((step) => (step.kind.terminal === "input" ? step.node.signals : [])),
     inputs: [],
-    states: board.steps.map(() => 0),
+    states: board.steps.map(() => []),
   };
   run(board, signals, (node) => node.signals[0] ?? 0);
   const slot = new Map(inputs.map((id, i) => [id, i]));

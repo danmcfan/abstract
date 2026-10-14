@@ -507,8 +507,8 @@ describe("the stack", () => {
   });
 });
 
-// A memory level as L5 will have one: a D flip-flop takes in D when CLK
-// turns on. Its part keeps the clock it last saw in bit 1 of its state.
+// A memory level: a D flip-flop takes in D when CLK turns on. Its part
+// keeps Q and the clock it last saw as its state.
 const FLIP_FLOP: Level = {
   gate: "DFF",
   goal: "Q takes D's value when the clock turns on, and keeps it until the next tick.",
@@ -516,8 +516,8 @@ const FLIP_FLOP: Level = {
   inputs: ["D", "CLK"],
   outputs: ["Q"],
   memory: {
-    next: ([d = 0, clk = 0], state) => (clk && !(state >> 1) ? d : state & 1) | (clk << 1),
-    outputs: (state) => [state & 1],
+    next: ([d = 0, clk = 0], [q = 0, seen = 0]) => [clk && !seen ? d : q, clk],
+    outputs: ([q = 0]) => [q],
   },
   steps: [
     { inputs: [1, 0], expected: [0] },
@@ -562,7 +562,7 @@ describe("a memory level", () => {
     const ff = [...game.nodes.values()].find((node) => node.type === "DFF")!;
     setInput(game, d, 1);
     tick(game, terminal(game, "INPUT", "CLK"));
-    expect(ff.state & 1).toBe(1);
+    expect(ff.state[0]).toBe(1);
     const first = checkLevel(game, index, levels);
     const second = checkLevel(game, index, levels);
     expect(first.passed).toBe(true);
@@ -574,7 +574,7 @@ describe("a memory level", () => {
     setInput(game, terminal(game, "INPUT", "D"), 1);
     tick(game, terminal(game, "INPUT", "CLK"));
     const loaded = loadBoard(saveBoard(game), parts);
-    expect([...loaded.nodes.values()].find((node) => node.type === "DFF")!.state).toBe(0);
+    expect([...loaded.nodes.values()].find((node) => node.type === "DFF")!.state.some(Boolean)).toBe(false);
     expect(loaded.nodes.get(terminal(loaded, "OUTPUT", "Q"))!.isHigh).toBe(false);
   });
 });
