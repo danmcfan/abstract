@@ -4,7 +4,7 @@ import type { Cue } from "../sim/story";
 import * as script from "./script";
 
 // What the robot is saying: a short run of lines shown one at a time in its
-// popup, each with the face it pulls while saying it.
+// desk, each with the face it pulls while saying it.
 export interface Line {
   face: Expression;
   text: string;
@@ -24,7 +24,7 @@ export function speech(): { line: Line; index: number; count: number } | null {
 }
 
 // A face the robot pulls for a moment without saying anything. It shows over
-// whatever line is up, or in the popup on its own.
+// whatever line is up, or on its own.
 export const reaction = reacting;
 
 function react(face: Expression): void {

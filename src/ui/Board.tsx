@@ -3,7 +3,6 @@ import { pinPosition, widthOf, type EdgeID, type Pin } from "../sim/circuit";
 import { createGestures, type Gestures } from "../sim/gesture";
 import type { Size } from "../sim/grid";
 import { createRouter } from "../sim/route";
-import { WIDE_MIN_WIDTH } from "./device";
 import { NodeView } from "./NodeView";
 import { sound } from "./sound";
 import { current, mutate, session } from "./state";
@@ -15,7 +14,6 @@ import { wirePath } from "./wirePath";
 
 const BOARD_MARGIN = 1.5;
 const VIEW_MARGIN = 1;
-const GAP = 16;
 // How long ink takes to run along a newly connected wire; matches the ink
 // animation in styles.css.
 const INK_MS = 200;
@@ -44,23 +42,18 @@ export function Board(): JSX.Element {
   const grid = createMemo(() => current().grid, undefined, {
     equals: (a, b) => a.width === b.width && a.height === b.height,
   });
-  const [resized, setResized] = createSignal(0);
-  const viewBox = createMemo(() => (resized(), fitViewBox(grid())));
-  const onResize = (): void => {
-    setResized((n) => n + 1);
-  };
-  window.addEventListener("resize", onResize);
-  // The HUD changes size with the level, so fit around it whenever it does.
-  const hud = new ResizeObserver(onResize);
+  // The board fills its cell of the sheet; fit the drawing to the cell
+  // whenever it changes size.
+  const [size, setSize] = createSignal({ width: 0, height: 0 });
+  const viewBox = createMemo(() => fitViewBox(grid(), size()));
+  const cell = new ResizeObserver(([entry]) => {
+    if (entry) setSize({ width: entry.contentRect.width, height: entry.contentRect.height });
+  });
   onMount(() => {
-    for (const id of HUD_IDS) {
-      const el = document.querySelector(`#${id}`);
-      if (el) hud.observe(el);
-    }
+    if (svg) cell.observe(svg);
   });
   onCleanup(() => {
-    window.removeEventListener("resize", onResize);
-    hud.disconnect();
+    cell.disconnect();
   });
 
   const gestures = createGestures({ game: current, edit: mutate, locked: () => session().testing, sound });
@@ -267,30 +260,15 @@ function snapshot(g: Gestures): Pick<Gestures, "hoveredNode" | "hoveredPin" | "p
   return { hoveredNode: g.hoveredNode, hoveredPin: g.hoveredPin, preview: g.preview };
 }
 
-// The HUD's level panel and parts bin, which the board fits around.
-const HUD_IDS = ["level-panel", "parts-bin"];
-
-// A viewBox that fits the whole board into the part of the window the HUD
-// leaves free: right of the level panel on wide windows, below it on narrow
-// ones, and above the parts bin.
-function fitViewBox(grid: Size): string {
-  const w = window.innerWidth;
-  const h = window.innerHeight;
-  const panel = document.querySelector("#level-panel")?.getBoundingClientRect();
-  const bin = document.querySelector("#parts-bin")?.getBoundingClientRect();
-  const wide = w >= WIDE_MIN_WIDTH;
-  const inset = {
-    left: wide && panel ? panel.right + GAP : 0,
-    right: wide ? GAP : 0,
-    top: !wide && panel ? panel.bottom : GAP,
-    bottom: bin ? h - bin.top + 4 : GAP,
-  };
-  const freeWidth = w - inset.left - inset.right;
-  const freeHeight = h - inset.top - inset.bottom;
-  const span = Math.max(grid.width, grid.height) + (BOARD_MARGIN + VIEW_MARGIN) * 2;
-  const unitsPerPixel = span / Math.min(freeWidth, freeHeight);
-  // Place the board's centre in the middle of the free area.
-  const x = grid.width / 2 - (inset.left + freeWidth / 2) * unitsPerPixel;
-  const y = grid.height / 2 - (inset.top + freeHeight / 2) * unitsPerPixel;
-  return `${x} ${y} ${w * unitsPerPixel} ${h * unitsPerPixel}`;
+// A viewBox that fits the whole board, centred and as large as it fits, into
+// an SVG of this size.
+function fitViewBox(grid: Size, view: Size): string {
+  const margin = (BOARD_MARGIN + VIEW_MARGIN) * 2;
+  const unitsPerPixel = Math.max(
+    (grid.width + margin) / Math.max(1, view.width),
+    (grid.height + margin) / Math.max(1, view.height),
+  );
+  const x = grid.width / 2 - (view.width / 2) * unitsPerPixel;
+  const y = grid.height / 2 - (view.height / 2) * unitsPerPixel;
+  return `${x} ${y} ${view.width * unitsPerPixel} ${view.height * unitsPerPixel}`;
 }

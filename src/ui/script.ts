@@ -324,10 +324,16 @@ const welcomeBack = (level: Level): Line[] => [
   },
 ];
 
-// On the notice that asks phone players to come back on a desktop.
-export const smallScreen: Line = {
+// On the notice that shows instead of the game: on a touch device, which
+// never plays, and on a desktop window too small to fit the sheet.
+export const touchScreen: Line = {
   face: "worried",
   text: "This board's too small for fingers. Come find me on a desktop.",
+};
+
+export const smallWindow: Line = {
+  face: "worried",
+  text: "I can't fit the whole sheet in here. Make the window bigger?",
 };
 
 // Bitbox's lines for something the session says he speaks to.

@@ -1,31 +1,36 @@
-import type { JSX } from "solid-js";
+import { Show, type JSX } from "solid-js";
+import type { Screen } from "./device";
+import { MIN_HEIGHT, MIN_WIDTH } from "./device";
 import { RobotScreen } from "./RobotScreen";
 import * as script from "./script";
+import type { Line } from "./speech";
 
-// Shown instead of the game on a small touch device, where the board is too
-// cramped to build on. The player can still choose to play anyway.
-export function DesktopNotice(props: { onContinue: () => void }): JSX.Element {
+// Shown instead of the game anywhere it doesn't play: on a touch device,
+// for good, and on a desktop window until it's made big enough.
+export function DesktopNotice(props: { screen: Exclude<Screen, "desktop"> }): JSX.Element {
+  const line = (): Line => (props.screen === "touch" ? script.touchScreen : script.smallWindow);
   return (
     <main id="desktop-notice" class="fixed inset-0 grid place-items-center overflow-y-auto p-4 text-ink-deep">
       <div class="pop w-full max-w-105 border-3! border-double! p-6 sheet">
         <p class="text-xs text-pencil">Dwg LOA-000, note to the player</p>
-        <h1 class="mt-2 border-b-2 border-ink pb-1.5 text-2xl leading-tight font-bold text-ink">Play on a desktop</h1>
-        <RobotScreen expression={script.smallScreen.face} class="mx-auto my-4 aspect-square w-full max-w-45" />
-        <p class="mb-3 font-hand text-lg">"{script.smallScreen.text}"</p>
-        <p class="mb-5 text-sm">
-          Layers of Abstraction needs a bigger screen. Visit <b class="text-ink">abstract.dannyobrien.dev</b> on a
-          desktop.
+        <h1 class="mt-2 border-b-2 border-ink pb-1.5 text-2xl leading-tight font-bold text-ink">
+          {props.screen === "touch" ? "Play on a desktop" : "Make the window bigger"}
+        </h1>
+        <RobotScreen expression={line().face} class="mx-auto my-4 aspect-square w-full max-w-45" />
+        <p class="mb-3 font-hand text-lg">"{line().text}"</p>
+        <p class="text-sm">
+          <Show
+            when={props.screen === "touch"}
+            fallback={
+              <>
+                Layers of Abstraction needs a window at least {MIN_WIDTH} × {MIN_HEIGHT}.
+              </>
+            }
+          >
+            Layers of Abstraction is played with a mouse. Visit <b class="text-ink">abstract.dannyobrien.dev</b> on a
+            desktop.
+          </Show>
         </p>
-        <button
-          id="continue-anyway"
-          type="button"
-          class="cursor-pointer text-sm text-ink underline"
-          onClick={() => {
-            props.onContinue();
-          }}
-        >
-          Continue anyway
-        </button>
       </div>
     </main>
   );
