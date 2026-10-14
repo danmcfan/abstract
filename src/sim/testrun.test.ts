@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { loadLevel, LEVELS, type CheckResult } from "./level";
+import { edgeInto, placeNode, restart, terminalNamed, wire, type Game, type Pin } from "./circuit";
+import { partsFrom } from "./kind";
+import { buildSolution, checkLevel, loadLevel, LEVELS, type CheckResult, type Level } from "./level";
+import type { NodeID, Value } from "./node";
 import { table, TestRun } from "./testrun";
 
 // The NOT level: input A, output Y, two rows.
@@ -72,5 +75,111 @@ describe("test run", () => {
     run.step(game);
     expect(run.rows).toHaveLength(3);
     expect(run.rows[2]).toEqual({ inputs: [1], expected: [0], actual: [1], status: "failed" });
+  });
+});
+
+// What the board's output terminals show, in the level's label order: the
+// value on the wire into each, or 0 when it isn't wired.
+function boardOutputs(game: Game, level: Level): Value[] {
+  return level.outputs.map((label) => edgeInto(game, terminalNamed(game, "output", label)!.id, 0)?.value ?? 0);
+}
+
+// Steps a whole test run of the board after a restart, as the session does,
+// and gives each shown row's recorded actual next to what the board showed.
+function stepRun(game: Game, levels: Level[], index: number): { recorded: Value[]; shown: Value[] }[] {
+  const level = levels[index]!;
+  restart(game);
+  const run = new TestRun(level, checkLevel(game, index, levels));
+  const seen: { recorded: Value[]; shown: Value[] }[] = [];
+  for (let step = run.step(game); step !== null; step = run.step(game)) {
+    seen.push({ recorded: step.row.actual, shown: boardOutputs(game, level) });
+  }
+  return seen;
+}
+
+// Checks a test run of the last of the levels records these outputs, and
+// that the board shows each of them.
+function expectShownAsRecorded(game: Game, levels: Level[], recorded: Value[][]): void {
+  const seen = stepRun(game, levels, levels.length - 1);
+  expect(seen.map((row) => row.recorded)).toEqual(recorded);
+  for (const row of seen) expect(row.shown).toEqual(row.recorded);
+}
+
+const out = (node: NodeID, index = 0): Pin => ({ node, side: "out", index });
+const inp = (node: NodeID, index = 0): Pin => ({ node, side: "in", index });
+
+// A memory level with no clock whose board holds its value in a loop: two
+// cross-coupled NANDs, set and reset by S and R going off.
+const LATCH: Level = {
+  gate: "NAND LATCH",
+  goal: "Q turns on while S is off, off while R is off, and holds while both are on.",
+  layer: 5,
+  inputs: ["S", "R"],
+  outputs: ["Q"],
+  memory: {
+    next: ([s = 1, r = 1], state) => {
+      if (s === 0) return 1;
+      if (r === 0) return 0;
+      return state;
+    },
+    outputs: (state) => [state],
+  },
+  steps: [
+    { inputs: [0, 1], expected: [1] },
+    { inputs: [1, 1], expected: [1] },
+    { inputs: [1, 0], expected: [0] },
+    { inputs: [1, 1], expected: [0] },
+  ],
+};
+
+// A memory level with a clock: a D flip-flop, prebuilt.
+const FLIP_FLOP: Level = {
+  gate: "DFF",
+  goal: "Q takes D's value when the clock turns on, and keeps it until the next tick.",
+  layer: 5,
+  inputs: ["D", "CLK"],
+  outputs: ["Q"],
+  memory: {
+    next: ([d = 0, clk = 0], state) => (clk && !(state >> 1) ? d : state & 1) | (clk << 1),
+    outputs: (state) => [state & 1],
+  },
+  steps: [
+    { inputs: [1, 0], expected: [0] },
+    { inputs: [1, 0], tick: true, expected: [1] },
+    { inputs: [0, 0], expected: [1] },
+    { inputs: [0, 0], tick: true, expected: [0] },
+  ],
+  prebuilt: true,
+};
+
+describe("a test run's board", () => {
+  test("shows the recorded outputs on every row of every level's intended solution", () => {
+    // Each value is paired with its gate, so a failure names the level.
+    LEVELS.forEach((level, index) => {
+      if (level.solution === undefined) return;
+      const game = loadLevel(level);
+      buildSolution(game, level);
+      for (const { recorded, shown } of stepRun(game, LEVELS, index))
+        expect([level.gate, shown]).toEqual([level.gate, recorded]);
+    });
+  });
+
+  test("shows the recorded outputs on a memory level whose steps tick the clock", () => {
+    const levels = [...LEVELS, FLIP_FLOP];
+    const game = loadLevel(FLIP_FLOP, partsFrom(levels));
+    expectShownAsRecorded(game, levels, [[0], [1], [1], [0]]);
+  });
+
+  test("shows the recorded outputs on a board that holds its value in a stable loop", () => {
+    const levels = [...LEVELS, LATCH];
+    const game = loadLevel(LATCH, partsFrom(levels));
+    const top = placeNode(game, "NAND", { x: 12, y: 6 })!.id;
+    const bottom = placeNode(game, "NAND", { x: 12, y: 14 })!.id;
+    wire(game, out(terminalNamed(game, "input", "S")!.id), inp(top, 0));
+    wire(game, out(bottom), inp(top, 1));
+    wire(game, out(top), inp(bottom, 0));
+    wire(game, out(terminalNamed(game, "input", "R")!.id), inp(bottom, 1));
+    wire(game, out(top), inp(terminalNamed(game, "output", "Q")!.id));
+    expectShownAsRecorded(game, levels, [[1], [1], [0], [0]]);
   });
 });
