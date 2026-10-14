@@ -61,6 +61,12 @@ describe("each level's intended solution", () => {
     expect(unbuilt.filter(({ level }) => level.solution === undefined).map(({ level }) => level.gate)).toEqual([]);
   });
 
+  // Splits and joins are Wiring, not parts, so they don't count (ADR 10).
+  test.each(unbuilt.map(({ level }) => [level.gate, level] as const))("%s places 10 parts or fewer", (_, level) => {
+    const parts = (level.solution?.nodes ?? []).filter((node) => node.type !== "SPLIT" && node.type !== "JOIN");
+    expect(parts.length).toBeLessThanOrEqual(10);
+  });
+
   // Passing includes using only the parts bin and the level's Wiring (ADR 5).
   test.each(unbuilt.map(({ level, index }) => [level.gate, index] as const))(
     "%s builds onto its board and passes",
