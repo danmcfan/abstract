@@ -1,15 +1,16 @@
 import { restart, type Edge, type Game } from "./circuit";
 import { DEFAULT_GRID, type Size } from "./grid";
-import { LEVELS, PARTS } from "./level";
+import { LEVELS, PARTS, revisionOf, type Solved } from "./level";
 import { hasKind, kindOf, type Parts } from "./kind";
 import type { Label, Node, NodeType, Value } from "./node";
 
-// A saved game: how far the player has got, the level they're on, the board
-// they left on each level, and story flags (such as which robot lines
-// they've already heard).
+// A saved game: the levels the player has solved and the one they're on,
+// each by the gate it builds, so a save still means the same levels after a
+// level is added or moved; the board they left on each level; and story
+// flags (such as which robot lines they've already heard).
 export interface SaveData {
-  solved: number;
-  levelIndex: number;
+  solved: Solved;
+  open: NodeType;
   boards: Boards;
   flags: string[];
 }
@@ -54,7 +55,7 @@ export function localSave(key = "abstract.save"): SaveStore {
         const raw = localStorage.getItem(key);
         if (raw !== null && raw !== "") return parseSave(JSON.parse(raw));
         const legacy = Number(localStorage.getItem(LEGACY_KEY));
-        return legacy > 0 ? { solved: legacy + 1, levelIndex: legacy + 1, boards: {}, flags: [] } : null;
+        return legacy > 0 ? parseSave({ solved: legacy + 1, levelIndex: legacy + 1 }) : null;
       } catch {
         return null;
       }
@@ -149,20 +150,48 @@ function isKnownNode(node: unknown): boolean {
   );
 }
 
+// A save as stored, before any of it is checked.
+interface RawSave {
+  solved?: unknown;
+  open?: unknown;
+  levelIndex?: unknown;
+  boards?: unknown;
+  board?: unknown;
+  flags?: unknown;
+}
+
+// Saves from before progress was kept by gate held a count of solved levels
+// and the open level's position, both in LEVELS as it was then. No level
+// had been added or moved by the time progress moved to gates, so today's
+// LEVELS reads them, at each level's first revision. A position past the
+// last level opens the last.
+function readProgress(v: RawSave): Pick<SaveData, "solved" | "open"> | null {
+  if (typeof v.solved === "object" && v.solved !== null && typeof v.open === "string") {
+    const solved: Solved = {};
+    for (const [gate, revision] of Object.entries(v.solved)) if (typeof revision === "number") solved[gate] = revision;
+    return { solved, open: v.open };
+  }
+  if (typeof v.solved !== "number" || typeof v.levelIndex !== "number") return null;
+  const open = LEVELS[Math.min(Math.max(v.levelIndex, 0), LEVELS.length - 1)];
+  if (open === undefined) return null;
+  const solved = Object.fromEntries(LEVELS.slice(0, v.solved).map((level) => [level.gate, revisionOf(level)]));
+  return { solved, open: open.gate };
+}
+
 // Anything that doesn't look like a save reads as no save, and a board that
 // doesn't look like a board is dropped. Saves from before each level kept
 // its own board held one board, for the level they were on.
 function parseSave(value: unknown): SaveData | null {
   if (typeof value !== "object" || value === null) return null;
-  const v: { solved?: unknown; levelIndex?: unknown; boards?: unknown; board?: unknown; flags?: unknown } = value;
-  if (typeof v.solved !== "number" || typeof v.levelIndex !== "number") return null;
+  const v: RawSave = value;
+  const saved = readProgress(v);
+  if (saved === null) return null;
   const boards: Boards = {};
   if (typeof v.boards === "object" && v.boards !== null) {
     for (const [gate, board] of Object.entries(v.boards))
       if (LEVELS.some((level) => level.gate === gate) && isBoard(board)) boards[gate] = board;
   }
-  const legacy = LEVELS[v.levelIndex];
-  if (isBoard(v.board) && legacy !== undefined) boards[legacy.gate] = v.board;
+  if (isBoard(v.board)) boards[saved.open] = v.board;
   const flags = Array.isArray(v.flags) ? v.flags.filter((f) => typeof f === "string") : [];
-  return { solved: v.solved, levelIndex: v.levelIndex, boards, flags };
+  return { ...saved, boards, flags };
 }
