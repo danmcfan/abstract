@@ -45,8 +45,7 @@ export const level = read(() => session.level);
 export const solved = read(() => session.solved);
 export const testing = read(() => session.testing);
 export const currentRow = read(() => session.currentRow);
-export const rowResults = read(() => session.rowResults);
-export const tableRows = read(() => session.tableRows);
+export const rows = read(() => session.rows);
 export const result = read(() => session.result);
 export const stamped = read(() => session.stamped);
 

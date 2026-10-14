@@ -2,24 +2,21 @@ import type { Game } from "./circuit";
 import { placeNode, restart, tick } from "./circuit";
 import { partsFrom, type Parts } from "./kind";
 import {
-  applyInputs,
-  CLOCK,
   checkLevel,
-  hasClock,
+  clockOf,
   levelAt,
   LEVELS,
   loadLevel,
   PARTS,
   matches,
   playableCount,
-  testTable,
   type CheckResult,
   type Level,
-  type Row,
 } from "./level";
-import type { NodeID, NodeType, Value } from "./node";
+import type { NodeType } from "./node";
 import { loadBoard, saveBoard, type Boards, type SaveStore } from "./save";
 import { silent, type Sound } from "./sound";
+import { table, TestRun, type TableRow } from "./testrun";
 
 // One player's play: the current level and board, the board left on every
 // other level, a test run stepping through the truth table or timing table
@@ -34,18 +31,14 @@ export class Session {
   // Bumped whenever a test run begins or is aborted, so a caller holding a
   // run can tell it's stale.
   run = 0;
-  testing = false;
-  currentRow: number | null = null;
-  // Per row of the table: undefined until tested, else what the circuit
-  // output, one value per output.
-  rowResults: (Value[] | undefined)[] = [];
   result: CheckResult | null = null;
   // Whether the PASSED stamp is on the sheet: the last run passed and the
   // board hasn't changed since.
   stamped = false;
   flags = new Set<string>();
   private boards: Boards = {};
-  private check: CheckResult | null = null;
+  // The current test run, or the last one until the board or level changes.
+  private testRun: TestRun | null = null;
 
   private readonly store: SaveStore;
   private readonly sound: Sound;
@@ -126,10 +119,20 @@ export class Session {
     return levelAt(this.levelIndex, this.levels);
   }
 
-  // The rows the level panel shows: the truth table or timing table, then
-  // any rows the last test run found failing out of sight.
-  get tableRows(): Row[] {
-    return [...testTable(this.level), ...(this.result?.hidden.failed ?? [])];
+  // The rows the level panel shows, checked as far as the test run has
+  // gone, then any rows the last run found failing out of sight.
+  get rows(): TableRow[] {
+    return this.testRun?.rows ?? table(this.level);
+  }
+
+  // Whether a test run is going.
+  get testing(): boolean {
+    return this.testRun !== null && !this.testRun.done;
+  }
+
+  // The row on the board in a test run, if one is going.
+  get currentRow(): number | null {
+    return this.testRun?.current ?? null;
   }
 
   get unlockedCount(): number {
@@ -154,10 +157,7 @@ export class Session {
   private load(game: Game): void {
     this.game = game;
     this.run++;
-    this.testing = false;
-    this.check = null;
-    this.currentRow = null;
-    this.rowResults = [];
+    this.testRun = null;
     this.result = null;
     this.stamped = false;
     this.save();
@@ -174,18 +174,13 @@ export class Session {
   // Turns the level's clock on and off, if it has one and no test run is
   // going. Returns whether it ticked.
   tick(): boolean {
-    const clock = this.clock();
+    const clock = clockOf(this.game, this.level);
     if (this.testing || clock === undefined) return false;
     this.edit((game) => {
       tick(game, clock);
     });
     this.sound.play("clock");
     return true;
-  }
-
-  private clock(): NodeID | undefined {
-    if (!hasClock(this.level)) return undefined;
-    return [...this.game.nodes.values()].find((node) => node.type === "INPUT" && node.label === CLOCK)?.id;
   }
 
   // Returns false if a run is already going. Every row is checked here, out
@@ -195,47 +190,32 @@ export class Session {
     if (this.testing) return false;
     this.sound.play("carriage");
     this.run++;
-    this.testing = true;
     restart(this.game);
-    this.check = checkLevel(this.game, this.levelIndex, this.levels);
-    this.currentRow = null;
-    this.rowResults = [];
+    this.testRun = new TestRun(this.level, checkLevel(this.game, this.levelIndex, this.levels));
     this.result = null;
     this.stamped = false;
     return true;
   }
 
   // Shows the next row on the board. Once every row has been shown, ends
-  // the run, records the result, and adds the rows that failed out of sight
-  // to the table. Returns whether a row was shown.
+  // the run and records the result. Returns whether a row was shown.
   step(): boolean {
-    const check = this.check;
-    if (!this.testing || !check) return false;
-    const next = this.currentRow === null ? 0 : this.currentRow + 1;
-    const row = check.rows[next];
-    if (row) {
-      applyInputs(this.game, this.level, row.inputs);
-      const clock = this.clock();
-      if (row.tick === true && clock !== undefined) {
-        tick(this.game, clock);
-        this.sound.play("clock");
-      }
-      this.currentRow = next;
-      this.rowResults = Object.assign([...this.rowResults], { [next]: row.actual });
-      this.sound.play(matches(row.actual, row.expected) ? "tick" : "fail-tick");
+    const run = this.testRun;
+    if (!this.testing || !run) return false;
+    const shown = run.step(this.game);
+    if (shown) {
+      if (shown.ticked) this.sound.play("clock");
+      this.sound.play(matches(shown.row.actual, shown.row.expected) ? "tick" : "fail-tick");
       return true;
     }
-    this.testing = false;
-    this.check = null;
-    this.currentRow = null;
-    this.result = check;
-    this.rowResults = [...this.rowResults, ...check.hidden.failed.map((failed) => failed.actual)];
-    this.stamped = check.passed;
-    if (check.passed) {
+    const { result } = run;
+    this.result = result;
+    this.stamped = result.passed;
+    if (result.passed) {
       this.sound.play("stamp");
       this.sound.play("bell");
     } else this.sound.play("fail-stamp");
-    if (check.passed && this.levelIndex + 1 > this.solved) {
+    if (result.passed && this.levelIndex + 1 > this.solved) {
       this.solved = this.levelIndex + 1;
       this.save();
     }

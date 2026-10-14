@@ -60,11 +60,21 @@ expect() { [[ $(js "$1") == true ]] || { echo "failed: $2" >&2; exit 1; }; }
 # Starts a level from the stack, which must be open, by its sheet number.
 sheet() { ab click "button[data-level=\"$1\"]"; sleep 0.5; hush; }
 
+# Runs the test and waits for it to end. A test run's length is its row
+# count times the step time, so a fixed sleep races it on a slow machine:
+# this waits at least the given seconds, then polls until the run is over,
+# giving up 15 seconds later.
 check() {
   hush
   ab click "#test"
   sleep "$1"
-  local status; status=$(js "document.querySelector('#status').textContent")
+  local status tries=0
+  status=$(js "document.querySelector('#status').textContent")
+  while [[ $status == *Testing* && $tries -lt 60 ]]; do
+    sleep 0.25
+    tries=$((tries + 1))
+    status=$(js "document.querySelector('#status').textContent")
+  done
   echo "level $2: $status"
   agent-browser screenshot "$OUT/level$2.png" >/dev/null
   [[ $status == *Tested* ]] || { echo "level $2 failed" >&2; exit 1; }
