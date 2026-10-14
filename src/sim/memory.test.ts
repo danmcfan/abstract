@@ -181,7 +181,7 @@ describe("the 4-way MUX8", () => {
 const FILE = levelOf("REGISTER FILE");
 
 describe("the register file", () => {
-  test("shows a register's old value on its read port until the tick that writes it", () => {
+  test("shows a register's old value on A until the tick that writes it", () => {
     const steps: Row[] = [
       { inputs: [0, 1, 2, 77, 2, 2], expected: [] },
       { inputs: [1, 1, 2, 77, 2, 2], expected: [] },
@@ -196,7 +196,7 @@ describe("the register file", () => {
     ]);
   });
 
-  test("its timing table writes every register a different value, and reads the same register on both ports", () => {
+  test("its timing table writes every register a different value, and shows the same register on A and B", () => {
     const writes = FILE.steps!.filter((step) => step.tick === true && step.inputs[1] === 1);
     expect(new Set(writes.map((step) => step.inputs[2])).size).toBe(4);
     expect(new Set(writes.map((step) => step.inputs[3])).size).toBe(writes.length);

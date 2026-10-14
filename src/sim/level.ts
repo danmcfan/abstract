@@ -924,7 +924,7 @@ export const LEVELS: Level[] = [
     outputs: ["A", "B"],
     widths: { WSEL: 2, DIN: 8, ASEL: 2, BSEL: 2, A: 8, B: 8 },
     memory: places(4, ([, ...registers], [, , , , asel = 0, bsel = 0]) => [registers[asel] ?? 0, registers[bsel] ?? 0]),
-    // Each register gets its own value, then the ports read two different
+    // Each register gets its own value, then A and B show two different
     // registers, and the same one twice. Step 7 sets up a write but doesn't
     // tick, so A still shows the old value.
     steps: [
@@ -940,7 +940,7 @@ export const LEVELS: Level[] = [
     ],
     grid: { width: 64, height: 52 },
     // A DEMUX4 sends WRITE to the LOAD of register WSEL, and a 4-way MUX8
-    // for each port picks the register it shows.
+    // for each of A and B picks the register it shows.
     solution: {
       nodes: [
         { name: "write", type: "DEMUX4", x: 20, y: 12 },
@@ -986,7 +986,7 @@ export const LEVELS: Level[] = [
     grid: { width: 60, height: 50 },
     // Two register files of four places each. ADDR's low two signals pick
     // the register in both, and its top signal steers WRITE to one of them
-    // and picks which one DOUT shows. The B ports go unused.
+    // and picks which one DOUT shows. Their B outputs go unused.
     solution: {
       nodes: [
         { name: "addr", type: "SPLIT", x: 15, y: 30, width: 3 },
