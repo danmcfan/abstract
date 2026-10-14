@@ -1,7 +1,7 @@
 import { For, Show, createEffect, createSignal, onCleanup, onMount, untrack, type JSX } from "solid-js";
 import { LAYERS, LEVELS, layerLevels, layerOf, layerState, playableCount, type LayerState } from "../sim/level";
 import { GateIcon } from "./GateIcon";
-import { levelIndex, solved } from "./state";
+import { session } from "./state";
 
 const pad = (n: number): string => String(n).padStart(2, "0");
 
@@ -21,7 +21,7 @@ const BADGE: Record<LayerState, string> = {
 // a layer shows its sheets, and picking one starts that level. The elevator
 // in the shaft beside it sits at the current layer; arriving from the floor
 // below, it rides up one floor.
-const here = (): number => layerOf(levelIndex()).number;
+const here = (): number => layerOf(session().levelIndex).number;
 
 export function Stack(props: {
   arrive?: number | undefined;
@@ -106,7 +106,7 @@ export function Stack(props: {
           >
             <For each={LAYERS}>
               {(layer) => {
-                const state = (): LayerState => layerState(layer.number, solved());
+                const state = (): LayerState => layerState(layer.number, session().solved);
                 const locked = (): boolean => state() === "locked";
                 const isOpen = (): boolean => open() === layer.number && !locked();
                 return (
@@ -145,8 +145,8 @@ export function Stack(props: {
                             const level = LEVELS[i];
                             if (level === undefined)
                               throw new Error(`Layer ${layer.number} lists a missing level ${i}`);
-                            const playable = (): boolean => i < playableCount(solved());
-                            const current = (): boolean => i === levelIndex();
+                            const playable = (): boolean => i < playableCount(session().solved);
+                            const current = (): boolean => i === session().levelIndex;
                             const look = (): string => {
                               if (!playable()) return "border-dashed border-pencil text-pencil";
                               return current()

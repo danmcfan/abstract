@@ -1,5 +1,7 @@
 import { createSignal } from "solid-js";
 import type { Expression } from "../robot/expression";
+import type { Cue } from "../sim/story";
+import * as script from "./script";
 
 // What the robot is saying: a short run of lines shown one at a time in its
 // popup, each with the face it pulls while saying it.
@@ -25,7 +27,7 @@ export function speech(): { line: Line; index: number; count: number } | null {
 // whatever line is up, or in the popup on its own.
 export const reaction = reacting;
 
-export function react(face: Expression): void {
+function react(face: Expression): void {
   clearTimeout(reactTimer);
   setReacting(face);
   reactTimer = setTimeout(endReaction, REACT_MS);
@@ -41,6 +43,13 @@ export function say(next: Line[]): void {
   endReaction();
   setLines(next);
   setIndex(0);
+}
+
+// Says the lines for a cue, or pulls its face.
+export function speak(cue: Cue | null): void {
+  if (!cue) return;
+  if ("react" in cue) react(cue.react);
+  else say(script.lines(cue));
 }
 
 export function advance(): void {

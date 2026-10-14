@@ -4,6 +4,7 @@ import { partsFrom, type Parts } from "./kind";
 import {
   checkLevel,
   clockOf,
+  floorAbove,
   levelAt,
   LEVELS,
   loadLevel,
@@ -13,26 +14,30 @@ import {
   solvedCount,
   playableCount,
   type CheckResult,
+  type Layer,
   type Level,
   type Solved,
 } from "./level";
 import type { NodeType } from "./node";
 import { loadBoard, saveBoard, type Boards, type SaveStore } from "./save";
 import { silent, type Sound } from "./sound";
+import { flags, respond, type Cue } from "./story";
 import { table, TestRun, type TableRow } from "./testrun";
+
+// Where a passed level leads: the next level on the same floor, up to the
+// floor above through the stack, or nowhere yet.
+export type Next = { to: "level"; index: number } | { to: "floor"; layer: Layer } | { to: "end" };
 
 // One player's play: the current level and board, the board left on every
 // other level, a test run stepping through the truth table or timing table
 // one row at a time, solved progress, and story flags. Time lives outside;
 // the caller decides when to step, and when to tick a level's clock. The
 // caller changes the board through edit(). A test run plays its sound cues
-// as it goes.
+// as it goes. The session also decides where a passed level leads, and when
+// Bitbox speaks, marking what he's said with story flags.
 export class Session {
   levelIndex = 0;
   game: Game;
-  // Bumped whenever a test run begins or is aborted, so a caller holding a
-  // run can tell it's stale.
-  run = 0;
   result: CheckResult | null = null;
   // Whether the PASSED stamp is on the sheet: the last run passed and the
   // board hasn't changed since.
@@ -166,7 +171,6 @@ export class Session {
 
   private load(game: Game): void {
     this.game = game;
-    this.run++;
     this.testRun = null;
     this.result = null;
     this.stamped = false;
@@ -199,7 +203,6 @@ export class Session {
   beginTest(): boolean {
     if (this.testing) return false;
     this.sound.play("carriage");
-    this.run++;
     restart(this.game);
     this.testRun = new TestRun(this.level, checkLevel(this.game, this.levelIndex, this.levels));
     this.result = null;
@@ -230,5 +233,48 @@ export class Session {
       this.save();
     }
     return false;
+  }
+
+  // Where the player goes from here, once the last test run has passed.
+  get next(): Next | null {
+    if (this.result?.passed !== true) return null;
+    if (this.levelIndex + 1 >= this.levels.length) return { to: "end" };
+    const layer = floorAbove(this.levelIndex, this.levels);
+    return layer ? { to: "floor", layer } : { to: "level", index: this.levelIndex + 1 };
+  }
+
+  // The level's intro, the first time it opens.
+  introduce(): Cue | null {
+    return this.once(flags.intro(this.level), { say: "intro", level: this.level });
+  }
+
+  // Greets a continued game, if Bitbox has already introduced its level.
+  welcome(): Cue | null {
+    return this.flags.has(flags.intro(this.level)) ? { say: "welcome back", level: this.level } : null;
+  }
+
+  // Describes a floor the first time the elevator rides up to it. The first
+  // floor is where the game starts, so it needs no arrival.
+  arrive(layer: number): Cue | null {
+    return layer === 0 ? null : this.once(flags.floor(layer), { say: "floor", layer });
+  }
+
+  // Bitbox's response to the test run that just ended.
+  respond(): Cue | null {
+    if (!this.result) return null;
+    const response = respond(this.result, this.level, (flag) => this.flags.has(flag));
+    if (response?.flag !== undefined) this.hear(response.flag);
+    return response?.cue ?? null;
+  }
+
+  private once(flag: string, cue: Cue): Cue | null {
+    if (this.flags.has(flag)) return null;
+    this.hear(flag);
+    return cue;
+  }
+
+  private hear(flag: string): void {
+    this.flags.add(flag);
+    this.save();
   }
 }

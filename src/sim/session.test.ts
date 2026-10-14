@@ -3,8 +3,9 @@ import { moveNode, placeNode, setInput, wire, type Game, type Pin } from "./circ
 import type { Node, NodeID, NodeType } from "./node";
 import type { Rect } from "./grid";
 import { memorySave, type SaveData, type SaveStore } from "./save";
+import { CLOCK_MS, Driver, TEST_STEP_MS, type Scheduler } from "./driver";
 import { Session } from "./session";
-import { LEVELS, type Level } from "./level";
+import { buildSolution, layerOf, LEVELS, type Level } from "./level";
 import { recordingSound } from "./sound";
 
 const out = (node: NodeID): Pin => ({ node, side: "out", index: 0 });
@@ -97,10 +98,8 @@ describe("session", () => {
     const { session, store } = fresh();
     buildNot(session.game);
     session.beginTest();
-    const run = session.run;
     session.step();
     session.start(0);
-    expect(session.run).not.toBe(run);
     expect(session.testing).toBe(false);
     expect(session.step()).toBe(false);
     expect(session.result).toBeNull();
@@ -604,4 +603,163 @@ test("a change that makes the board unstable plays the unstable cue once", () =>
     moveNode(game, not, 20, 20);
   });
   expect(sound.played.filter((cue) => cue === "unstable")).toHaveLength(1);
+});
+
+// The first level that is the last of its layer, and so leads up a floor.
+const top = LEVELS.findIndex((level, i) => LEVELS[i + 1] !== undefined && LEVELS[i + 1]!.layer !== level.layer);
+
+function passOn(index: number): Session {
+  const session = new Session(memorySave(saved(index, index)));
+  session.start(index);
+  session.edit((game) => {
+    buildSolution(game, session.level);
+  });
+  runAll(session);
+  return session;
+}
+
+describe("after a test run", () => {
+  test("nothing comes next until the run passes", () => {
+    const { session } = fresh();
+    expect(session.next).toBeNull();
+    runAll(session);
+    expect(session.next).toBeNull();
+  });
+
+  test("a passed level leads to the next level in its layer", () => {
+    expect(passOn(NOT_LEVEL).next).toEqual({ to: "level", index: NOT_LEVEL + 1 });
+  });
+
+  test("the last level of a layer leads up to the floor above", () => {
+    expect(passOn(top).next).toEqual({ to: "floor", layer: layerOf(top + 1) });
+  });
+
+  test("the last level in the game leads nowhere", () => {
+    expect(passOn(LEVELS.length - 1).next).toEqual({ to: "end" });
+  });
+});
+
+describe("what Bitbox says", () => {
+  test("a level's intro plays the first time it opens", () => {
+    const { session } = fresh();
+    expect(session.introduce()).toEqual({ say: "intro", level: session.level });
+    expect(session.introduce()).toBeNull();
+    session.start(0);
+    expect(session.introduce()).toEqual({ say: "intro", level: session.level });
+  });
+
+  test("the story flags are saved, and a new game forgets them", () => {
+    const { session, store } = fresh();
+    session.introduce();
+    const again = new Session(store);
+    again.resume();
+    expect(again.introduce()).toBeNull();
+    again.reset();
+    expect(again.introduce()).not.toBeNull();
+  });
+
+  test("continuing welcomes the player back only to a level they've heard about", () => {
+    const { session, store } = fresh();
+    expect(session.welcome()).toBeNull();
+    session.introduce();
+    const again = new Session(store);
+    again.resume();
+    expect(again.welcome()).toEqual({ say: "welcome back", level: again.level });
+  });
+
+  test("each floor above the first is described once", () => {
+    const { session } = fresh();
+    expect(session.arrive(0)).toBeNull();
+    expect(session.arrive(2)).toEqual({ say: "floor", layer: 2 });
+    expect(session.arrive(2)).toBeNull();
+  });
+
+  test("a test run's response is said once, and a repeat pass gets a face", () => {
+    const { session } = fresh();
+    expect(session.respond()).toBeNull();
+    session.edit((game) => {
+      buildNot(game);
+    });
+    runAll(session);
+    expect(session.respond()).toEqual({ say: "solved", level: session.level });
+    runAll(session);
+    expect(session.respond()).toEqual({ react: "happy" });
+  });
+});
+
+// A scheduler that runs its repeating tasks only when told to.
+function fakeScheduler(): Scheduler & { tasks: { ms: number; task: () => void }[]; fire: () => void } {
+  const tasks: { ms: number; task: () => void }[] = [];
+  return {
+    tasks,
+    every(ms, task) {
+      const entry = { ms, task };
+      tasks.push(entry);
+      return () => {
+        tasks.splice(tasks.indexOf(entry), 1);
+      };
+    },
+    fire() {
+      for (const { task } of tasks.slice()) task();
+    },
+  };
+}
+
+describe("driving a session", () => {
+  test("a test run shows its first row at once, then a row each step", () => {
+    const { session } = fresh();
+    const scheduler = fakeScheduler();
+    let changes = 0;
+    const driver = new Driver(session, scheduler, () => {
+      changes++;
+    });
+    driver.test();
+    expect(session.currentRow).toBe(0);
+    expect(scheduler.tasks.map((t) => t.ms)).toEqual([TEST_STEP_MS]);
+    scheduler.fire();
+    expect(session.currentRow).toBe(1);
+    while (scheduler.tasks.length > 0) scheduler.fire();
+    expect(session.result).not.toBeNull();
+    expect(changes).toBeGreaterThan(2);
+  });
+
+  test("a new board stops the test run's steps", () => {
+    const { session } = fresh();
+    const scheduler = fakeScheduler();
+    const driver = new Driver(session, scheduler, () => {});
+    driver.test();
+    driver.start(0);
+    expect(scheduler.tasks).toHaveLength(0);
+    driver.test();
+    expect(scheduler.tasks).toHaveLength(1);
+  });
+
+  test("Run ticks the clock until Pause", () => {
+    const { session, sound } = clocked();
+    const scheduler = fakeScheduler();
+    const driver = new Driver(session, scheduler, () => {});
+    driver.toggleClock();
+    expect(driver.running).toBe(true);
+    expect(scheduler.tasks.map((t) => t.ms)).toEqual([CLOCK_MS]);
+    scheduler.fire();
+    expect(sound.played.filter((cue) => cue === "clock")).toHaveLength(2);
+    driver.toggleClock();
+    expect(driver.running).toBe(false);
+    expect(scheduler.tasks).toHaveLength(0);
+  });
+
+  test("a test run or a new board stops the clock", () => {
+    const { session } = clocked();
+    const scheduler = fakeScheduler();
+    const driver = new Driver(session, scheduler, () => {});
+    driver.toggleClock();
+    driver.test();
+    expect(driver.running).toBe(false);
+    expect(scheduler.tasks.map((t) => t.ms)).toEqual([TEST_STEP_MS]);
+    driver.clear();
+    driver.toggleClock();
+    driver.clear();
+    expect(driver.running).toBe(false);
+    expect(scheduler.tasks).toHaveLength(0);
+  });
 });
