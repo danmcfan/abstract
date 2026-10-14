@@ -20,6 +20,9 @@ function buildNot(game: Game, type: NodeType = "NAND"): void {
   wire(game, out(g), inp(find(game, "OUTPUT")));
 }
 
+// What the tested rows of the level panel's table gave, in order.
+const tested = (session: Session): number[][] => session.rows.flatMap((row) => (row.actual ? [row.actual] : []));
+
 function runAll(session: Session): void {
   session.beginTest();
   while (session.step());
@@ -45,9 +48,9 @@ describe("session", () => {
     expect(session.beginTest()).toBe(false);
     expect(session.step()).toBe(true);
     expect(session.currentRow).toBe(0);
-    expect(session.rowResults).toEqual([[0]]);
+    expect(tested(session)).toEqual([[0]]);
     expect(session.step()).toBe(true);
-    expect(session.rowResults).toEqual([[0], [0]]);
+    expect(tested(session)).toEqual([[0], [0]]);
     expect(session.step()).toBe(false);
     expect(session.testing).toBe(false);
     expect(session.currentRow).toBeNull();
@@ -59,7 +62,7 @@ describe("session", () => {
     buildNot(session.game);
     expect(session.unlockedCount).toBe(2);
     runAll(session);
-    expect(session.rowResults).toEqual([[1], [0]]);
+    expect(tested(session)).toEqual([[1], [0]]);
     expect(session.result?.passed).toBe(true);
     expect(session.solved).toBe(2);
     expect(session.unlockedCount).toBe(3);
@@ -94,7 +97,7 @@ describe("session", () => {
     expect(session.testing).toBe(false);
     expect(session.step()).toBe(false);
     expect(session.result).toBeNull();
-    expect(session.rowResults).toEqual([]);
+    expect(tested(session)).toEqual([]);
     expect(session.solved).toBe(1);
     expect(store.load()?.solved).toBe(1);
   });
@@ -103,7 +106,7 @@ describe("session", () => {
     const { session } = fresh();
     buildNot(session.game, "NOT");
     runAll(session);
-    expect(session.rowResults).toEqual([[1], [0]]);
+    expect(tested(session)).toEqual([[1], [0]]);
     expect(session.result?.forbidden).toEqual(["NOT"]);
     expect(session.result?.passed).toBe(false);
     expect(session.solved).toBe(1);
@@ -474,10 +477,10 @@ describe("a level with a clock", () => {
     sound.played.length = 0;
     session.beginTest();
     expect(q(session)).toBe(false);
-    expect(session.tableRows).toEqual(CLOCKED[1]!.steps!);
+    expect(session.rows).toMatchObject(CLOCKED[1]!.steps!);
     while (session.step());
     expect(session.result!.passed).toBe(true);
-    expect(session.rowResults).toEqual([[0], [1], [1]]);
+    expect(tested(session)).toEqual([[0], [1], [1]]);
     expect(sound.played.filter((cue) => cue === "clock")).toHaveLength(1);
   });
 });

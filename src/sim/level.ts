@@ -414,7 +414,7 @@ export function hasClock(level: Level): boolean {
   return level.inputs.includes(CLOCK);
 }
 
-interface CheckedRow extends Row {
+export interface CheckedRow extends Row {
   // What the board's output terminals gave.
   actual: Value[];
 }

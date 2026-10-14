@@ -5,7 +5,6 @@ import {
   layerOf,
   LEVELS,
   type Layer,
-  matches,
   partGiven,
   partsBin,
   terminalWidth,
@@ -24,12 +23,11 @@ import {
   levelIndex,
   placePart,
   result,
-  rowResults,
+  rows,
   running,
   runTest,
   stamped,
   startLevel,
-  tableRows,
   testing,
   tickClock,
   toggleClock,
@@ -110,14 +108,10 @@ export function Hud(props: { onMenu: () => void; onStack: (arrive?: number) => v
                 </tr>
               </thead>
               <tbody>
-                <For each={tableRows()}>
+                <For each={rows()}>
                   {(row, i) => {
-                    const actual = (): Value[] | undefined => rowResults()[i()];
-                    const ok = (): boolean => matches(actual() ?? [], row.expected);
-                    const got = (): string | undefined => {
-                      const values = actual();
-                      return values === undefined || ok() ? undefined : `got ${written(values)}`;
-                    };
+                    const got = (): string | undefined =>
+                      row.status === "failed" && row.actual ? `got ${written(row.actual)}` : undefined;
                     return (
                       <tr class={currentRow() === i() ? "bg-wash font-bold" : ""}>
                         <Show when={timed()}>
@@ -140,10 +134,10 @@ export function Hud(props: { onMenu: () => void; onStack: (arrive?: number) => v
                           }}
                         </For>
                         <td class="border-hair border-ink px-1 py-0.5" title={got()}>
-                          <Show when={actual()} fallback={<span class="text-pencil/50">·</span>}>
+                          <Show when={row.actual} fallback={<span class="text-pencil/50">·</span>}>
                             {(values) => (
-                              <span class={ok() ? "text-pass" : "text-fail"}>
-                                {ok() ? "✓" : `✗${written(values())}`}
+                              <span class={row.status === "passed" ? "text-pass" : "text-fail"}>
+                                {row.status === "passed" ? "✓" : `✗${written(values())}`}
                               </span>
                             )}
                           </Show>
