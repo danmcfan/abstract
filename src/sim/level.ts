@@ -1,7 +1,7 @@
 import { newGame, nodeKind, placeNode, setInputs, simulate, terminalNamed, wire, type Game, type Pin } from "./circuit";
 import { DEFAULT_GRID, type Size } from "./grid";
 import { partsFrom, type Combinational, type Memory, type Parts, type Pins, type Spec } from "./kind";
-import { mask, type Label, type Node, type NodeID, type NodeType, type Value } from "./node";
+import { mask, type Label, type Node, type NodeID, type NodeType, type State, type Value } from "./node";
 
 // A level asks the player to build one gate out of the gates they have
 // already built. Solving it adds that gate to the parts bin for later levels.
@@ -93,6 +93,38 @@ export const LAYERS: Layer[] = [
   { number: 8, name: "CPU", floor: "the control room", parts: "Fetch, decode, execute, in your instruction set" },
   { number: 9, name: "The door program", floor: "the exit hall", parts: "Write it, run it, walk out" },
 ];
+
+// Memory that takes in values when its clock turns on, from the input at
+// clock. Its state is the clock it last saw, then the values it keeps; take
+// gives the values to keep after a tick.
+function onTick(take: (inputs: Value[], kept: State) => Value[], clock = 0): Memory["next"] {
+  return (inputs, [seen = 0, ...kept]) => {
+    const clk = inputs[clock] ?? 0;
+    return [clk, ...(clk && !seen ? take(inputs, kept) : kept)];
+  };
+}
+
+// A bit or register: CLK, LOAD and D in, Q out. On a tick Q takes D if
+// LOAD is on.
+const register: Memory = {
+  next: onTick(([, load = 0, d = 0], [q = 0]) => [load ? d : q]),
+  outputs: ([, q = 0]) => [q],
+};
+
+// A register file or RAM: CLK, WRITE, an address and DIN in, then whatever
+// picks the places shown. On a tick with WRITE on, the place at the address
+// takes DIN; the rest keep their values.
+function places(count: number, outputs: Memory["outputs"]): Memory {
+  return {
+    next: onTick(([, write = 0, address = 0, din = 0], kept) =>
+      Array.from({ length: count }, (_, i) => (write && i === address ? din : (kept[i] ?? 0))),
+    ),
+    outputs,
+  };
+}
+
+// What the RAM level writes to its 8 places, all different.
+const RAM_VALUES: Value[] = [3, 14, 15, 92, 65, 35, 89, 79];
 
 export const LEVELS: Level[] = [
   {
@@ -611,6 +643,375 @@ export const LEVELS: Level[] = [
         ["OP", "twos:3"],
         ["twos", "join:0"],
         ["join", "OUT"],
+      ],
+    },
+  },
+  {
+    gate: "SR LATCH",
+    goal: "S turns Q on, and R turns it off. With both off, Q stays as it was.",
+    layer: 5,
+    inputs: ["S", "R"],
+    outputs: ["Q"],
+    memory: {
+      next: ([s = 0, r = 0], [q = 0]) => [s ? 1 : q & (1 - r)],
+      outputs: ([q = 0]) => [q],
+    },
+    // A loop's first value depends on which gate settles first, so the table
+    // turns R on before it reads Q. It never turns S and R on together.
+    steps: [
+      { inputs: [0, 1], expected: [0] },
+      { inputs: [0, 0], expected: [0] },
+      { inputs: [1, 0], expected: [1] },
+      { inputs: [0, 0], expected: [1] },
+      { inputs: [0, 1], expected: [0] },
+      { inputs: [0, 0], expected: [0] },
+      { inputs: [1, 0], expected: [1] },
+    ],
+    // Two NANDs, each fed the other's output: a NAND latch, set and reset by
+    // its inputs going off, so a NOT flips each of S and R first.
+    solution: {
+      nodes: [
+        { name: "notS", type: "NOT", x: 13, y: 15 },
+        { name: "notR", type: "NOT", x: 13, y: 30 },
+        { name: "top", type: "NAND", x: 26, y: 15 },
+        { name: "bottom", type: "NAND", x: 26, y: 30 },
+      ],
+      wires: [
+        ["S", "notS"],
+        ["R", "notR"],
+        ["notS", "top:0"],
+        ["bottom", "top:1"],
+        ["top", "bottom:0"],
+        ["notR", "bottom:1"],
+        ["top", "Q"],
+      ],
+    },
+  },
+  {
+    gate: "D LATCH",
+    goal: "While CLK is on, Q follows D. While CLK is off, Q stays as it was.",
+    layer: 5,
+    inputs: ["D", "CLK"],
+    outputs: ["Q"],
+    memory: {
+      next: ([d = 0, clk = 0], [q = 0]) => [clk ? d : q],
+      outputs: ([q = 0]) => [q],
+    },
+    steps: [
+      { inputs: [1, 0], expected: [0] },
+      { inputs: [1, 1], expected: [1] },
+      { inputs: [0, 1], expected: [0] },
+      { inputs: [1, 1], expected: [1] },
+      { inputs: [0, 0], expected: [1] },
+      { inputs: [0, 0], tick: true, expected: [0] },
+      { inputs: [1, 0], expected: [0] },
+      { inputs: [1, 0], tick: true, expected: [1] },
+    ],
+    // An SR latch that only listens while CLK is on: S is D AND CLK, and R
+    // is NOT D AND CLK.
+    solution: {
+      nodes: [
+        { name: "not", type: "NOT", x: 13, y: 24 },
+        { name: "set", type: "AND", x: 23, y: 13 },
+        { name: "reset", type: "AND", x: 23, y: 31 },
+        { name: "latch", type: "SR LATCH", x: 34, y: 22 },
+      ],
+      wires: [
+        ["D", "set:0"],
+        ["CLK", "set:1"],
+        ["D", "not"],
+        ["not", "reset:0"],
+        ["CLK", "reset:1"],
+        ["set", "latch:0"],
+        ["reset", "latch:1"],
+        ["latch", "Q"],
+      ],
+    },
+  },
+  {
+    gate: "D FLIP-FLOP",
+    goal: "Q takes D when CLK turns on, and stays as it was the rest of the time.",
+    layer: 5,
+    inputs: ["D", "CLK"],
+    outputs: ["Q"],
+    memory: {
+      next: onTick(([d = 0]) => [d], 1),
+      outputs: ([, q = 0]) => [q],
+    },
+    // Step 5 changes D while CLK stays on, which a lone D latch lets through.
+    steps: [
+      { inputs: [1, 0], expected: [0] },
+      { inputs: [1, 0], tick: true, expected: [1] },
+      { inputs: [0, 0], expected: [1] },
+      { inputs: [0, 1], expected: [0] },
+      { inputs: [1, 1], expected: [0] },
+      { inputs: [1, 0], expected: [0] },
+      { inputs: [1, 0], tick: true, expected: [1] },
+    ],
+    // Two D latches in a row. The first is open while CLK is off and the
+    // second while it's on, so D never runs straight through to Q.
+    solution: {
+      nodes: [
+        { name: "not", type: "NOT", x: 13, y: 36 },
+        { name: "first", type: "D LATCH", x: 22, y: 16 },
+        { name: "second", type: "D LATCH", x: 34, y: 22 },
+      ],
+      wires: [
+        ["D", "first:0"],
+        ["CLK", "not"],
+        ["not", "first:1"],
+        ["first", "second:0"],
+        ["CLK", "second:1"],
+        ["second", "Q"],
+      ],
+    },
+  },
+  {
+    gate: "BIT",
+    goal: "On a tick, Q takes D if LOAD is on. If LOAD is off, Q stays as it was.",
+    layer: 5,
+    inputs: ["CLK", "LOAD", "D"],
+    outputs: ["Q"],
+    memory: register,
+    steps: [
+      { inputs: [0, 1, 1], expected: [0] },
+      { inputs: [0, 1, 1], tick: true, expected: [1] },
+      { inputs: [0, 0, 0], tick: true, expected: [1] },
+      { inputs: [0, 1, 0], tick: true, expected: [0] },
+      { inputs: [0, 0, 1], tick: true, expected: [0] },
+      { inputs: [0, 1, 1], tick: true, expected: [1] },
+    ],
+    // A flip-flop that takes its own Q back in unless LOAD picks D.
+    solution: {
+      nodes: [
+        { name: "pick", type: "MUX", x: 19, y: 28 },
+        { name: "ff", type: "D FLIP-FLOP", x: 32, y: 20 },
+      ],
+      wires: [
+        ["ff", "pick:0"],
+        ["D", "pick:1"],
+        ["LOAD", "pick:2"],
+        ["pick", "ff:0"],
+        ["CLK", "ff:1"],
+        ["ff", "Q"],
+      ],
+    },
+  },
+  {
+    gate: "2-BIT REGISTER",
+    goal: "On a tick, Q takes both signals of D if LOAD is on. If LOAD is off, Q stays as it was.",
+    layer: 5,
+    inputs: ["CLK", "LOAD", "D"],
+    outputs: ["Q"],
+    widths: { D: 2, Q: 2 },
+    memory: register,
+    steps: [
+      { inputs: [0, 1, 2], expected: [0] },
+      { inputs: [0, 1, 2], tick: true, expected: [2] },
+      { inputs: [0, 0, 1], tick: true, expected: [2] },
+      { inputs: [0, 1, 1], tick: true, expected: [1] },
+      { inputs: [0, 1, 3], tick: true, expected: [3] },
+      { inputs: [0, 0, 0], tick: true, expected: [3] },
+    ],
+    // Like the adder and the MUX: 8 signals is the same bit six more times,
+    // so Bitbox hands over the 8-signal register.
+    gives: {
+      gate: "REGISTER",
+      inputs: ["CLK", "LOAD", "D"],
+      outputs: ["Q"],
+      widths: { D: 8, Q: 8 },
+      memory: register,
+    },
+    // A bit per signal, sharing CLK and LOAD, joined in order.
+    solution: {
+      nodes: [
+        { name: "split", type: "SPLIT", x: 13, y: 38, width: 2 },
+        { name: "high", type: "BIT", x: 24, y: 13 },
+        { name: "low", type: "BIT", x: 24, y: 29 },
+        { name: "join", type: "JOIN", x: 35, y: 22, width: 2 },
+      ],
+      wires: [
+        ["D", "split"],
+        ["CLK", "high:0"],
+        ["LOAD", "high:1"],
+        ["split:0", "high:2"],
+        ["CLK", "low:0"],
+        ["LOAD", "low:1"],
+        ["split:1", "low:2"],
+        ["high", "join:0"],
+        ["low", "join:1"],
+        ["join", "Q"],
+      ],
+    },
+  },
+  {
+    gate: "DEMUX4",
+    goal: "IN goes to the output SEL numbers, OUT0 to OUT3. The other outputs stay off.",
+    layer: 5,
+    inputs: ["IN", "SEL"],
+    outputs: ["OUT0", "OUT1", "OUT2", "OUT3"],
+    widths: { SEL: 2 },
+    target: ([d = 0, sel = 0]) => [0, 1, 2, 3].map((i) => (i === sel ? d : 0)),
+    // SEL's top signal picks the pair, and its ones place the output within
+    // it.
+    solution: {
+      nodes: [
+        { name: "sel", type: "SPLIT", x: 13, y: 36, width: 2 },
+        { name: "pair", type: "DEMUX", x: 21, y: 16 },
+        { name: "low", type: "DEMUX", x: 33, y: 13 },
+        { name: "high", type: "DEMUX", x: 33, y: 31 },
+      ],
+      wires: [
+        ["SEL", "sel"],
+        ["IN", "pair:0"],
+        ["sel:0", "pair:1"],
+        ["pair", "low:0"],
+        ["sel:1", "low:1"],
+        ["pair:1", "high:0"],
+        ["sel:1", "high:1"],
+        ["low", "OUT0"],
+        ["low:1", "OUT1"],
+        ["high", "OUT2"],
+        ["high:1", "OUT3"],
+      ],
+    },
+  },
+  {
+    gate: "4-WAY MUX8",
+    goal: "OUT is all 8 signals of the input SEL numbers: A at 0, B at 1, C at 2 and D at 3.",
+    layer: 5,
+    inputs: ["A", "B", "C", "D", "SEL"],
+    outputs: ["OUT"],
+    widths: { A: 8, B: 8, C: 8, D: 8, SEL: 2, OUT: 8 },
+    target: ([a = 0, b = 0, c = 0, d = 0, sel = 0]) => [[a, b, c, d][sel] ?? 0],
+    cases: [
+      [1, 2, 3, 4, 0],
+      [1, 2, 3, 4, 1],
+      [1, 2, 3, 4, 2],
+      [1, 2, 3, 4, 3],
+      [255, 0, 170, 85, 2],
+    ],
+    grid: { width: 56, height: 45 },
+    // MUX4's shape on buses: SEL's ones place picks within each pair, and
+    // its top signal picks the pair.
+    solution: {
+      nodes: [
+        { name: "sel", type: "SPLIT", x: 22, y: 40, width: 2 },
+        { name: "ab", type: "MUX8", x: 28, y: 10 },
+        { name: "cd", type: "MUX8", x: 28, y: 26 },
+        { name: "pick", type: "MUX8", x: 40, y: 18 },
+      ],
+      wires: [
+        ["SEL", "sel"],
+        ["A", "ab:0"],
+        ["B", "ab:1"],
+        ["sel:1", "ab:2"],
+        ["C", "cd:0"],
+        ["D", "cd:1"],
+        ["sel:1", "cd:2"],
+        ["ab", "pick:0"],
+        ["cd", "pick:1"],
+        ["sel:0", "pick:2"],
+        ["pick", "OUT"],
+      ],
+    },
+  },
+  {
+    gate: "REGISTER FILE",
+    goal: "On a tick with WRITE on, register WSEL takes DIN. A and B always show registers ASEL and BSEL.",
+    layer: 5,
+    inputs: ["CLK", "WRITE", "WSEL", "DIN", "ASEL", "BSEL"],
+    outputs: ["A", "B"],
+    widths: { WSEL: 2, DIN: 8, ASEL: 2, BSEL: 2, A: 8, B: 8 },
+    memory: places(4, ([, ...registers], [, , , , asel = 0, bsel = 0]) => [registers[asel] ?? 0, registers[bsel] ?? 0]),
+    // Each register gets its own value, then the ports read two different
+    // registers, and the same one twice. Step 7 sets up a write but doesn't
+    // tick, so A still shows the old value.
+    steps: [
+      { inputs: [0, 1, 0, 11, 0, 0], expected: [0, 0] },
+      { inputs: [0, 1, 0, 11, 0, 0], tick: true, expected: [11, 11] },
+      { inputs: [0, 1, 1, 22, 0, 1], tick: true, expected: [11, 22] },
+      { inputs: [0, 1, 2, 33, 2, 1], tick: true, expected: [33, 22] },
+      { inputs: [0, 1, 3, 44, 3, 2], tick: true, expected: [44, 33] },
+      { inputs: [0, 0, 0, 99, 0, 3], tick: true, expected: [11, 44] },
+      { inputs: [0, 1, 1, 55, 1, 1], expected: [22, 22] },
+      { inputs: [0, 1, 1, 55, 1, 0], tick: true, expected: [55, 11] },
+      { inputs: [0, 0, 0, 0, 2, 3], expected: [33, 44] },
+    ],
+    grid: { width: 64, height: 52 },
+    // A DEMUX4 sends WRITE to the LOAD of register WSEL, and a 4-way MUX8
+    // for each port picks the register it shows.
+    solution: {
+      nodes: [
+        { name: "write", type: "DEMUX4", x: 20, y: 12 },
+        { name: "r0", type: "REGISTER", x: 32, y: 7 },
+        { name: "r1", type: "REGISTER", x: 32, y: 17 },
+        { name: "r2", type: "REGISTER", x: 32, y: 27 },
+        { name: "r3", type: "REGISTER", x: 32, y: 37 },
+        { name: "readA", type: "4-WAY MUX8", x: 46, y: 15 },
+        { name: "readB", type: "4-WAY MUX8", x: 46, y: 36 },
+      ],
+      wires: [
+        ["WRITE", "write:0"],
+        ["WSEL", "write:1"],
+        ...[0, 1, 2, 3].flatMap((i): [string, string][] => [
+          ["CLK", `r${i}:0`],
+          [`write:${i}`, `r${i}:1`],
+          ["DIN", `r${i}:2`],
+          [`r${i}`, `readA:${i}`],
+          [`r${i}`, `readB:${i}`],
+        ]),
+        ["ASEL", "readA:4"],
+        ["BSEL", "readB:4"],
+        ["readA", "A"],
+        ["readB", "B"],
+      ],
+    },
+  },
+  {
+    gate: "RAM",
+    goal: "On a tick with WRITE on, place ADDR takes DIN. DOUT always shows place ADDR.",
+    layer: 5,
+    inputs: ["CLK", "WRITE", "ADDR", "DIN"],
+    outputs: ["DOUT"],
+    widths: { ADDR: 3, DIN: 8, DOUT: 8 },
+    // A join for the register files' WSEL and ASEL.
+    buses: [2],
+    memory: places(8, ([, ...kept], [, , addr = 0]) => [kept[addr] ?? 0]),
+    // Every place gets a different value, then each is read back.
+    steps: [
+      ...RAM_VALUES.map((value, addr) => ({ inputs: [0, 1, addr, value], tick: true, expected: [value] })),
+      ...RAM_VALUES.map((value, addr) => ({ inputs: [0, 0, addr, 0], expected: [value] })),
+    ],
+    grid: { width: 60, height: 50 },
+    // Two register files of four places each. ADDR's low two signals pick
+    // the register in both, and its top signal steers WRITE to one of them
+    // and picks which one DOUT shows. The B ports go unused.
+    solution: {
+      nodes: [
+        { name: "addr", type: "SPLIT", x: 15, y: 30, width: 3 },
+        { name: "low", type: "JOIN", x: 21, y: 30, width: 2 },
+        { name: "write", type: "DEMUX", x: 22, y: 14 },
+        { name: "lower", type: "REGISTER FILE", x: 34, y: 13 },
+        { name: "upper", type: "REGISTER FILE", x: 34, y: 35 },
+        { name: "read", type: "MUX8", x: 48, y: 24 },
+      ],
+      wires: [
+        ["ADDR", "addr"],
+        ["addr:1", "low:0"],
+        ["addr:2", "low:1"],
+        ["WRITE", "write:0"],
+        ["addr:0", "write:1"],
+        ...(["lower", "upper"] as const).flatMap((file, i): [string, string][] => [
+          ["CLK", `${file}:0`],
+          [`write:${i}`, `${file}:1`],
+          ["low", `${file}:2`],
+          ["DIN", `${file}:3`],
+          ["low", `${file}:4`],
+          [file, `read:${i}`],
+        ]),
+        ["addr:0", "read:2"],
+        ["read", "DOUT"],
       ],
     },
   },

@@ -205,6 +205,48 @@ const EXPECTED: Record<NodeType, Expected[]> = {
       cases: [[[3, 5, 1], [254]]],
     },
   ],
+  // A memory part's outputs come from its state, all 0 before a tick.
+  "SR LATCH": [{ ins: [1, 1], outs: [1], size: [6, 4], cases: [[[1, 0], [0]]] }],
+  "D LATCH": [{ ins: [1, 1], outs: [1], size: [6, 4], cases: [[[1, 1], [0]]] }],
+  "D FLIP-FLOP": [{ ins: [1, 1], outs: [1], size: [6, 4], cases: [[[1, 1], [0]]] }],
+  BIT: [{ ins: [1, 1, 1], outs: [1], size: [6, 6], cases: [[[1, 1, 1], [0]]] }],
+  "2-BIT REGISTER": [{ ins: [1, 1, 2], outs: [2], size: [6, 6], cases: [[[1, 1, 3], [0]]] }],
+  REGISTER: [{ ins: [1, 1, 8], outs: [8], size: [6, 6], cases: [[[1, 1, 200], [0]]] }],
+  DEMUX4: [
+    {
+      ins: [1, 2],
+      outs: [1, 1, 1, 1],
+      size: [6, 8],
+      cases: [
+        [
+          [1, 2],
+          [0, 0, 1, 0],
+        ],
+      ],
+    },
+  ],
+  "4-WAY MUX8": [
+    {
+      ins: [8, 8, 8, 8, 2],
+      outs: [8],
+      size: [6, 10],
+      cases: [[[10, 20, 30, 40, 2], [30]]],
+    },
+  ],
+  "REGISTER FILE": [
+    {
+      ins: [1, 1, 2, 8, 2, 2],
+      outs: [8, 8],
+      size: [6, 12],
+      cases: [
+        [
+          [1, 1, 0, 200, 0, 0],
+          [0, 0],
+        ],
+      ],
+    },
+  ],
+  RAM: [{ ins: [1, 1, 3, 8], outs: [8], size: [6, 8], cases: [[[1, 1, 7, 200], [0]]] }],
 };
 
 describe("every kind the game uses", () => {

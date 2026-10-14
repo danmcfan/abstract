@@ -270,6 +270,135 @@ const LEVELS: Partial<Record<NodeType, LevelScript>> = {
       { face: "thinking", text: "Next floor up, we teach our parts to remember." },
     ],
   },
+  "SR LATCH": {
+    intro: [
+      { face: "idle", text: "Every part so far forgets. Change a switch and the old answer is gone." },
+      { face: "thinking", text: "This one remembers. S turns Q on, R turns it off." },
+      { face: "idle", text: "Let go of both, and Q stays where it was." },
+    ],
+    hint: [
+      { face: "thinking", text: "Feed two NANDs into each other: each one's output goes into the other." },
+      { face: "worried", text: "A bare NAND loop is backwards. It sets when its input goes off." },
+      { face: "thinking", text: "Put a NOT in front of each NAND and it listens the right way round." },
+      CONTROLS,
+    ],
+    solved: [
+      { face: "amazed", text: "It holds! A loop that keeps its own signal going. That's memory." },
+      { face: "happy", text: "SR latch, filed. My memory banks will be jealous." },
+    ],
+  },
+  "D LATCH": {
+    intro: [
+      { face: "idle", text: "Meet CLK, the clock. It says when a part may change its mind." },
+      { face: "idle", text: "While CLK is on, Q follows D. While it's off, Q stays put." },
+      { face: "idle", text: "Press Tick to turn the clock on and off once. Press Run to keep it ticking." },
+    ],
+    hint: [
+      { face: "thinking", text: "Use an SR latch. S should be on when D and CLK are both on." },
+      { face: "thinking", text: "R should be on when D is off and CLK is on." },
+      CONTROLS,
+    ],
+    solved: [{ face: "happy", text: "D latch, done! One signal in, and it waits for the clock." }],
+  },
+  "D FLIP-FLOP": {
+    intro: [
+      { face: "worried", text: "A D latch lets D straight through the whole time CLK is on. That's too long." },
+      { face: "idle", text: "A flip-flop takes D only at the moment CLK turns on." },
+    ],
+    hint: [
+      { face: "thinking", text: "Use two D latches in a row, one after the other." },
+      { face: "thinking", text: "Open the first while CLK is off, and the second while it's on. A NOT helps." },
+      CONTROLS,
+    ],
+    solved: [{ face: "happy", text: "D flip-flop, done! Snap. It only listens on the tick." }],
+  },
+  BIT: {
+    intro: [
+      { face: "idle", text: "A flip-flop takes D on every tick. Sometimes we want it to keep its value." },
+      { face: "idle", text: "LOAD decides. On a tick with LOAD on, Q takes D. With LOAD off, Q stays." },
+    ],
+    hint: [
+      { face: "thinking", text: "Put a MUX in front of a flip-flop. LOAD picks what goes in." },
+      { face: "thinking", text: "With LOAD off, feed Q back in, so the flip-flop takes what it already has." },
+      CONTROLS,
+    ],
+    solved: [{ face: "happy", text: "One bit, stored! That's the smallest thing a computer remembers." }],
+  },
+  "2-BIT REGISTER": {
+    intro: [
+      { face: "idle", text: "A register keeps a whole number. One bit per signal." },
+      { face: "idle", text: "We'll start with 2 signals, like always." },
+    ],
+    hint: [
+      { face: "thinking", text: "Split D. Each signal gets its own bit." },
+      { face: "thinking", text: "Both bits share CLK and LOAD. Join their Qs back up." },
+      CONTROLS,
+    ],
+    solved: [
+      { face: "happy", text: "2-bit register, done!" },
+      { face: "happy", text: "I lined up eight bits the same way. There's an 8-signal register in your parts bin!" },
+    ],
+  },
+  DEMUX4: {
+    intro: [
+      { face: "idle", text: "Soon we'll have four registers, and only one should change at a time." },
+      { face: "idle", text: "DEMUX4 sends IN to one of four outputs. SEL numbers which." },
+    ],
+    hint: [
+      { face: "thinking", text: "Split SEL. Its top signal picks a pair, with one DEMUX." },
+      { face: "thinking", text: "Two more DEMUXes on SEL's ones place pick within each pair." },
+      CONTROLS,
+    ],
+    solved: [{ face: "happy", text: "DEMUX4, done! One switch, four places it can go." }],
+  },
+  "4-WAY MUX8": {
+    intro: [
+      { face: "idle", text: "And to read four registers, we need to pick one whole number out of four." },
+      { face: "idle", text: "Same as MUX4, but every input is 8 signals wide." },
+    ],
+    hint: [
+      { face: "thinking", text: "Build it like MUX4, with MUX8s instead of MUXes." },
+      { face: "thinking", text: "SEL's ones place picks within each pair, and its top signal picks the pair." },
+      CONTROLS,
+    ],
+    solved: [{ face: "happy", text: "4-way MUX8, done! Four buses in, one out." }],
+  },
+  "REGISTER FILE": {
+    intro: [
+      { face: "amazed", text: "Four registers, R0 to R3, as one part." },
+      { face: "idle", text: "WRITE and WSEL say which register takes DIN on a tick." },
+      { face: "idle", text: "A and B show two registers at once. ASEL and BSEL say which." },
+      { face: "thinking", text: "A register only shows its new value after the tick that writes it." },
+    ],
+    hint: [
+      { face: "thinking", text: "Four registers share CLK and DIN." },
+      { face: "thinking", text: "A DEMUX4 on WSEL sends WRITE to just one register's LOAD." },
+      { face: "thinking", text: "A 4-way MUX8 on ASEL picks A, and another on BSEL picks B." },
+      CONTROLS,
+    ],
+    solved: [
+      { face: "happy", text: "Register file, done! Read two, write one, all in one tick." },
+      { face: "idle", text: "That's what a CPU needs to add one register to another." },
+    ],
+  },
+  RAM: {
+    intro: [
+      { face: "idle", text: "Last job in the vault: RAM. 8 places, each holding 8 signals." },
+      { face: "idle", text: "ADDR numbers the place. On a tick with WRITE on, it takes DIN." },
+      { face: "idle", text: "DOUT always shows the place ADDR numbers." },
+    ],
+    hint: [
+      { face: "thinking", text: "Two register files have 8 registers between them." },
+      { face: "thinking", text: "ADDR's low two signals pick the register in both. Join them for WSEL and ASEL." },
+      { face: "thinking", text: "ADDR's top signal picks the file: a DEMUX steers WRITE, and a MUX8 picks DOUT." },
+      CONTROLS,
+    ],
+    solved: [
+      { face: "amazed", text: "RAM works! Write a number, walk away, and it's still there." },
+      { face: "happy", text: "That's the last level in the filing vault. Our parts remember now." },
+      { face: "thinking", text: "But nothing ticks the clock for us yet. Next floor up, we find out who keeps time." },
+    ],
+  },
 };
 
 // The first time the elevator reaches each floor, by layer number.
