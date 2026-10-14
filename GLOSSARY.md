@@ -127,6 +127,10 @@ _Avoid_: timer, pulse
 How many ticks per second Run gives the clock. The player sets it on a gauge, from 1 to 64, on every level with a clock and in the door program; nothing the player builds makes a part faster or slower.
 _Avoid_: frequency, tempo
 
+**Driver**:
+What moves a test run and the clock forward in time: it shows a test run's rows one at a time and ticks the clock while Run is on (`src/sim/driver.ts`). Opening, clearing or swapping the board goes through it, so a new board stops whatever was timed on the old one.
+_Avoid_: runner, loop, ticker
+
 ## The computer
 
 **CPU**:
@@ -221,6 +225,10 @@ _Avoid_: dialogue, message, caption
 
 **Story flag**:
 A saved marker for something that has already happened, such as a line Bitbox has already said.
+
+**Cue**:
+Something Bitbox reacts to, such as a level opening or a test run ending. The session decides each cue and the story flag it sets (`src/sim/story.ts`); the script picks the lines for it, or Bitbox only pulls a face. Not a sound cue.
+_Avoid_: event, trigger
 
 **Model sheet**:
 The dev-only page (`bitbox.html`) for orbiting, lighting and posing Bitbox.
