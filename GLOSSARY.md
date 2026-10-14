@@ -23,8 +23,12 @@ _Avoid_: puzzle, challenge, stage
 A level that comes already wired, where the player only runs the test to see what the part does. The first level, NAND, is one.
 
 **Solved**:
-A level whose test run passed. Solving a level puts its part in the parts bin for every later level.
+A level whose test run passed. Solving a level puts its part in the parts bin for every later level. A save keeps which levels are solved by gate, with the revision each was solved at.
 _Avoid_: completed, cleared, beaten
+
+**Revision**:
+A level's version number, bumped when the level changes enough that players must solve it again. A level solved at an older revision counts as unsolved ([ADR 8](docs/adr/0008-new-or-changed-levels-are-played.md)).
+_Avoid_: version (for a level)
 
 ## The board
 

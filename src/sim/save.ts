@@ -1,6 +1,6 @@
 import { restart, type Edge, type Game } from "./circuit";
 import { DEFAULT_GRID, type Size } from "./grid";
-import { LEVELS, PARTS } from "./level";
+import { LEVELS, PARTS, revisionOf, type Solved } from "./level";
 import { hasKind, kindOf, type Parts } from "./kind";
 import type { Label, Node, NodeType, Value } from "./node";
 
@@ -9,7 +9,7 @@ import type { Label, Node, NodeType, Value } from "./node";
 // level is added or moved; the board they left on each level; and story
 // flags (such as which robot lines they've already heard).
 export interface SaveData {
-  solved: NodeType[];
+  solved: Solved;
   open: NodeType;
   boards: Boards;
   flags: string[];
@@ -150,20 +150,32 @@ function isKnownNode(node: unknown): boolean {
   );
 }
 
-// Saves from before progress was kept by gate held a count of solved levels
-// and the open level's position, both in LEVELS as it was then. No level
-// has been added or moved since, so today's LEVELS reads them.
-function progress(v: {
+// A save as stored, before any of it is checked.
+interface RawSave {
   solved?: unknown;
   open?: unknown;
   levelIndex?: unknown;
-}): Pick<SaveData, "solved" | "open"> | null {
-  if (Array.isArray(v.solved) && typeof v.open === "string")
-    return { solved: v.solved.filter((gate) => typeof gate === "string"), open: v.open };
+  boards?: unknown;
+  board?: unknown;
+  flags?: unknown;
+}
+
+// Saves from before progress was kept by gate held a count of solved levels
+// and the open level's position, both in LEVELS as it was then. No level
+// had been added or moved by the time progress moved to gates, so today's
+// LEVELS reads them, at each level's first revision. A position past the
+// last level opens the last.
+function readProgress(v: RawSave): Pick<SaveData, "solved" | "open"> | null {
+  if (typeof v.solved === "object" && v.solved !== null && typeof v.open === "string") {
+    const solved: Solved = {};
+    for (const [gate, revision] of Object.entries(v.solved)) if (typeof revision === "number") solved[gate] = revision;
+    return { solved, open: v.open };
+  }
   if (typeof v.solved !== "number" || typeof v.levelIndex !== "number") return null;
-  const open = LEVELS[v.levelIndex] ?? LEVELS[0];
+  const open = LEVELS[Math.min(Math.max(v.levelIndex, 0), LEVELS.length - 1)];
   if (open === undefined) return null;
-  return { solved: LEVELS.slice(0, v.solved).map((level) => level.gate), open: open.gate };
+  const solved = Object.fromEntries(LEVELS.slice(0, v.solved).map((level) => [level.gate, revisionOf(level)]));
+  return { solved, open: open.gate };
 }
 
 // Anything that doesn't look like a save reads as no save, and a board that
@@ -171,15 +183,8 @@ function progress(v: {
 // its own board held one board, for the level they were on.
 function parseSave(value: unknown): SaveData | null {
   if (typeof value !== "object" || value === null) return null;
-  const v: {
-    solved?: unknown;
-    open?: unknown;
-    levelIndex?: unknown;
-    boards?: unknown;
-    board?: unknown;
-    flags?: unknown;
-  } = value;
-  const saved = progress(v);
+  const v: RawSave = value;
+  const saved = readProgress(v);
   if (saved === null) return null;
   const boards: Boards = {};
   if (typeof v.boards === "object" && v.boards !== null) {

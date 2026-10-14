@@ -30,6 +30,9 @@ interface MemoryLevel {
 
 interface LevelInfo {
   gate: NodeType;
+  // Bumped when the level changes enough that a player who solved it must
+  // solve it again, such as a new truth table or terminals. Missing means 1.
+  revision?: number;
   goal: string;
   // The number of the layer the level belongs to.
   layer: number;
@@ -620,6 +623,21 @@ export function partsBin(levelIndex: number, levels = LEVELS): NodeType[] {
 }
 
 // The levels that can be played: every solved level plus the next one.
+// The revision of each level the player has solved, by the gate it builds.
+// Keyed by gate, not position, so it still means the same levels after one
+// is added, taken out or moved.
+export type Solved = Partial<Record<NodeType, number>>;
+
+export const revisionOf = (level: Level): number => level.revision ?? 1;
+
+// How many levels from the first are solved, at their current revision.
+// Progress goes one level at a time, so a level added or changed before
+// ones already solved must be solved first; then the count jumps past them.
+export function solvedCount(solved: Solved, levels = LEVELS): number {
+  const gap = levels.findIndex((level) => solved[level.gate] !== revisionOf(level));
+  return gap === -1 ? levels.length : gap;
+}
+
 export function playableCount(solved: number, levels = LEVELS): number {
   return Math.min(solved + 1, levels.length);
 }
