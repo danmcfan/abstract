@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
-# Plays every level in a real browser with agent-browser, using real mouse
-# drags to place gates and draw wires, and saves a screenshot per level plus a
-# video of the whole run. It climbs the stack between layers, and screenshots
-# the stack (stack-*.png) on the way.
+# Plays levels in a real browser with agent-browser, using real mouse drags to
+# place gates and draw wires. Each level starts from ?level=N and saves its
+# own screenshot and video. With no levels named it plays every level in order,
+# climbing the stack after each layer's last level and screenshotting it.
 #
-# Usage: bun run playthrough [out-dir]
-#   (or, against a server you already run: BASE_URL=http://localhost:5173/ scripts/playthrough.sh)
+# Usage: bun run playthrough [level...]
+#   (or, against a server you already run: BASE_URL=http://localhost:5173/ scripts/playthrough.sh 13 14)
+#   PLAYTHROUGH_DIR sets the output directory (default playthrough/).
 set -euo pipefail
 
 BASE=${BASE_URL:?run through scripts/with-server.sh, or set BASE_URL}
-OUT=${1:-playthrough}
+OUT=${PLAYTHROUGH_DIR:-playthrough}
 mkdir -p "$OUT"
 ab() { agent-browser "$@" >/dev/null; }
 
@@ -60,7 +61,8 @@ expect() { [[ $(js "$1") == true ]] || { echo "failed: $2" >&2; exit 1; }; }
 # Starts a level from the stack, which must be open, by its sheet number.
 sheet() { ab click "button[data-level=\"$1\"]"; sleep 0.5; hush; }
 
-# Runs the test and waits for it to end. A test run's length is its row
+# Runs the test on level $2 and waits for it to end, screenshotting the
+# result to $3 when given. A test run's length is its row
 # count times the step time, so a fixed sleep races it on a slow machine:
 # this waits at least the given seconds, then polls until the run is over,
 # giving up 30 seconds later.
@@ -76,19 +78,17 @@ check() {
     status=$(js "document.querySelector('#status').textContent")
   done
   echo "level $2: $status"
-  agent-browser screenshot "$OUT/level$2.png" >/dev/null
+  if [[ -n ${3:-} ]]; then agent-browser screenshot "$3" >/dev/null; fi
   [[ $status == *Tested* ]] || { echo "level $2 failed" >&2; exit 1; }
   hush
 }
-
-ab set viewport 1280 800
-agent-browser record restart "$OUT/playthrough.webm" "${BASE}?level=1" >/dev/null
-until [[ $(js "typeof __abstract") == *object* ]]; do sleep 0.5; done
 
 # Builds the open level's intended solution, from its entry in LEVELS, with
 # real drags: each node from the parts bin to its cell, then each wire.
 solve() {
   local parts wires part type x y width ids=()
+  # A level that comes wired has no solution to build.
+  [[ $(js "!!__abstract.solution") == true ]] || return 0
   IFS=';' read -ra parts <<<"$(js "__abstract.solution.nodes.map(p => [p.type, p.x, p.y, p.width ?? ''].join('|')).join(';')" | tr -d '"')"
   for part in "${parts[@]}"; do
     IFS='|' read -r type x y width <<<"$part"
@@ -106,62 +106,103 @@ layer() {
   expect "document.querySelector('[data-layer=\"$1\"]').parentElement.dataset.state === '$2'" "L$1 is $2"
 }
 
-# Level 1: NAND comes wired; just test it.
-check 2 1
-
-# Every other level: go on to it, build its solution and test it. Passing a
-# layer's last level leads up through the stack, where Bitbox names the new
-# floor.
-COUNT=$(js "__abstract.levelCount")
-for ((n = 2; n <= COUNT; n++)); do
-  if [[ $(js "!!document.querySelector('#up')") == true ]]; then
-    floor=$(js "__abstract.layerOf($n - 1).floor" | tr -d '"')
-    number=$(js "__abstract.layerOf($n - 1).number")
-    expect "document.querySelector('#up').textContent.includes('Up to $floor')" "level $((n - 1)) leads up to $floor"
-    ab click "#up"; sleep 1.2
-    expect "!!__abstract.saying?.toLowerCase().includes('${floor#the }')" "Bitbox names $floor"
-    hush
-    layer $((number - 1)) built
-    layer "$number" "in progress"
-    if ((number < 9)); then layer $((number + 1)) locked; fi
-    agent-browser screenshot "$OUT/stack-up-L$number.png" >/dev/null
-    sheet "$n"
+# Opens level $1 from its URL, recording to $2 when given, and waits for the
+# dev hook and the robot's opening line.
+open_level() {
+  if [[ -n ${2:-} ]]; then
+    agent-browser record restart "$2" "${BASE}?level=$1" >/dev/null
   else
-    ab click "#next"; sleep 0.5; hush
+    ab open "${BASE}?level=$1"
   fi
+  until [[ $(js "typeof __abstract") == *object* ]]; do sleep 0.5; done
+  sleep 0.5
+  hush
+}
+
+# The video is a convenience: a failed encode warns but doesn't fail the run.
+stop_recording() {
+  agent-browser record stop >/dev/null 2>&1 || echo "warning: video not saved (agent-browser needs ffmpeg)" >&2
+}
+
+# Plays level $1 on its own: open it, build its solution and test it. With
+# a second argument it climbs the stack afterwards, which the full run asks
+# for after each layer's last level, recording the climb in the level's video.
+play() {
+  open_level "$1" "$OUT/level$1.webm"
   # On level 3, a stray gate goes on first, to try Clear.
-  if ((n == 3)); then
+  if (($1 == 3)); then
     add NOT 28 10 >/dev/null
     ab click "#clear"; ab click "#clear-confirm"
     expect "__abstract.nodes().length === 3" "Clear leaves only the terminals"
   fi
   solve
-  check 2 "$n"
-done
+  check 2 "$1" "$OUT/level$1.png"
+  if [[ -n ${2:-} ]]; then climb "$1"; fi
+  stop_recording
+}
 
-# The last level has no way on until its layer's next level exists.
-expect "!document.querySelector('#up') && !document.querySelector('#next')" "no way on from the last level"
+# Climbs the stack from level $1, the last of its layer, which is still
+# open and just passed. The full run climbs as it goes, while the layers above
+# are unsolved, so each shows the state a player would see.
+climb() {
+  local n=$1 floor number
+  floor=$(js "__abstract.layerOf($n).floor" | tr -d '"')
+  number=$(js "__abstract.layerOf($n).number")
+  expect "document.querySelector('#up').textContent.includes('Up to $floor')" "level $n leads up to $floor"
+  ab click "#up"; sleep 1.2
+  expect "!!__abstract.saying?.toLowerCase().includes('${floor#the }')" "Bitbox names $floor"
+  hush
+  layer $((number - 1)) built
+  layer "$number" "in progress"
+  if ((number < 9)); then layer $((number + 1)) locked; fi
+  agent-browser screenshot "$OUT/stack-up-L$number.png" >/dev/null
+}
 
-# The HUD button opens the stack on the current layer, and each level keeps
-# its board: going back to the level before finds it still wired.
-number=$(js "__abstract.layerOf($COUNT - 1).number")
-floor=$(js "__abstract.layerOf($COUNT - 1).floor" | tr -d '"')
-expect "document.querySelector('#open-stack').textContent.includes('L$number · $floor')" "the HUD names the current layer"
-ab click "#open-stack"; sleep 0.8; hush
-layer "$number" built
-agent-browser screenshot "$OUT/stack-built.png" >/dev/null
-sheet $((COUNT - 1))
-expect "__abstract.levelIndex === $((COUNT - 2)) && __abstract.game.edges.size === __abstract.solution.wires.length" "level $((COUNT - 1)) keeps its board"
+# After every level: the last one, the HUD, the saved boards and the title.
+finish() {
+  local count=$1 floor number
+  # The last level has no way on until its layer's next level exists.
+  open_level "$count" "$OUT/stack-built.webm"
+  check 2 "$count"
+  expect "!document.querySelector('#up') && !document.querySelector('#next')" "no way on from the last level"
 
-# The title offers the stack once there's a save.
-ab click "#menu"; sleep 0.5
-ab click "#title-stack"; sleep 0.8
-expect "!!document.querySelector('#stack [aria-current=step]')" "the stack opens from the title on the saved level"
-ab click "#stack-close"; sleep 0.3
-expect "!!document.querySelector('#continue')" "Back returns to the title"
+  # The HUD button opens the stack on the current layer, and each level keeps
+  # its board: going back to the level before finds it still wired.
+  number=$(js "__abstract.layerOf($count - 1).number")
+  floor=$(js "__abstract.layerOf($count - 1).floor" | tr -d '"')
+  expect "document.querySelector('#open-stack').textContent.includes('L$number · $floor')" "the HUD names the current layer"
+  ab click "#open-stack"; sleep 0.8; hush
+  layer "$number" built
+  agent-browser screenshot "$OUT/stack-built.png" >/dev/null
+  sheet $((count - 1))
+  expect "__abstract.levelIndex === $((count - 2)) && __abstract.game.edges.size === __abstract.solution.wires.length" "level $((count - 1)) keeps its board"
 
-# The video is a convenience: a failed encode warns but doesn't fail the run.
-agent-browser record stop >/dev/null 2>&1 || echo "warning: video not saved (agent-browser needs ffmpeg)" >&2
+  # The title offers the stack once there's a save.
+  ab click "#menu"; sleep 0.5
+  ab click "#title-stack"; sleep 0.8
+  expect "!!document.querySelector('#stack [aria-current=step]')" "the stack opens from the title on the saved level"
+  ab click "#stack-close"; sleep 0.3
+  expect "!!document.querySelector('#continue')" "Back returns to the title"
+  stop_recording
+}
+
+ab set viewport 1280 800
+if (($# > 0)); then
+  for n in "$@"; do play "$n"; done
+else
+  open_level 1
+  COUNT=$(js "__abstract.levelCount")
+  # Stack climbs: each layer's last level leads up to the next.
+  for ((n = 1; n <= COUNT; n++)); do
+    if ((n < COUNT)) && [[ $(js "__abstract.layerOf($n - 1).number < __abstract.layerOf($n).number") == true ]]; then
+      play "$n" climb
+    else
+      play "$n"
+    fi
+  done
+  finish "$COUNT"
+fi
+
 errors=$(agent-browser errors 2>&1 || true)
 if [[ -n $errors ]]; then
   echo "page errors:" >&2

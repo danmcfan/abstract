@@ -1,20 +1,24 @@
 # Verifying a change
 
-Every change ships through a pull request: CI runs `bun run verify` on it, and merging to `main` deploys the live site. Before opening the PR, run the checks for what you changed, then review the diff with `/code-review main`.
+Every change ships through a pull request: CI runs `bun run check` on it, with no browser, and merging to `main` deploys the live site. Before opening the PR, run the checks for what you changed, then review the diff with `/code-review main`.
 
-| You changed                       | Run                                                                            | Done when                                                                               |
-| --------------------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------- |
-| Anything                          | `bun run check`                                                                | Typecheck, Oxlint, Prettier, knip, escapes, tests, build and bundle check pass.         |
-| Anything the player sees or does  | `bun run playthrough`                                                          | It prints "Tested!" for every level and exits 0. Then look at `playthrough/level*.png`. |
-| Bitbox (`src/robot/`)             | `bun run shots`                                                                | `shots/sheet.png` shows every expression the way you intended.                          |
-| Before opening the PR             | `bun run verify`                                                               | `check` plus `playthrough`, the same as CI.                                             |
-| Anything the player sees or hears | Capture it and attach it to the PR ([Evidence on the PR](#evidence-on-the-pr)) | The PR body shows a screenshot of each change, and a video of any motion.               |
+| You changed                       | Run                                                                            | Done when                                                                       |
+| --------------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
+| Anything                          | `bun run check`                                                                | Typecheck, Oxlint, Prettier, knip, escapes, tests, build and bundle check pass. |
+| A level (added or edited)         | `bun run playthrough <N>...` for those levels                                  | It prints "Tested!" for each and exits 0. Attach its shot and video to the PR.  |
+| Anything else the player does     | `bun run playthrough`                                                          | It prints "Tested!" for every level, climbs the stack and exits 0.              |
+| Bitbox (`src/robot/`)             | `bun run shots`                                                                | `shots/sheet.png` shows every expression the way you intended.                  |
+| Anything the player sees or hears | Capture it and attach it to the PR ([Evidence on the PR](#evidence-on-the-pr)) | The PR body shows a screenshot of each change, and a video of any motion.       |
+
+`bun run verify` runs `check` and then the whole `playthrough`.
 
 `playthrough` and `shots` start their own dev server on a free port, with hot reload off and their own browser session, and stop both afterwards. They never collide with a `bun run dev` already running or with another agent. The browser is muted by `agent-browser.json` at the repo root, so the game's sound never plays on the machine running the checks.
 
 ## The playthrough
 
-`scripts/playthrough.sh` plays every level in a real browser with [agent-browser](https://github.com/vercel-labs/agent-browser). It places gates and draws wires with real mouse drags, saves a screenshot per level and a video to `playthrough/` (or the directory you pass), and fails on a level that doesn't pass or on any page error.
+`scripts/playthrough.sh` plays levels in a real browser with [agent-browser](https://github.com/vercel-labs/agent-browser). It places gates and draws wires with real mouse drags, and fails on a level that doesn't pass or on any page error. CI doesn't run it: `bun test` proves every level's solution passes, and the playthrough is the local proof that a player can build it.
+
+`bun run playthrough 13 14` plays only levels 13 and 14. Each level starts from `?level=N` and saves `level<N>.png` and `level<N>.webm` to `playthrough/` (or `PLAYTHROUGH_DIR`). With no levels named it plays every level in order, climbing the stack after each layer's last level (`stack-up-L<N>.png`), and ends on the stack (`stack-built.png`, `stack-built.webm`). The climbs need the progress saved by the levels before them, so a run that names levels skips them.
 
 It builds each level from the `solution` in its `LEVELS` entry (`src/sim/level.ts`): every part dragged from the parts bin to its board cell, then every wire. A new level needs no change to the script, only its `solution`, which `bun test` also builds and checks.
 
@@ -46,9 +50,9 @@ Read `sheet.png` rather than the single shots: one image covers every shot.
 
 ## Evidence on the PR
 
-A PR that changes what a player sees or hears shows it in its body: a screenshot of each change, and a video of any motion (an animation, a drag, a sequence of screens). CI's Evidence check (`scripts/check-evidence.sh`, which lists the player-facing paths) fails a PR that changes them without an uploaded file, unless a line of the body starts "No visible change" and says why.
+A PR that changes what a player sees or hears shows it in its body: a screenshot of each change, and a video of any motion (an animation, a drag, a sequence of screens). Nothing in CI checks this: it's the author's job. A PR that adds or edits a level always attaches that level's `playthrough/level<N>.png` and `playthrough/level<N>.webm`.
 
-1. **Capture** into `evidence/` (gitignored): your own shots and recordings, plus any of `playthrough/level*.png`, `playthrough/playthrough.webm` or `shots/sheet.png` that show the change. A new or changed level attaches its `playthrough/level<N>.png` and `playthrough/playthrough.webm`. Look at every file before attaching it. For before and after, run the same commands on `main` in a worktree.
+1. **Capture** into `evidence/` (gitignored): your own shots and recordings, plus any of `playthrough/level*.png`, `playthrough/*.webm` or `shots/sheet.png` that show the change. Look at every file before attaching it. For before and after, run the same commands on `main` in a worktree.
 2. **Embed** each file beside the claim it proves, as `![The PASSED stamp over the MUX table](evidence/stamp.png)`, with the path relative to the repo root. Videos use the same syntax and render as a player.
 3. **Attach** each embedded file, from the repo root, spelled exactly as in the body:
 
@@ -59,4 +63,4 @@ A PR that changes what a player sees or hears shows it in its body: a screenshot
 
    gh uploads them and rewrites the links. A file attached but not referenced is appended to the end of the body instead.
 
-4. **Check**: `scripts/check-evidence.sh <pr>` passes. To add or replace files later, `gh pr edit <pr> --body-file body.md --attach ...` (each run uploads again, so attach each file once). If some uploads fail, gh still creates the PR and exits non-zero: rerun `gh pr edit` with only the failed files.
+4. **Later changes**: to add or replace files, `gh pr edit <pr> --body-file body.md --attach ...` (each run uploads again, so attach each file once). If some uploads fail, gh still creates the PR and exits non-zero: rerun `gh pr edit` with only the failed files.

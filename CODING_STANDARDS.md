@@ -6,7 +6,7 @@ The review step reads this file. `bun run verify` already enforces the rules a s
 - Dev pages and Three.js stay out of the first load, and every chunk is under 500 kB (`scripts/check-bundle.ts`).
 - Types check under the strict `tsconfig.json`, Oxlint passes with no warnings (`.oxlintrc.json`, including the Solid rules and `@shadcn/lint`'s design-system rules), Prettier finds nothing to change, and knip finds no unused files, exports or dependencies.
 - No comment switches a check off: `eslint-disable`, `oxlint-disable`, `@ts-ignore`, `@ts-expect-error`, `@ts-nocheck` and `prettier-ignore` all fail (`scripts/check-escapes.ts`).
-- Tests pass, and the playthrough solves every level with no page errors.
+- Tests pass, including a build of every level's intended solution.
 
 **Fix the code, not the rule.** A change that loosens `tsconfig.json`, `.oxlintrc.json`, `knip.json` or the check scripts to get code through is a finding. Those files are in CODEOWNERS.
 
