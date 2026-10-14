@@ -7,13 +7,18 @@ import type { Expression } from "../robot/expression";
 
 const TYPE_MS = 24;
 
-// The robot's popup: a little video window of it pulling a face, and what
-// it's saying, typed out. It sits over the board without blocking play. A
-// reaction with no line shows just the video window, for a moment.
+// Bitbox's video window of him pulling a face, and what he's saying, typed
+// out. During play it's docked in Bitbox's desk, where he sits idle between
+// lines. Over the stack it pops up instead, and a reaction with no line
+// shows just the video window, for a moment.
 const text = (): string => speech()?.line.text ?? "";
 const face = (): Expression => reaction() ?? speech()?.line.face ?? "idle";
 
-export function Dialogue(): JSX.Element {
+export function Dialogue(props: { docked?: boolean }): JSX.Element {
+  const place = (): string => {
+    if (props.docked === true) return "flex min-h-0 flex-col text-ink-deep sheet";
+    return `pop fixed right-5 bottom-5 z-40 text-ink-deep sheet ${speech() === null ? "" : "w-115"}`;
+  };
   const [shown, setShown] = createSignal(0);
   const typing = (): boolean => shown() < text().length;
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -52,27 +57,28 @@ export function Dialogue(): JSX.Element {
   });
 
   return (
-    <Show when={speech() ?? reaction()}>
-      <section
-        id="dialogue"
-        aria-label="Bitbox"
-        class={
-          speech() === null
-            ? "pop fixed right-3 bottom-21 z-40 text-ink-deep sheet wide:right-5"
-            : "pop fixed right-3 bottom-21 left-3 z-40 text-ink-deep sheet wide:right-5 sm:left-auto sm:w-115"
-        }
-      >
+    <Show when={props.docked === true || speech() !== null || reaction() !== null}>
+      <section id="dialogue" aria-label="Bitbox" class={place()}>
         <header class="flex items-center justify-between bg-ink py-1 pr-1 pl-3 text-label tracking-stamp text-paper uppercase">
           <span>
             <span class="mr-1.5 inline-block size-2 rounded-full bg-glow align-middle shadow-glow" />
             Bitbox
           </span>
-          <button id="dialog-close" class="px-2 text-sm leading-none hover:text-glow" aria-label="Close" onClick={hush}>
-            ✕
-          </button>
+          <Show when={speech()}>
+            <button
+              id="dialog-close"
+              class="px-2 text-sm leading-none hover:text-glow"
+              aria-label="Close"
+              onClick={hush}
+            >
+              ✕
+            </button>
+          </Show>
         </header>
-        <div class="flex gap-3 p-3">
-          <div class="relative size-31 shrink-0 border-2 border-ink bg-paper grid-paper sm:size-35">
+        <div class={props.docked === true ? "flex min-h-0 flex-1 gap-3 p-2.5" : "flex gap-3 p-3"}>
+          <div
+            class={`relative shrink-0 border-2 border-ink bg-paper grid-paper ${props.docked === true ? "aspect-square h-full" : "size-35"}`}
+          >
             <RobotScreen expression={face()} talking={typing()} shot="close" class="size-full" />
             <span class="pointer-events-none absolute top-0.5 left-1.5 text-tag tracking-widest text-pencil">
               CAM 01
@@ -82,8 +88,11 @@ export function Dialogue(): JSX.Element {
             {(s) => (
               <div class="flex min-w-0 flex-1 flex-col">
                 {/* A mouse shortcut for Next; the keyboard has Enter and the Next button. */}
-                <div role="presentation" onClick={next}>
-                  <p class="min-h-dialogue cursor-pointer text-copy leading-snug" aria-live="polite">
+                <div role="presentation" class="min-h-0 overflow-y-auto" onClick={next}>
+                  <p
+                    class={`cursor-pointer leading-snug ${props.docked === true ? "text-note" : "min-h-dialogue text-copy"}`}
+                    aria-live="polite"
+                  >
                     {text().slice(0, shown())}
                     <Show when={!typing()}>
                       <span class="caret" />

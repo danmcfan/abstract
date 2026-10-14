@@ -37,7 +37,15 @@ The grid the player builds a circuit on, with its nodes and wires. In code it's 
 _Avoid_: canvas, workspace, breadboard
 
 **Sheet**:
-The drafting sheet the whole screen is drawn as, in the vision board's drafting mode: white grid paper and blue ink. Each level's sheet is numbered ("SH 04").
+The drafting sheet the whole screen is drawn as: white paper panels in blue ink, pinned on a blueprint-blue grid. Each level's sheet is numbered ("SH 04").
+
+**Menu bar**:
+The strip across the top of the sheet with the sheet number, the level's name, and the level select, help, sound and menu buttons.
+_Avoid_: nav, toolbar, title block
+
+**Brief**:
+The panel down the left of the sheet: the level's text, its truth or timing table, and the test run's results.
+_Avoid_: info board, sidebar, HUD
 
 **Node**:
 Anything placed on the board: a gate or a terminal.
@@ -208,6 +216,10 @@ _Avoid_: hint (Bitbox gives hints), easter egg
 **Bitbox**:
 The robot helper, a clunky crate robot with a CRT face who remembers only NAND and talks the player through the levels. Drawn in 3D (`src/robot/`).
 _Avoid_: the robot (in player-facing text), assistant, mascot
+
+**Bitbox's desk**:
+The corner of the sheet, below the brief and beside the parts bin, where Bitbox sits and says his current line.
+_Avoid_: speech box, dialogue, robot panel
 
 **Expression**:
 One of Bitbox's eight moods (idle, happy, worried, thinking, error, sleepy, amazed, loading): a face drawing plus a clip.

@@ -5,11 +5,11 @@ import { layerOf, LEVELS, solutionWires } from "./sim/level";
 import type { Node, NodeID } from "./sim/node";
 import { Board, toScreen } from "./ui/Board";
 import { DesktopNotice } from "./ui/DesktopNotice";
-import { noticeDismissal, watchSmallTouch } from "./ui/device";
+import { watchScreen } from "./ui/device";
 import { Dialogue } from "./ui/Dialogue";
 import { listenForFirstGesture } from "./ui/sound";
 import { hush, speak, speech } from "./ui/speech";
-import { Hud } from "./ui/Hud";
+import { Brief, MenuBar, PartsBin } from "./ui/Hud";
 import { Stack } from "./ui/Stack";
 import { current, driver, session } from "./ui/state";
 import { Title } from "./ui/Title";
@@ -29,8 +29,7 @@ interface StackView {
 }
 
 function App(): JSX.Element {
-  const smallTouch = watchSmallTouch((query) => window.matchMedia(query));
-  const notice = noticeDismissal(() => localStorage);
+  const device = watchScreen((query) => window.matchMedia(query));
   const [screen, setScreen] = createSignal<"title" | "play">(jump ? "play" : "title");
   const [stack, setStack] = createSignal<StackView | null>(null);
   const play = (begin: () => void): void => {
@@ -60,7 +59,7 @@ function App(): JSX.Element {
   };
 
   return (
-    <Show when={!smallTouch() || notice.dismissed()} fallback={<DesktopNotice onContinue={notice.dismiss} />}>
+    <Show when={device() === "desktop"} fallback={<DesktopNotice screen={device() === "touch" ? "touch" : "small"} />}>
       <Show when={screen() === "title" && !stack()}>
         <Title
           onContinue={() => {
@@ -81,25 +80,35 @@ function App(): JSX.Element {
         />
       </Show>
       <Show when={screen() === "play"}>
-        <Play onMenu={menu} onStack={openStack} />
+        <Play onMenu={menu} onStack={openStack} stacked={stack() !== null} />
       </Show>
       <Show when={stack()} keyed>
         {(view) => <Stack arrive={view.arrive} onPick={pick} onClose={closeStack} />}
       </Show>
-      <Show when={screen() === "play" || stack()}>
+      {/* During play Bitbox sits docked in his desk; over the stack he pops up. */}
+      <Show when={stack()}>
         <Dialogue />
       </Show>
     </Show>
   );
 }
 
-function Play(props: { onMenu: () => void; onStack: (arrive?: number) => void }): JSX.Element {
+// The sheet: the menu bar across the top, the brief down the left over
+// Bitbox's desk, and the board over the parts bin.
+function Play(props: { onMenu: () => void; onStack: (arrive?: number) => void; stacked: boolean }): JSX.Element {
   useTutorial();
   return (
-    <>
-      <Board />
-      <Hud onMenu={props.onMenu} onStack={props.onStack} />
-    </>
+    <div class="grid h-full grid-cols-sheet grid-rows-sheet gap-3 p-3">
+      <MenuBar onMenu={props.onMenu} onStack={props.onStack} />
+      <Brief onStack={props.onStack} />
+      <div class="relative min-h-0 min-w-0">
+        <Board />
+      </div>
+      <Show when={!props.stacked} fallback={<div />}>
+        <Dialogue docked />
+      </Show>
+      <PartsBin />
+    </div>
   );
 }
 
