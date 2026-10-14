@@ -167,6 +167,11 @@ export function restart(game: Game): void {
 
 // Reads
 
+// A level names its terminals by label, so wiring data and tests find them that way.
+export function terminalNamed(game: Game, terminal: "input" | "output", label: Label): Node | undefined {
+  return [...game.nodes.values()].find((node) => nodeKind(game, node).terminal === terminal && node.label === label);
+}
+
 export function edgeInto(game: Game, node: NodeID, index: number): Edge | undefined {
   for (const edge of game.edges.values()) {
     if (edge.to === node && edge.toIndex === index) return edge;

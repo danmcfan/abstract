@@ -124,6 +124,9 @@ if (import.meta.env.DEV) {
       get levelIndex() {
         return levelIndex();
       },
+      get gate() {
+        return level().gate;
+      },
       // The whole line Bitbox is on, however much of it is typed out yet.
       get saying() {
         return speech()?.line.text ?? null;
