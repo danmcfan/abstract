@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { edgeInto, placeNode, terminalNamed, wire, type Game, type Pin } from "./circuit";
+import { edgeInto, placeNode, restart, terminalNamed, wire, type Game, type Pin } from "./circuit";
 import { partsFrom } from "./kind";
 import { buildSolution, checkLevel, loadLevel, LEVELS, type CheckResult, type Level } from "./level";
 import type { NodeID, Value } from "./node";
@@ -84,16 +84,25 @@ function boardOutputs(game: Game, level: Level): Value[] {
   return level.outputs.map((label) => edgeInto(game, terminalNamed(game, "output", label)!.id, 0)?.value ?? 0);
 }
 
-// Steps a whole test run of the board, as the session does after a restart,
+// Steps a whole test run of the board after a restart, as the session does,
 // and gives each shown row's recorded actual next to what the board showed.
 function stepRun(game: Game, levels: Level[], index: number): { recorded: Value[]; shown: Value[] }[] {
   const level = levels[index]!;
+  restart(game);
   const run = new TestRun(level, checkLevel(game, index, levels));
   const seen: { recorded: Value[]; shown: Value[] }[] = [];
-  for (let shown = run.step(game); shown !== null; shown = run.step(game)) {
-    seen.push({ recorded: shown.row.actual, shown: boardOutputs(game, level) });
+  for (let step = run.step(game); step !== null; step = run.step(game)) {
+    seen.push({ recorded: step.row.actual, shown: boardOutputs(game, level) });
   }
   return seen;
+}
+
+// Checks a test run of the last of the levels records these outputs, and
+// that the board shows each of them.
+function expectShownAsRecorded(game: Game, levels: Level[], recorded: Value[][]): void {
+  const seen = stepRun(game, levels, levels.length - 1);
+  expect(seen.map((row) => row.recorded)).toEqual(recorded);
+  for (const row of seen) expect(row.shown).toEqual(row.recorded);
 }
 
 const out = (node: NodeID, index = 0): Pin => ({ node, side: "out", index });
@@ -145,6 +154,7 @@ const FLIP_FLOP: Level = {
 
 describe("a test run's board", () => {
   test("shows the recorded outputs on every row of every level's intended solution", () => {
+    // Each value is paired with its gate, so a failure names the level.
     LEVELS.forEach((level, index) => {
       if (level.solution === undefined) return;
       const game = loadLevel(level);
@@ -157,9 +167,7 @@ describe("a test run's board", () => {
   test("shows the recorded outputs on a memory level whose steps tick the clock", () => {
     const levels = [...LEVELS, FLIP_FLOP];
     const game = loadLevel(FLIP_FLOP, partsFrom(levels));
-    const seen = stepRun(game, levels, levels.length - 1);
-    expect(seen.map((row) => row.recorded)).toEqual([[0], [1], [1], [0]]);
-    for (const { recorded, shown } of seen) expect(shown).toEqual(recorded);
+    expectShownAsRecorded(game, levels, [[0], [1], [1], [0]]);
   });
 
   test("shows the recorded outputs on a board that holds its value in a stable loop", () => {
@@ -172,8 +180,6 @@ describe("a test run's board", () => {
     wire(game, out(top), inp(bottom, 0));
     wire(game, out(terminalNamed(game, "input", "R")!.id), inp(bottom, 1));
     wire(game, out(top), inp(terminalNamed(game, "output", "Q")!.id));
-    const seen = stepRun(game, levels, levels.length - 1);
-    expect(seen.map((row) => row.recorded)).toEqual([[1], [1], [0], [0]]);
-    for (const { recorded, shown } of seen) expect(shown).toEqual(recorded);
+    expectShownAsRecorded(game, levels, [[1], [1], [0], [0]]);
   });
 });
