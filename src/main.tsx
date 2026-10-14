@@ -19,10 +19,7 @@ import { useTutorial } from "./ui/tutorial";
 const params = new URLSearchParams(location.search);
 const requested = Number(params.get("level")) - 1;
 const jump = import.meta.env.DEV && requested >= 0 && requested < LEVELS.length;
-if (jump)
-  driver.change(() => {
-    session().start(requested);
-  });
+if (jump) driver.start(requested);
 
 // The stack opens over the board, which stays as it was underneath, or over
 // the title, which it returns to. Arriving from the floor below, it names
@@ -54,10 +51,7 @@ function App(): JSX.Element {
   const pick = (index: number): void => {
     hush();
     setStack(null);
-    if (index !== session().levelIndex)
-      driver.change(() => {
-        session().start(index);
-      });
+    if (index !== session().levelIndex) driver.start(index);
     setScreen("play");
   };
   const closeStack = (): void => {
@@ -71,23 +65,17 @@ function App(): JSX.Element {
         <Title
           onContinue={() => {
             play(() => {
-              driver.change(() => {
-                session().resume();
-              });
+              driver.resume();
               speak(session().welcome());
             });
           }}
           onStack={() => {
-            driver.change(() => {
-              session().resume();
-            });
+            driver.resume();
             openStack();
           }}
           onNew={() => {
             play(() => {
-              driver.change(() => {
-                session().reset();
-              });
+              driver.reset();
             });
           }}
         />

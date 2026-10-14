@@ -728,9 +728,7 @@ describe("driving a session", () => {
     const scheduler = fakeScheduler();
     const driver = new Driver(session, scheduler, () => {});
     driver.test();
-    driver.change(() => {
-      session.start(0);
-    });
+    driver.start(0);
     expect(scheduler.tasks).toHaveLength(0);
     driver.test();
     expect(scheduler.tasks).toHaveLength(1);
@@ -758,13 +756,9 @@ describe("driving a session", () => {
     driver.test();
     expect(driver.running).toBe(false);
     expect(scheduler.tasks.map((t) => t.ms)).toEqual([TEST_STEP_MS]);
-    driver.change(() => {
-      session.clear();
-    });
+    driver.clear();
     driver.toggleClock();
-    driver.change(() => {
-      session.clear();
-    });
+    driver.clear();
     expect(driver.running).toBe(false);
     expect(scheduler.tasks).toHaveLength(0);
   });

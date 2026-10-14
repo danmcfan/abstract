@@ -12,9 +12,9 @@ export const TEST_STEP_MS = 600;
 export const CLOCK_MS = 500;
 
 // Moves a session along in time: steps a test run through its rows, and
-// ticks the clock over and over while Run is on. Everything that changes the
-// level or board goes through here too, so a new board stops whatever was
-// timed on the old one. It calls changed() after every change it makes.
+// ticks the clock over and over while Run is on. Opening, clearing or
+// swapping the board goes through here too, never straight to the session,
+// so a new board stops whatever was timed on the old one. It calls changed() after every change it makes.
 export class Driver {
   private stopClock: (() => void) | null = null;
   private stopTest: (() => void) | null = null;
@@ -34,14 +34,32 @@ export class Driver {
     return this.stopClock !== null;
   }
 
-  // Applies a change that opens, clears or swaps the board, stopping the
-  // clock and any test run's steps first.
-  change(apply: () => void): void {
-    this.pause();
-    this.stopTest?.();
-    this.stopTest = null;
-    apply();
-    this.changed();
+  // Opens a level on the board the player left there.
+  start(index: number): void {
+    this.change(() => {
+      this.session.start(index);
+    });
+  }
+
+  // Throws away the current level's board for a fresh one.
+  clear(): void {
+    this.change(() => {
+      this.session.clear();
+    });
+  }
+
+  // Picks up the saved game where it left off.
+  resume(): void {
+    this.change(() => {
+      this.session.resume();
+    });
+  }
+
+  // Throws away the saved game and starts over.
+  reset(): void {
+    this.change(() => {
+      this.session.reset();
+    });
   }
 
   // Steps through the truth table on the board so the player can watch each
@@ -49,14 +67,11 @@ export class Driver {
   test(): void {
     this.pause();
     if (!this.session.beginTest()) return;
-    this.stopTest?.();
-    this.stopTest = null;
+    this.stopTesting();
     this.changed();
     if (!this.step()) return;
     this.stopTest = this.scheduler.every(TEST_STEP_MS, () => {
-      if (this.step()) return;
-      this.stopTest?.();
-      this.stopTest = null;
+      if (!this.step()) this.stopTesting();
     });
   }
 
@@ -77,6 +92,19 @@ export class Driver {
     });
     this.tick();
     this.changed();
+  }
+
+  // A new board stops whatever was timed on the old one.
+  private change(apply: () => void): void {
+    this.pause();
+    this.stopTesting();
+    apply();
+    this.changed();
+  }
+
+  private stopTesting(): void {
+    this.stopTest?.();
+    this.stopTest = null;
   }
 
   private pause(): void {

@@ -193,9 +193,7 @@ export function Hud(props: { onMenu: () => void; onStack: (arrive?: number) => v
                 class="btn border-fail bg-fail btn-sm"
                 onClick={() => {
                   setClearing(false);
-                  driver.change(() => {
-                    session().clear();
-                  });
+                  driver.clear();
                 }}
               >
                 Clear
@@ -226,9 +224,7 @@ export function Hud(props: { onMenu: () => void; onStack: (arrive?: number) => v
               id="next"
               class="mt-2.5 btn"
               onClick={() => {
-                driver.change(() => {
-                  session().start(session().levelIndex + 1);
-                });
+                driver.start(session().levelIndex + 1);
               }}
             >
               Next level ▸
