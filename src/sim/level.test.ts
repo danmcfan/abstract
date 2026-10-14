@@ -68,11 +68,11 @@ describe("each level's intended solution", () => {
     },
   );
 
-  test("a wire names a terminal by its label and a part by its name, with :n for its nth pin", () => {
+  test("a wire names a terminal by its label and a placed node by its name, with :n for its nth pin", () => {
     const level: Level = {
       ...LEVELS[1]!,
       solution: {
-        parts: [{ name: "nand", type: "NAND", x: 22, y: 20 }],
+        nodes: [{ name: "nand", type: "NAND", x: 22, y: 20 }],
         wires: [
           ["A", "nand"],
           ["A", "nand:1"],

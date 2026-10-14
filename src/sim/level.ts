@@ -51,13 +51,13 @@ interface LevelInfo {
 
 type Part = Spec & { gate: NodeType };
 
-// An intended solution, as a player builds it: parts dropped on board
+// An intended solution, as a player builds it: nodes dropped on board
 // cells, then wires. A wire runs from an output pin to an input pin. Each
-// end names a terminal by its label, or a part by its name, with ":n" for
-// the part's nth pin on that side; a bare name is pin 0. A split or join
-// gives its bus width.
+// end names a terminal by its label, or a node the solution places by its
+// name, with ":n" for its nth pin on that side; a bare name is pin 0. A
+// split or join gives its bus width.
 interface Solution {
-  parts: { name: string; type: NodeType; x: number; y: number; width?: number }[];
+  nodes: { name: string; type: NodeType; x: number; y: number; width?: number }[];
   wires: [from: string, to: string][];
 }
 
@@ -107,7 +107,7 @@ export const LEVELS: Level[] = [
     target: ([a = 0]) => [1 - a],
     // A NAND with both inputs tied together.
     solution: {
-      parts: [{ name: "nand", type: "NAND", x: 22, y: 20 }],
+      nodes: [{ name: "nand", type: "NAND", x: 22, y: 20 }],
       wires: [
         ["A", "nand:0"],
         ["A", "nand:1"],
@@ -124,7 +124,7 @@ export const LEVELS: Level[] = [
     target: ([a = 0, b = 0]) => [a & b],
     // A NAND, then a NOT.
     solution: {
-      parts: [
+      nodes: [
         { name: "nand", type: "NAND", x: 16, y: 21 },
         { name: "not", type: "NOT", x: 28, y: 21 },
       ],
@@ -145,7 +145,7 @@ export const LEVELS: Level[] = [
     target: ([a = 0, b = 0]) => [a | b],
     // NOT A NAND NOT B.
     solution: {
-      parts: [
+      nodes: [
         { name: "notA", type: "NOT", x: 15, y: 13 },
         { name: "notB", type: "NOT", x: 15, y: 30 },
         { name: "nand", type: "NAND", x: 28, y: 21 },
@@ -169,7 +169,7 @@ export const LEVELS: Level[] = [
     // Four NANDs: NAND A and B, NAND that with each input, then NAND the two
     // results.
     solution: {
-      parts: [
+      nodes: [
         { name: "first", type: "NAND", x: 12, y: 21 },
         { name: "left", type: "NAND", x: 22, y: 13 },
         { name: "right", type: "NAND", x: 22, y: 29 },
@@ -197,7 +197,7 @@ export const LEVELS: Level[] = [
     target: ([a = 0, b = 0, sel = 0]) => [sel ? b : a],
     // (A AND NOT SEL) OR (B AND SEL).
     solution: {
-      parts: [
+      nodes: [
         { name: "not", type: "NOT", x: 12, y: 28 },
         { name: "andA", type: "AND", x: 20, y: 10 },
         { name: "andB", type: "AND", x: 20, y: 24 },
@@ -224,7 +224,7 @@ export const LEVELS: Level[] = [
     target: ([d = 0, sel = 0]) => [d & (1 - sel), d & sel],
     // Y0 is D AND NOT SEL, and Y1 is D AND SEL.
     solution: {
-      parts: [
+      nodes: [
         { name: "not", type: "NOT", x: 14, y: 21 },
         { name: "and0", type: "AND", x: 26, y: 12 },
         { name: "and1", type: "AND", x: 26, y: 28 },
@@ -249,7 +249,7 @@ export const LEVELS: Level[] = [
     target: ([a = 0, b = 0]) => [a ^ b, a & b],
     // SUM is A XOR B, and COUT is A AND B.
     solution: {
-      parts: [
+      nodes: [
         { name: "xor", type: "XOR", x: 22, y: 12 },
         { name: "and", type: "AND", x: 22, y: 28 },
       ],
@@ -272,7 +272,7 @@ export const LEVELS: Level[] = [
     target: ([a = 0, b = 0, cin = 0]) => [a ^ b ^ cin, (a & b) | (cin & (a ^ b))],
     // Two half adders, with their carries ORed.
     solution: {
-      parts: [
+      nodes: [
         { name: "first", type: "HALF ADDER", x: 14, y: 14 },
         { name: "second", type: "HALF ADDER", x: 26, y: 20 },
         { name: "or", type: "OR", x: 34, y: 30 },
@@ -317,7 +317,7 @@ export const LEVELS: Level[] = [
     // at the bottom by CIN, chain the low COUT into the high CIN, and join the
     // SUMs.
     solution: {
-      parts: [
+      nodes: [
         { name: "splitA", type: "SPLIT", x: 12, y: 9, width: 2 },
         { name: "splitB", type: "SPLIT", x: 12, y: 31, width: 2 },
         { name: "join", type: "JOIN", x: 34, y: 16, width: 2 },
@@ -365,7 +365,7 @@ export const LEVELS: Level[] = [
     },
     // A MUX per signal, with SEL on both, joined in order.
     solution: {
-      parts: [
+      nodes: [
         { name: "splitA", type: "SPLIT", x: 12, y: 9, width: 2 },
         { name: "splitB", type: "SPLIT", x: 12, y: 31, width: 2 },
         { name: "join", type: "JOIN", x: 34, y: 20, width: 2 },
@@ -400,7 +400,7 @@ export const LEVELS: Level[] = [
     // OR A's signals together in pairs, down to one wire that's on when A
     // isn't zero, and NOT it.
     solution: {
-      parts: [
+      nodes: [
         { name: "split", type: "SPLIT", x: 17, y: 22, width: 8 },
         { name: "or0", type: "OR", x: 26, y: 10 },
         { name: "or1", type: "OR", x: 26, y: 18 },
@@ -457,7 +457,7 @@ export const LEVELS: Level[] = [
     // adder adds A to B XOR OP's ones place, so OP 1 subtracts, and COUT is
     // the carry only while OP's top two signals are off.
     solution: {
-      parts: [
+      nodes: [
         { name: "op", type: "SPLIT", x: 14, y: 50, width: 3 },
         { name: "flip", type: "XOR", x: 14, y: 26 },
         { name: "adder", type: "FULL ADDER", x: 23, y: 12 },
@@ -547,7 +547,7 @@ export const LEVELS: Level[] = [
     // the high CIN. The bottom CIN is OP's ones place: on for subtract, off
     // for add. ZERO ORs A's two signals and NOTs them, up by A.
     solution: {
-      parts: [
+      nodes: [
         { name: "splitA", type: "SPLIT", x: 12, y: 8, width: 2 },
         { name: "splitB", type: "SPLIT", x: 12, y: 20, width: 2 },
         { name: "op", type: "SPLIT", x: 12, y: 34, width: 3 },
@@ -709,17 +709,17 @@ export function loadLevel(level: Level, parts = PARTS): Game {
   return game;
 }
 
-// The pins a level's solution wires together, once its parts are on the
+// The pins a level's solution wires together, once its nodes are on the
 // board as the given nodes, in the solution's order.
 export function solutionWires(game: Game, level: Level, ids: NodeID[]): { from: Pin; to: Pin }[] {
-  const parts = level.solution?.parts ?? [];
+  const nodes = level.solution?.nodes ?? [];
   const pin = (end: string, side: Pin["side"]): Pin => {
     const [name = "", index = "0"] = end.split(":");
-    const part = parts.findIndex((p) => p.name === name);
+    const own = nodes.findIndex((n) => n.name === name);
     const terminal = side === "out" ? "input" : "output";
     const node =
-      part >= 0
-        ? ids[part]
+      own >= 0
+        ? ids[own]
         : [...game.nodes.values()].find((n) => nodeKind(game, n).terminal === terminal && n.label === name)?.id;
     if (node === undefined) throw new Error(`${level.gate}'s solution has no ${end}`);
     return { node, side, index: Number(index) };
@@ -729,8 +729,8 @@ export function solutionWires(game: Game, level: Level, ids: NodeID[]): { from: 
 
 // Builds a level's solution onto its board.
 export function buildSolution(game: Game, level: Level): void {
-  const ids = (level.solution?.parts ?? []).map(
-    (part) => placed(placeNode(game, part.type, part, "", part.width ?? 1)).id,
+  const ids = (level.solution?.nodes ?? []).map(
+    (node) => placed(placeNode(game, node.type, node, "", node.width ?? 1)).id,
   );
   for (const { from, to } of solutionWires(game, level, ids)) {
     if (wire(game, from, to) === null)

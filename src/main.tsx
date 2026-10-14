@@ -130,8 +130,8 @@ if (import.meta.env.DEV) {
       },
       levelCount: LEVELS.length,
       // The layer level index i belongs to, for checks on the stack.
-      layerOf: (i: number) => layerOf(i),
-      // The open level's intended solution, and its wires once its parts
+      layerOf,
+      // The open level's intended solution, and its wires once its nodes
       // are on the board as the given nodes, so the playthrough can build it.
       get solution() {
         return level().solution ?? null;

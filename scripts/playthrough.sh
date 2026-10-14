@@ -63,14 +63,14 @@ sheet() { ab click "button[data-level=\"$1\"]"; sleep 0.5; hush; }
 # Runs the test and waits for it to end. A test run's length is its row
 # count times the step time, so a fixed sleep races it on a slow machine:
 # this waits at least the given seconds, then polls until the run is over,
-# giving up 15 seconds later.
+# giving up 30 seconds later.
 check() {
   hush
   ab click "#test"
   sleep "$1"
   local status tries=0
   status=$(js "document.querySelector('#status').textContent")
-  while [[ $status == *Testing* && $tries -lt 60 ]]; do
+  while [[ $status == *Testing* && $tries -lt 120 ]]; do
     sleep 0.25
     tries=$((tries + 1))
     status=$(js "document.querySelector('#status').textContent")
@@ -86,10 +86,10 @@ agent-browser record restart "$OUT/playthrough.webm" "${BASE}?level=1" >/dev/nul
 until [[ $(js "typeof __abstract") == *object* ]]; do sleep 0.5; done
 
 # Builds the open level's intended solution, from its entry in LEVELS, with
-# real drags: each part from the parts bin to its cell, then each wire.
+# real drags: each node from the parts bin to its cell, then each wire.
 solve() {
   local parts wires part type x y width ids=()
-  IFS=';' read -ra parts <<<"$(js "__abstract.solution.parts.map(p => [p.type, p.x, p.y, p.width ?? ''].join('|')).join(';')" | tr -d '"')"
+  IFS=';' read -ra parts <<<"$(js "__abstract.solution.nodes.map(p => [p.type, p.x, p.y, p.width ?? ''].join('|')).join(';')" | tr -d '"')"
   for part in "${parts[@]}"; do
     IFS='|' read -r type x y width <<<"$part"
     ids+=("$(add "$type" "$x" "$y" "$width")")
@@ -101,8 +101,10 @@ solve() {
   done
 }
 
-# The state the stack shows for a layer.
-layer() { js "document.querySelector('[data-layer=\"$1\"]')?.parentElement.dataset.state"; }
+# Fails the run unless the stack shows layer $1 in state $2.
+layer() {
+  expect "document.querySelector('[data-layer=\"$1\"]').parentElement.dataset.state === '$2'" "L$1 is $2"
+}
 
 # Level 1: NAND comes wired; just test it.
 check 2 1
@@ -119,9 +121,9 @@ for ((n = 2; n <= COUNT; n++)); do
     ab click "#up"; sleep 1.2
     expect "!!__abstract.saying?.toLowerCase().includes('${floor#the }')" "Bitbox names $floor"
     hush
-    [[ $(layer $((number - 1))) == *built* ]] || { echo "failed: L$((number - 1)) is built" >&2; exit 1; }
-    [[ $(layer "$number") == *"in progress"* ]] || { echo "failed: L$number is in progress" >&2; exit 1; }
-    [[ $(layer $((number + 1))) != *"in progress"* ]] || { echo "failed: L$((number + 1)) is still locked" >&2; exit 1; }
+    layer $((number - 1)) built
+    layer "$number" "in progress"
+    if ((number < 9)); then layer $((number + 1)) locked; fi
     agent-browser screenshot "$OUT/stack-up-L$number.png" >/dev/null
     sheet "$n"
   else
@@ -146,7 +148,7 @@ number=$(js "__abstract.layerOf($COUNT - 1).number")
 floor=$(js "__abstract.layerOf($COUNT - 1).floor" | tr -d '"')
 expect "document.querySelector('#open-stack').textContent.includes('L$number · $floor')" "the HUD names the current layer"
 ab click "#open-stack"; sleep 0.8; hush
-[[ $(layer "$number") == *built* ]] || { echo "failed: L$number is built" >&2; exit 1; }
+layer "$number" built
 agent-browser screenshot "$OUT/stack-built.png" >/dev/null
 sheet $((COUNT - 1))
 expect "__abstract.levelIndex === $((COUNT - 2)) && __abstract.game.edges.size === __abstract.solution.wires.length" "level $((COUNT - 1)) keeps its board"
