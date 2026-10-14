@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { newGame, pinPosition, placeNode, setInput, tick, wire, type Game, type Pin } from "./circuit";
+import { newGame, pinPosition, placeNode, setInput, terminalNamed, tick, wire, type Game, type Pin } from "./circuit";
 import {
   buildSolution,
   checkLevel,
@@ -27,7 +27,7 @@ const out = (node: NodeID, index = 0): Pin => ({ node, side: "out", index });
 const inp = (node: NodeID, index = 0): Pin => ({ node, side: "in", index });
 
 function terminal(game: Game, type: NodeType, label: Label): NodeID {
-  return [...game.nodes.values()].find((node) => node.type === type && node.label === label)?.id ?? -1;
+  return terminalNamed(game, type === "INPUT" ? "input" : "output", label)?.id ?? -1;
 }
 
 let spot = 0;
@@ -51,6 +51,11 @@ const levelIndex = (type: NodeType): number => LEVELS.findIndex((level) => level
 
 describe("each level's intended solution", () => {
   const unbuilt = LEVELS.flatMap((level, index) => (level.prebuilt === true ? [] : [{ level, index }]));
+
+  // The NAND sheet is the one Bitbox remembers; every later level is built.
+  test("only the first level comes pre-wired", () => {
+    expect(LEVELS.flatMap((level, index) => (level.prebuilt === true ? [index] : []))).toEqual([0]);
+  });
 
   test("every level the player builds has one", () => {
     expect(unbuilt.filter(({ level }) => level.solution === undefined).map(({ level }) => level.gate)).toEqual([]);

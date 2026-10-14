@@ -18,7 +18,7 @@ Every change ships through a pull request: CI runs `bun run check` on it, with n
 
 `scripts/playthrough.sh` plays levels in a real browser with [agent-browser](https://github.com/vercel-labs/agent-browser). It places gates and draws wires with real mouse drags, and fails on a level that doesn't pass or on any page error. CI doesn't run it: `bun test` proves every level's solution passes, and the playthrough is the local proof that a player can build it.
 
-`bun run playthrough 13 14` plays only levels 13 and 14. Each level starts from `?level=N` and saves `level<N>.png` and `level<N>.webm` to `playthrough/` (or `PLAYTHROUGH_DIR`). With no levels named it plays every level in order, climbing the stack after each layer's last level (`stack-up-L<N>.png`), and ends on the stack (`stack-built.png`, `stack-built.webm`). The climbs need the progress saved by the levels before them, so a run that names levels skips them.
+`bun run playthrough 13 14` plays only levels 13 and 14. Each level starts from `?level=N` and saves `level<N>.png` and `level<N>.webm` to `playthrough/` (or `PLAYTHROUGH_DIR`). With no levels named it plays every level in order, climbing the stack after each layer's last level (`stack-up-L<N>.png` and its own video), and ends on the stack (`stack-built.png`, `stack-built.webm`). The climbs need the progress saved by the levels before them, so a run that names levels skips them.
 
 It builds each level from the `solution` in its `LEVELS` entry (`src/sim/level.ts`): every part dragged from the parts bin to its board cell, then every wire. A new level needs no change to the script, only its `solution`, which `bun test` also builds and checks.
 

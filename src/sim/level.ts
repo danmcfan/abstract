@@ -1,4 +1,4 @@
-import { newGame, nodeKind, placeNode, setInputs, simulate, wire, type Game, type Pin } from "./circuit";
+import { newGame, nodeKind, placeNode, setInputs, simulate, terminalNamed, wire, type Game, type Pin } from "./circuit";
 import { DEFAULT_GRID, type Size } from "./grid";
 import { partsFrom, type Combinational, type Memory, type Parts, type Pins, type Spec } from "./kind";
 import { mask, type Label, type Node, type NodeID, type NodeType, type Value } from "./node";
@@ -716,11 +716,7 @@ export function solutionWires(game: Game, level: Level, ids: NodeID[]): { from: 
   const pin = (end: string, side: Pin["side"]): Pin => {
     const [name = "", index = "0"] = end.split(":");
     const own = nodes.findIndex((n) => n.name === name);
-    const terminal = side === "out" ? "input" : "output";
-    const node =
-      own >= 0
-        ? ids[own]
-        : [...game.nodes.values()].find((n) => nodeKind(game, n).terminal === terminal && n.label === name)?.id;
+    const node = own >= 0 ? ids[own] : terminalNamed(game, side === "out" ? "input" : "output", name)?.id;
     if (node === undefined) throw new Error(`${level.gate}'s solution has no ${end}`);
     return { node, side, index: Number(index) };
   };

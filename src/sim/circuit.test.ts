@@ -10,6 +10,7 @@ import {
   setInput,
   setInputs,
   simulate,
+  terminalNamed,
   tick,
   unwire,
   wire,
@@ -53,6 +54,17 @@ describe("placeNode", () => {
   test("a new gate settles: NAND with no wires is high", () => {
     const game = newGame(PARTS);
     expect(high(game, add(game, "NAND", 10, 10))).toBe(true);
+  });
+});
+
+describe("terminalNamed", () => {
+  test("finds an input or output terminal by its label, and nothing else", () => {
+    const game = newGame(PARTS);
+    const a = placeNode(game, "INPUT", { x: 5, y: 5 }, "A")!.id;
+    const output = placeNode(game, "OUTPUT", { x: 40, y: 5 }, "A")!.id;
+    expect(terminalNamed(game, "input", "A")?.id).toBe(a);
+    expect(terminalNamed(game, "output", "A")?.id).toBe(output);
+    expect(terminalNamed(game, "input", "B")).toBeUndefined();
   });
 });
 

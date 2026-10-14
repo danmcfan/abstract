@@ -58,6 +58,15 @@ hush() { agent-browser eval "document.querySelector('#dialog-close')?.click()" >
 # Fails the run with a message unless a JS expression is true.
 expect() { [[ $(js "$1") == true ]] || { echo "failed: $2" >&2; exit 1; }; }
 
+# Like expect, but gives the page up to 10 seconds to make it true.
+wait_for() {
+  local tries=0
+  until [[ $(js "$1") == true ]]; do
+    ((tries++ < 40)) || { echo "failed: $2" >&2; exit 1; }
+    sleep 0.25
+  done
+}
+
 # Starts a level from the stack, which must be open, by its sheet number.
 sheet() { ab click "button[data-level=\"$1\"]"; sleep 0.5; hush; }
 
@@ -86,7 +95,7 @@ check() {
 # Builds the open level's intended solution, from its entry in LEVELS, with
 # real drags: each node from the parts bin to its cell, then each wire.
 solve() {
-  local parts wires part type x y width ids=()
+  local parts wires part wire_ends type x y width ids=()
   # A level that comes wired has no solution to build.
   [[ $(js "!!__abstract.solution") == true ]] || return 0
   IFS=';' read -ra parts <<<"$(js "__abstract.solution.nodes.map(p => [p.type, p.x, p.y, p.width ?? ''].join('|')).join(';')" | tr -d '"')"
@@ -95,9 +104,9 @@ solve() {
     ids+=("$(add "$type" "$x" "$y" "$width")")
   done
   IFS=';' read -ra wires <<<"$(js "__abstract.solutionWires([$(IFS=,; echo "${ids[*]}")]).map(w => [w.from.node, w.to.node, w.to.index, w.from.index].join(' ')).join(';')" | tr -d '"')"
-  for part in "${wires[@]}"; do
+  for wire_ends in "${wires[@]}"; do
     # shellcheck disable=SC2086
-    wire $part
+    wire $wire_ends
   done
 }
 
@@ -124,28 +133,28 @@ stop_recording() {
   agent-browser record stop >/dev/null 2>&1 || echo "warning: video not saved (agent-browser needs ffmpeg)" >&2
 }
 
-# Plays level $1 on its own: open it, build its solution and test it. With
-# a second argument it climbs the stack afterwards, which the full run asks
-# for after each layer's last level, recording the climb in the level's video.
+# Plays level $1 on its own: open it, build its solution and test it.
 play() {
   open_level "$1" "$OUT/level$1.webm"
-  # On level 3, a stray gate goes on first, to try Clear.
-  if (($1 == 3)); then
+  # On the AND level, a stray gate goes on first, to try Clear.
+  if [[ $(js "__abstract.gate" | tr -d '"') == AND ]]; then
     add NOT 28 10 >/dev/null
     ab click "#clear"; ab click "#clear-confirm"
     expect "__abstract.nodes().length === 3" "Clear leaves only the terminals"
   fi
   solve
   check 2 "$1" "$OUT/level$1.png"
-  if [[ -n ${2:-} ]]; then climb "$1"; fi
   stop_recording
 }
 
-# Climbs the stack from level $1, the last of its layer, which is still
-# open and just passed. The full run climbs as it goes, while the layers above
-# are unsolved, so each shows the state a player would see.
+# Climbs the stack from level $1, the last of its layer, in its own video.
+# The full run climbs as it goes, while the layers above are unsolved, so each
+# shows the state a player would see. Reopening the level keeps its board, and
+# testing it again puts the way up on screen.
 climb() {
   local n=$1 floor number
+  open_level "$n" "$OUT/stack-up-from-$n.webm"
+  check 2 "$n"
   floor=$(js "__abstract.layerOf($n).floor" | tr -d '"')
   number=$(js "__abstract.layerOf($n).number")
   expect "document.querySelector('#up').textContent.includes('Up to $floor')" "level $n leads up to $floor"
@@ -156,6 +165,7 @@ climb() {
   layer "$number" "in progress"
   if ((number < 9)); then layer $((number + 1)) locked; fi
   agent-browser screenshot "$OUT/stack-up-L$number.png" >/dev/null
+  stop_recording
 }
 
 # After every level: the last one, the HUD, the saved boards and the title.
@@ -175,7 +185,8 @@ finish() {
   layer "$number" built
   agent-browser screenshot "$OUT/stack-built.png" >/dev/null
   sheet $((count - 1))
-  expect "__abstract.levelIndex === $((count - 2)) && __abstract.game.edges.size === __abstract.solution.wires.length" "level $((count - 1)) keeps its board"
+  wait_for "__abstract.levelIndex === $((count - 2))" "the stack opens level $((count - 1))"
+  expect "__abstract.game.edges.size === __abstract.solution.wires.length" "level $((count - 1)) keeps its board"
 
   # The title offers the stack once there's a save.
   ab click "#menu"; sleep 0.5
@@ -194,10 +205,9 @@ else
   COUNT=$(js "__abstract.levelCount")
   # Stack climbs: each layer's last level leads up to the next.
   for ((n = 1; n <= COUNT; n++)); do
+    play "$n"
     if ((n < COUNT)) && [[ $(js "__abstract.layerOf($n - 1).number < __abstract.layerOf($n).number") == true ]]; then
-      play "$n" climb
-    else
-      play "$n"
+      climb "$n"
     fi
   done
   finish "$COUNT"
