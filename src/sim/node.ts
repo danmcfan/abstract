@@ -14,6 +14,10 @@ export type NodeID = number;
 // bus of width N, bit i of the number is signal i.
 export type Value = number;
 
+// A memory part's state: as many values as its level's rule keeps, such as
+// one per register. Missing values are 0, so an empty state is all off.
+export type State = readonly Value[];
+
 // The widest bus a pin can carry.
 export const MAX_WIDTH = 8;
 
@@ -30,10 +34,10 @@ export interface Node {
   isHigh: boolean;
   // The value on each output pin, in pin order. An INPUT's is its switches.
   signals: Value[];
-  // A memory part's state, which its level's rule reads and changes. 0 for
-  // every other node, and for every node when a board loads or a test run
-  // starts.
-  state: Value;
+  // A memory part's state, which its level's rule reads and changes. Empty
+  // for every other node, and for every node when a board loads or a test
+  // run starts.
+  state: State;
 }
 
 export function mask(value: Value, width: number): Value {

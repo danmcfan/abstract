@@ -101,7 +101,7 @@ function upgradeNode(node: OldNode, parts: Parts): Node {
   const signals = Array.isArray(node.signals)
     ? node.signals.map(Number)
     : Array.from({ length: kind.outputCount(1) }, () => Number(node.isHigh));
-  return { ...node, label, signals, width: node.width ?? 1, rect: { ...node.rect }, state: 0 };
+  return { ...node, label, signals, width: node.width ?? 1, rect: { ...node.rect }, state: [] };
 }
 
 function upgradeEdge(edge: OldEdge): Edge {

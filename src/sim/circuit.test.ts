@@ -266,15 +266,33 @@ describe("loops", () => {
   });
 });
 
-// A part that keeps its own state: D is taken in when CLK turns on.
+// A part that keeps its own state: D is taken in when CLK turns on. Its
+// state is Q and the clock it last saw.
 const FLIP_FLOP = partsFrom([
   {
     gate: "DFF",
     inputs: ["D", "CLK"],
     outputs: ["Q"],
     memory: {
-      next: ([d = 0, clk = 0], state): number => (clk && !(state >> 1) ? d : state & 1) | (clk << 1),
-      outputs: (state): number[] => [state & 1],
+      next: ([d = 0, clk = 0], [q = 0, seen = 0]): number[] => [clk && !seen ? d : q, clk],
+      outputs: ([q = 0]): number[] => [q],
+    },
+  },
+]);
+
+// Eight places of 8 signals, more than one number can hold, read at ADDR.
+const PLACES = partsFrom([
+  {
+    gate: "PLACES",
+    inputs: ["CLK", "ADDR", "DIN"],
+    outputs: ["DOUT"],
+    widths: { ADDR: 3, DIN: 8, DOUT: 8 },
+    memory: {
+      next: ([clk = 0, addr = 0, din = 0], [seen = 0, ...places]): number[] => [
+        clk,
+        ...Array.from({ length: 8 }, (_, i) => (clk && !seen && i === addr ? din : (places[i] ?? 0))),
+      ],
+      outputs: ([, ...places], [, addr = 0]): number[] => [places[addr] ?? 0],
     },
   },
 ]);
@@ -310,7 +328,35 @@ describe("memory parts", () => {
     tick(game, clk);
     expect(high(game, q)).toBe(true);
     restart(game);
-    expect(game.nodes.get(ff)!.state).toBe(0);
+    expect(game.nodes.get(ff)!.state.some(Boolean)).toBe(false);
     expect(high(game, q)).toBe(false);
+  });
+
+  test("keep a state wider than one number, and can give outputs that read their inputs", () => {
+    const game = newGame(PLACES);
+    const clk = placeNode(game, "INPUT", { x: 4, y: 8 })!.id;
+    const addr = placeNode(game, "INPUT", { x: 4, y: 20 }, "", 3)!.id;
+    const din = placeNode(game, "INPUT", { x: 4, y: 32 }, "", 8)!.id;
+    const places = add(game, "PLACES", 22, 20);
+    const dout = placeNode(game, "OUTPUT", { x: 40, y: 20 }, "", 8)!.id;
+    wire(game, out(clk), inp(places, 0));
+    wire(game, out(addr), inp(places, 1));
+    wire(game, out(din), inp(places, 2));
+    wire(game, out(places), inp(dout));
+    for (let i = 0; i < 8; i++) {
+      setInputs(
+        game,
+        new Map([
+          [addr, i],
+          [din, 255 - i],
+        ]),
+      );
+      tick(game, clk);
+    }
+    const read = (i: number): number => {
+      setInput(game, addr, i);
+      return game.nodes.get(places)!.signals[0] ?? -1;
+    };
+    expect([0, 1, 2, 3, 4, 5, 6, 7].map((i) => read(i))).toEqual([255, 254, 253, 252, 251, 250, 249, 248]);
   });
 });
