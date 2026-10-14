@@ -129,14 +129,9 @@ const EXPECTED: Record<NodeType, Expected[]> = {
   "2-BIT ALU": [
     {
       ins: [2, 2, 3],
-      outs: [2, 1],
+      outs: [2],
       size: [6, 6],
-      cases: [
-        [
-          [1, 2, 1],
-          [3, 0],
-        ],
-      ],
+      cases: [[[1, 2, 1], [3]]],
     },
   ],
   MUX8: [
@@ -150,14 +145,42 @@ const EXPECTED: Record<NodeType, Expected[]> = {
       ],
     },
   ],
-  "ZERO TEST": [
+  MUX4: [
     {
-      ins: [8],
+      ins: [1, 1, 1, 1, 2],
       outs: [1],
-      size: [6, 4],
+      size: [6, 10],
       cases: [
-        [[0], [1]],
-        [[128], [0]],
+        [[0, 0, 1, 0, 2], [1]],
+        [[1, 1, 0, 1, 2], [0]],
+      ],
+    },
+  ],
+  "ADD/SUB": [
+    {
+      ins: [1, 1, 1, 1],
+      outs: [1, 1],
+      size: [6, 8],
+      cases: [
+        [
+          [1, 1, 0, 0],
+          [0, 1],
+        ],
+        [
+          [1, 1, 1, 1],
+          [0, 1],
+        ],
+      ],
+    },
+  ],
+  "LOGIC UNIT": [
+    {
+      ins: [1, 1, 2],
+      outs: [1],
+      size: [6, 6],
+      cases: [
+        [[1, 0, 1], [1]],
+        [[1, 1, 2], [0]],
       ],
     },
   ],
@@ -177,14 +200,9 @@ const EXPECTED: Record<NodeType, Expected[]> = {
   ALU: [
     {
       ins: [8, 8, 3],
-      outs: [8, 1],
+      outs: [8],
       size: [6, 6],
-      cases: [
-        [
-          [3, 5, 1],
-          [254, 0],
-        ],
-      ],
+      cases: [[[3, 5, 1], [254]]],
     },
   ],
 };

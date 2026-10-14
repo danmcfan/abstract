@@ -372,6 +372,34 @@ describe("saved games", () => {
     expect(store.load()?.solved).toMatchObject({ NOT: 2 });
   });
 
+  test("a save that solved the ALU slice and 2-bit ALU at revision 1 reopens on the slice", () => {
+    const solved = Object.fromEntries(LEVELS.map((level) => [level.gate, level.revision ?? 1]));
+    const session = new Session(
+      memorySave({ ...saved(LEVELS.length, LEVELS.length - 1), solved: { ...solved, "ALU SLICE": 1, "2-BIT ALU": 1 } }),
+    );
+    session.resume();
+    expect(session.level.gate).toBe("ALU SLICE");
+  });
+
+  test("a save holding a ZERO TEST board and solved entry still loads", () => {
+    const { session, store } = fresh();
+    buildNot(session.game);
+    session.save();
+    const data = store.load()!;
+    const board = data.boards["NOT"]!;
+    const zeroTest = { ...board, nodes: [...board.nodes, { ...board.nodes[0]!, type: "ZERO TEST" }] };
+    const later = new Session(
+      memorySave({
+        ...data,
+        solved: { ...data.solved, "ZERO TEST": 1 },
+        boards: { NOT: board, "ZERO TEST": zeroTest },
+      }),
+    );
+    later.resume();
+    expect(later.levelIndex).toBe(NOT_LEVEL);
+    expect(later.game.edges.size).toBe(3);
+  });
+
   test("a save open on a level the game no longer has opens the furthest playable level", () => {
     const session = new Session(memorySave({ ...saved(3), open: "GONE" }));
     session.resume();

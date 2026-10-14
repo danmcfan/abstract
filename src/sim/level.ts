@@ -43,6 +43,9 @@ interface LevelInfo {
   // A board larger than the usual one, for wide parts. The view scales to
   // fit it.
   grid?: Size;
+  // Bus widths the level's Wiring has besides its terminals' ones, for a
+  // part in the bin with a bus pin the terminals don't match.
+  buses?: number[];
   // The part solving the level adds to the bin, when it isn't the gate the
   // level builds: a narrow bus level can hand over the full-width part.
   gives?: Part;
@@ -78,7 +81,7 @@ export const LAYERS: Layer[] = [
   { number: 1, name: "NAND", floor: "the gate foundry", parts: "The one schematic Bitbox remembers" },
   { number: 2, name: "Basic gates", floor: "the logic line", parts: "NOT, AND, OR, XOR, MUX, DEMUX" },
   { number: 3, name: "Arithmetic", floor: "adder assembly", parts: "Half adder, full adder, 2-bit adder" },
-  { number: 4, name: "ALU", floor: "the calculation shop", parts: "Add, subtract, and, or, xor, not; a zero test" },
+  { number: 4, name: "ALU", floor: "the calculation shop", parts: "Add, subtract, and, or, xor, not" },
   { number: 5, name: "Memory", floor: "the filing vault", parts: "Latch, flip-flop, register, register file, RAM" },
   {
     number: 6,
@@ -391,100 +394,86 @@ export const LEVELS: Level[] = [
     },
   },
   {
-    gate: "ZERO TEST",
-    goal: "ZERO is on only when every signal of A is off.",
+    gate: "MUX4",
+    goal: "OUT is the input SEL numbers: A at 0, B at 1, C at 2 and D at 3.",
     layer: 4,
-    inputs: ["A"],
-    outputs: ["ZERO"],
-    widths: { A: 8 },
-    target: ([a = 0]) => [a === 0 ? 1 : 0],
-    grid: { width: 60, height: 45 },
-    cases: [[0], [1], [16], [128], [255]],
-    // OR A's signals together in pairs, down to one wire that's on when A
-    // isn't zero, and NOT it.
+    inputs: ["A", "B", "C", "D", "SEL"],
+    outputs: ["OUT"],
+    widths: { SEL: 2 },
+    target: ([a = 0, b = 0, c = 0, d = 0, sel = 0]) => [[a, b, c, d][sel] ?? 0],
+    cases: [
+      [1, 0, 0, 0, 0],
+      [0, 1, 0, 0, 1],
+      [0, 0, 1, 0, 2],
+      [0, 0, 0, 1, 3],
+      [1, 1, 1, 0, 3],
+    ],
+    // SEL's ones place picks within each pair, and its top signal picks
+    // the pair.
     solution: {
       nodes: [
-        { name: "split", type: "SPLIT", x: 17, y: 22, width: 8 },
-        { name: "or0", type: "OR", x: 26, y: 10 },
-        { name: "or1", type: "OR", x: 26, y: 18 },
-        { name: "or2", type: "OR", x: 26, y: 26 },
-        { name: "or3", type: "OR", x: 26, y: 34 },
-        { name: "or4", type: "OR", x: 35, y: 14 },
-        { name: "or5", type: "OR", x: 35, y: 30 },
-        { name: "or6", type: "OR", x: 43, y: 22 },
-        { name: "not", type: "NOT", x: 51, y: 22 },
+        { name: "sel", type: "SPLIT", x: 12, y: 36, width: 2 },
+        { name: "ab", type: "MUX", x: 22, y: 8 },
+        { name: "cd", type: "MUX", x: 22, y: 24 },
+        { name: "pick", type: "MUX", x: 33, y: 16 },
       ],
       wires: [
-        ["A", "split"],
-        ["split:0", "or0:0"],
-        ["split:1", "or0:1"],
-        ["split:2", "or1:0"],
-        ["split:3", "or1:1"],
-        ["split:4", "or2:0"],
-        ["split:5", "or2:1"],
-        ["split:6", "or3:0"],
-        ["split:7", "or3:1"],
-        ["or0", "or4:0"],
-        ["or1", "or4:1"],
-        ["or2", "or5:0"],
-        ["or3", "or5:1"],
-        ["or4", "or6:0"],
-        ["or5", "or6:1"],
-        ["or6", "not"],
-        ["not", "ZERO"],
+        ["SEL", "sel"],
+        ["A", "ab:0"],
+        ["B", "ab:1"],
+        ["sel:1", "ab:2"],
+        ["C", "cd:0"],
+        ["D", "cd:1"],
+        ["sel:1", "cd:2"],
+        ["ab", "pick:0"],
+        ["cd", "pick:1"],
+        ["sel:0", "pick:2"],
+        ["pick", "OUT"],
       ],
     },
   },
   {
-    gate: "ALU SLICE",
-    goal: "Do OP to A and B: 0 add, 1 subtract, 2 and, 3 or, 4 xor, 5 not A. OP 6 and 7 give nothing.",
+    gate: "ADD/SUB",
+    goal: "Add A, B and CIN. When SUB is on, add A, NOT B and CIN instead.",
     layer: 4,
-    inputs: ["A", "B", "CIN", "OP"],
+    inputs: ["A", "B", "CIN", "SUB"],
     outputs: ["OUT", "COUT"],
-    widths: { OP: 3 },
-    target: ([a = 0, b = 0, cin = 0, op = 0]) => operate(op, a, b, cin, 1),
-    grid: { width: 60, height: 60 },
-    cases: [
-      [1, 1, 0, 0],
-      [1, 0, 1, 0],
-      [0, 1, 1, 1],
-      [1, 1, 1, 1],
-      [1, 1, 0, 2],
-      [1, 0, 0, 3],
-      [1, 1, 0, 4],
-      [0, 1, 0, 5],
-      [1, 1, 1, 6],
-      [1, 1, 1, 7],
-    ],
-    // Work out every job side by side, and MUX on OP to pick one. The full
-    // adder adds A to B XOR OP's ones place, so OP 1 subtracts, and COUT is
-    // the carry only while OP's top two signals are off.
+    target: ([a = 0, b = 0, cin = 0, sub = 0]) => operate(sub, a, b, cin, 1),
+    // Flip B with an XOR on SUB, then a full adder.
     solution: {
       nodes: [
-        { name: "op", type: "SPLIT", x: 14, y: 50, width: 3 },
-        { name: "flip", type: "XOR", x: 14, y: 26 },
-        { name: "adder", type: "FULL ADDER", x: 23, y: 12 },
-        { name: "and", type: "AND", x: 23, y: 25 },
-        { name: "or", type: "OR", x: 23, y: 31 },
-        { name: "xor", type: "XOR", x: 23, y: 37 },
-        { name: "notA", type: "NOT", x: 23, y: 43 },
-        { name: "pick23", type: "MUX", x: 32, y: 28 },
-        { name: "pick45", type: "MUX", x: 32, y: 40 },
-        { name: "notMid", type: "NOT", x: 32, y: 48 },
-        { name: "any", type: "OR", x: 32, y: 54 },
-        { name: "low", type: "MUX", x: 41, y: 16 },
-        { name: "high", type: "AND", x: 41, y: 42 },
-        { name: "none", type: "NOT", x: 41, y: 54 },
-        { name: "result", type: "MUX", x: 50, y: 18 },
-        { name: "carry", type: "AND", x: 50, y: 38 },
+        { name: "flip", type: "XOR", x: 16, y: 20 },
+        { name: "adder", type: "FULL ADDER", x: 27, y: 14 },
       ],
       wires: [
-        ["OP", "op"],
         ["B", "flip:0"],
-        ["op:2", "flip:1"],
+        ["SUB", "flip:1"],
         ["A", "adder:0"],
         ["flip", "adder:1"],
         ["CIN", "adder:2"],
+        ["adder", "OUT"],
+        ["adder:1", "COUT"],
+      ],
+    },
+  },
+  {
+    gate: "LOGIC UNIT",
+    goal: "Do SEL's job to A and B: 0 and, 1 or, 2 xor, 3 not A.",
+    layer: 4,
+    inputs: ["A", "B", "SEL"],
+    outputs: ["OUT"],
+    widths: { SEL: 2 },
+    target: ([a = 0, b = 0, sel = 0]) => operate(sel + 4, a, b, 0, 1).slice(0, 1),
+    // Every job side by side, and a MUX4 on SEL picks one.
+    solution: {
+      nodes: [
+        { name: "and", type: "AND", x: 18, y: 6 },
+        { name: "or", type: "OR", x: 18, y: 14 },
+        { name: "xor", type: "XOR", x: 18, y: 22 },
+        { name: "notA", type: "NOT", x: 18, y: 30 },
+        { name: "pick", type: "MUX4", x: 30, y: 16 },
+      ],
+      wires: [
         ["A", "and:0"],
         ["B", "and:1"],
         ["A", "or:0"],
@@ -492,26 +481,75 @@ export const LEVELS: Level[] = [
         ["A", "xor:0"],
         ["B", "xor:1"],
         ["A", "notA"],
-        ["and", "pick23:0"],
-        ["or", "pick23:1"],
-        ["op:2", "pick23:2"],
-        ["xor", "pick45:0"],
-        ["notA", "pick45:1"],
-        ["op:2", "pick45:2"],
-        ["op:1", "notMid"],
-        ["op:1", "any:0"],
-        ["op:0", "any:1"],
-        ["adder", "low:0"],
-        ["pick23", "low:1"],
-        ["op:1", "low:2"],
-        ["pick45", "high:0"],
-        ["notMid", "high:1"],
-        ["any", "none"],
-        ["low", "result:0"],
-        ["high", "result:1"],
+        ["and", "pick:0"],
+        ["or", "pick:1"],
+        ["xor", "pick:2"],
+        ["notA", "pick:3"],
+        ["SEL", "pick:4"],
+        ["pick", "OUT"],
+      ],
+    },
+  },
+  {
+    gate: "ALU SLICE",
+    revision: 2,
+    goal: "Do OP to A and B: 0 add, 1 subtract, 4 and, 5 or, 6 xor, 7 not A. OP 2 and 3 give nothing.",
+    layer: 4,
+    inputs: ["A", "B", "CIN", "OP"],
+    outputs: ["OUT", "COUT"],
+    widths: { OP: 3 },
+    // A join for the logic unit's SEL.
+    buses: [2],
+    target: ([a = 0, b = 0, cin = 0, op = 0]) => operate(op, a, b, cin, 1),
+    cases: [
+      [1, 1, 0, 0],
+      [1, 0, 1, 0],
+      [0, 1, 1, 1],
+      [1, 1, 1, 1],
+      [1, 1, 1, 2],
+      [1, 0, 1, 3],
+      [1, 1, 0, 4],
+      [1, 0, 0, 5],
+      [1, 1, 1, 6],
+      [0, 1, 0, 7],
+    ],
+    // ADD/SUB and the logic unit side by side, with OP's ones place on SUB
+    // and its low two signals on SEL. OP's top signal picks between them.
+    // Arithmetic is on only while the top two signals are off, so OP 2 and 3
+    // give nothing, and COUT is the carry only then.
+    solution: {
+      nodes: [
+        { name: "op", type: "SPLIT", x: 10, y: 34, width: 3 },
+        { name: "sel", type: "JOIN", x: 17, y: 26, width: 2 },
+        { name: "addsub", type: "ADD/SUB", x: 22, y: 6 },
+        { name: "logic", type: "LOGIC UNIT", x: 25, y: 20 },
+        { name: "either", type: "OR", x: 17, y: 38 },
+        { name: "arith", type: "NOT", x: 25, y: 38 },
+        { name: "sum", type: "AND", x: 32, y: 8 },
+        { name: "carry", type: "AND", x: 38, y: 32 },
+        { name: "result", type: "MUX", x: 38, y: 14 },
+      ],
+      wires: [
+        ["OP", "op"],
+        ["A", "addsub:0"],
+        ["B", "addsub:1"],
+        ["CIN", "addsub:2"],
+        ["op:2", "addsub:3"],
+        ["op:1", "sel:0"],
+        ["op:2", "sel:1"],
+        ["A", "logic:0"],
+        ["B", "logic:1"],
+        ["sel", "logic:2"],
+        ["op:0", "either:0"],
+        ["op:1", "either:1"],
+        ["either", "arith"],
+        ["addsub", "sum:0"],
+        ["arith", "sum:1"],
+        ["sum", "result:0"],
+        ["logic", "result:1"],
         ["op:0", "result:2"],
-        ["adder:1", "carry:0"],
-        ["none", "carry:1"],
+        ["addsub:1", "carry:0"],
+        ["arith", "carry:1"],
         ["result", "OUT"],
         ["carry", "COUT"],
       ],
@@ -519,10 +557,11 @@ export const LEVELS: Level[] = [
   },
   {
     gate: "2-BIT ALU",
-    goal: "OUT is OP's operation on A and B, as on the slice. ZERO is on when A is 0, whatever OP is.",
+    revision: 2,
+    goal: "OUT is OP's operation on A and B, as on the slice.",
     layer: 4,
     inputs: ["A", "B", "OP"],
-    outputs: ["OUT", "ZERO"],
+    outputs: ["OUT"],
     widths: { A: 2, B: 2, OP: 3, OUT: 2 },
     target: aluTarget(2),
     cases: [
@@ -530,33 +569,30 @@ export const LEVELS: Level[] = [
       [3, 1, 0],
       [3, 1, 1],
       [1, 2, 1],
-      [3, 2, 2],
-      [1, 2, 3],
-      [3, 1, 4],
-      [1, 0, 5],
-      [0, 2, 0],
-      [3, 3, 6],
-      [3, 3, 7],
+      [3, 3, 2],
+      [3, 3, 3],
+      [3, 2, 4],
+      [1, 2, 5],
+      [3, 1, 6],
+      [1, 0, 7],
     ],
     // The 8-bit ALU is the same chain of slices four times as long.
     gives: {
       gate: "ALU",
       inputs: ["A", "B", "OP"],
-      outputs: ["OUT", "ZERO"],
+      outputs: ["OUT"],
       widths: { A: 8, B: 8, OP: 3, OUT: 8 },
       target: aluTarget(8),
     },
     // Two slices in a chain, the ones place at the bottom, the low COUT into
     // the high CIN. The bottom CIN is OP's ones place: on for subtract, off
-    // for add. ZERO ORs A's two signals and NOTs them, up by A.
+    // for add.
     solution: {
       nodes: [
         { name: "splitA", type: "SPLIT", x: 12, y: 8, width: 2 },
         { name: "splitB", type: "SPLIT", x: 12, y: 20, width: 2 },
         { name: "op", type: "SPLIT", x: 12, y: 34, width: 3 },
         { name: "join", type: "JOIN", x: 34, y: 19, width: 2 },
-        { name: "any", type: "OR", x: 23, y: 3 },
-        { name: "none", type: "NOT", x: 32, y: 3 },
         { name: "ones", type: "ALU SLICE", x: 23, y: 26 },
         { name: "twos", type: "ALU SLICE", x: 23, y: 12 },
       ],
@@ -574,11 +610,7 @@ export const LEVELS: Level[] = [
         ["ones:1", "twos:2"],
         ["OP", "twos:3"],
         ["twos", "join:0"],
-        ["splitA:0", "any:0"],
-        ["splitA:1", "any:1"],
-        ["any", "none"],
         ["join", "OUT"],
-        ["none", "ZERO"],
       ],
     },
   },
@@ -587,17 +619,19 @@ export const LEVELS: Level[] = [
 // An ALU on buses width signals wide. Subtract is add with B flipped and a
 // carry in, which wraps 1 - 2 round to 3 at 2 bits, or 3 - 5 to 254 at 8.
 function aluTarget(width: number): Combinational["target"] {
-  return ([a = 0, b = 0, op = 0]) => [operate(op, a, b, op === 1 ? 1 : 0, width)[0] ?? 0, a === 0 ? 1 : 0];
+  return ([a = 0, b = 0, op = 0]) => operate(op, a, b, op === 1 ? 1 : 0, width).slice(0, 1);
 }
 
-// The ALU's operations on buses width signals wide, by OP: the result and the carry
-// out. Only add and subtract carry; OP 6 and 7 are unused and give nothing.
+// The ALU's operations on buses width signals wide, by OP (ADR 9): the result
+// and the carry out. Only add and subtract carry; OP 2 and 3 give nothing.
 function operate(op: Value, a: Value, b: Value, cin: Value, width: number): Value[] {
   const all = 2 ** width - 1;
   const sum = (x: Value): Value[] => [x & all, x > all ? 1 : 0];
   const results: Value[][] = [
     sum(a + b + cin),
     sum(a + (~b & all) + cin),
+    [0, 0],
+    [0, 0],
     [a & b, 0],
     [a | b, 0],
     [a ^ b, 0],
@@ -690,7 +724,8 @@ export function terminalWidth(level: Level, label: Label): number {
 // level's terminals use, widest first. Levels without buses have none. They
 // aren't parts, so the level supplies them (ADR 5).
 export function wiring(level: Level): { type: NodeType; width: number }[] {
-  const widths = [...new Set([...level.inputs, ...level.outputs].map((label) => terminalWidth(level, label)))];
+  const terminals = [...level.inputs, ...level.outputs].map((label) => terminalWidth(level, label));
+  const widths = [...new Set([...terminals, ...(level.buses ?? [])])];
   const buses = widths.filter((width) => width > 1);
   buses.sort((a, b) => b - a);
   return buses.flatMap((width) => [
