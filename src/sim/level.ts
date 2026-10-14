@@ -414,6 +414,12 @@ export function hasClock(level: Level): boolean {
   return level.inputs.includes(CLOCK);
 }
 
+// The level's clock switch on the board, if the level has one.
+export function clockOf(game: Game, level: Level): NodeID | undefined {
+  if (!hasClock(level)) return undefined;
+  return [...game.nodes.values()].find((node) => node.type === "INPUT" && node.label === CLOCK)?.id;
+}
+
 export interface CheckedRow extends Row {
   // What the board's output terminals gave.
   actual: Value[];

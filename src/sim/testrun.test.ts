@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { loadLevel, LEVELS, type CheckResult } from "./level";
-import { sheet, TestRun } from "./testrun";
+import { table, TestRun } from "./testrun";
 
 // The NOT level: input A, output Y, two rows.
 const NOT = LEVELS[1]!;
 
-// A run's check, as checkLevel would give it: both shown rows wrong, and a
-// row that failed out of sight.
+// A run's check, as checkLevel would give it: the first shown row wrong, the second
+// right, and any rows that failed out of sight.
 const check = (hidden: CheckResult["hidden"]["failed"] = []): CheckResult => ({
   rows: [
     { inputs: [0], expected: [1], actual: [0] },
@@ -18,9 +18,9 @@ const check = (hidden: CheckResult["hidden"]["failed"] = []): CheckResult => ({
   passed: false,
 });
 
-describe("sheet", () => {
+describe("table", () => {
   test("before any run, the level's table is untested", () => {
-    expect(sheet(NOT)).toEqual([
+    expect(table(NOT)).toEqual([
       { inputs: [0], expected: [1], status: "untested" },
       { inputs: [1], expected: [0], status: "untested" },
     ]);
@@ -28,13 +28,18 @@ describe("sheet", () => {
 });
 
 describe("test run", () => {
+  test("a step on a level with no clock never ticks", () => {
+    const run = new TestRun(NOT, check());
+    expect(run.step(loadLevel(NOT))?.ticked).toBe(false);
+  });
+
   test("each step shows the next row checked, with its actual value", () => {
     const game = loadLevel(NOT);
     const run = new TestRun(NOT, check());
     expect(run.current).toBeNull();
     expect(run.rows.map((row) => row.status)).toEqual(["untested", "untested"]);
 
-    expect(run.step(game)?.inputs).toEqual([0]);
+    expect(run.step(game)?.row.inputs).toEqual([0]);
     expect(run.current).toBe(0);
     expect(run.rows[0]).toEqual({ inputs: [0], expected: [1], actual: [0], status: "failed" });
     expect(run.rows[1]!.status).toBe("untested");
@@ -42,6 +47,8 @@ describe("test run", () => {
     run.step(game);
     expect(run.rows[1]).toEqual({ inputs: [1], expected: [0], actual: [0], status: "passed" });
 
+    const rows = run.rows;
+    expect(run.rows).toBe(rows);
     expect(run.step(game)).toBeNull();
     expect(run.done).toBe(true);
     expect(run.current).toBeNull();

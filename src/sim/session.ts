@@ -3,6 +3,7 @@ import { placeNode, restart, tick } from "./circuit";
 import { partsFrom, type Parts } from "./kind";
 import {
   checkLevel,
+  clockOf,
   levelAt,
   LEVELS,
   loadLevel,
@@ -15,7 +16,7 @@ import {
 import type { NodeType } from "./node";
 import { loadBoard, saveBoard, type Boards, type SaveStore } from "./save";
 import { silent, type Sound } from "./sound";
-import { clockOf, sheet, TestRun, type SheetRow } from "./testrun";
+import { table, TestRun, type TableRow } from "./testrun";
 
 // One player's play: the current level and board, the board left on every
 // other level, a test run stepping through the truth table or timing table
@@ -30,7 +31,6 @@ export class Session {
   // Bumped whenever a test run begins or is aborted, so a caller holding a
   // run can tell it's stale.
   run = 0;
-  testing = false;
   result: CheckResult | null = null;
   // Whether the PASSED stamp is on the sheet: the last run passed and the
   // board hasn't changed since.
@@ -121,8 +121,13 @@ export class Session {
 
   // The rows the level panel shows, checked as far as the test run has
   // gone, then any rows the last run found failing out of sight.
-  get rows(): SheetRow[] {
-    return this.testRun?.rows ?? sheet(this.level);
+  get rows(): TableRow[] {
+    return this.testRun?.rows ?? table(this.level);
+  }
+
+  // Whether a test run is going.
+  get testing(): boolean {
+    return this.testRun !== null && !this.testRun.done;
   }
 
   // The row on the board in a test run, if one is going.
@@ -152,7 +157,6 @@ export class Session {
   private load(game: Game): void {
     this.game = game;
     this.run++;
-    this.testing = false;
     this.testRun = null;
     this.result = null;
     this.stamped = false;
@@ -186,7 +190,6 @@ export class Session {
     if (this.testing) return false;
     this.sound.play("carriage");
     this.run++;
-    this.testing = true;
     restart(this.game);
     this.testRun = new TestRun(this.level, checkLevel(this.game, this.levelIndex, this.levels));
     this.result = null;
@@ -199,21 +202,20 @@ export class Session {
   step(): boolean {
     const run = this.testRun;
     if (!this.testing || !run) return false;
-    const row = run.step(this.game);
-    if (row) {
-      if (row.tick === true && clockOf(this.game, this.level) !== undefined) this.sound.play("clock");
-      this.sound.play(matches(row.actual, row.expected) ? "tick" : "fail-tick");
+    const shown = run.step(this.game);
+    if (shown) {
+      if (shown.ticked) this.sound.play("clock");
+      this.sound.play(matches(shown.row.actual, shown.row.expected) ? "tick" : "fail-tick");
       return true;
     }
-    const check = run.check;
-    this.testing = false;
-    this.result = check;
-    this.stamped = check.passed;
-    if (check.passed) {
+    const { result } = run;
+    this.result = result;
+    this.stamped = result.passed;
+    if (result.passed) {
       this.sound.play("stamp");
       this.sound.play("bell");
     } else this.sound.play("fail-stamp");
-    if (check.passed && this.levelIndex + 1 > this.solved) {
+    if (result.passed && this.levelIndex + 1 > this.solved) {
       this.solved = this.levelIndex + 1;
       this.save();
     }
