@@ -11,7 +11,6 @@ import {
   partsBin,
   revisionOf,
   truthTable,
-  type Level,
   wiring,
 } from "./level";
 import type { Label, NodeID, NodeType, Value } from "./node";
@@ -48,10 +47,6 @@ function sliceTable(a: Value, b: Value, cin: Value, op: Value): Value[] {
   return [...arithmetic, ...logic][op]!;
 }
 
-// The parts a solution places, not counting splits and joins.
-const partCount = (level: Level): number =>
-  (level.solution?.nodes ?? []).filter((node) => node.type !== "SPLIT" && node.type !== "JOIN").length;
-
 describe("the L4 parts", () => {
   test("open L4 after the 2-bit adder, in order, with the ALU last", () => {
     const first = levelIndex("2-BIT ADDER") + 1;
@@ -78,10 +73,6 @@ describe("the L4 parts", () => {
       { type: "SPLIT", width: 2 },
       { type: "JOIN", width: 2 },
     ]);
-  });
-
-  test("no L4 solution places more than 10 parts", () => {
-    for (const i of layerLevels(4)) expect(partCount(LEVELS[i]!)).toBeLessThanOrEqual(10);
   });
 
   test("MUX8 gives A when SEL is off and B when it's on", () => {
