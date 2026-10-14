@@ -27,6 +27,9 @@ import { table, TestRun, type TableRow } from "./testrun";
 export class Session {
   levelIndex = 0;
   game: Game;
+  // How many levels from the first are solved: the next one is playable.
+  // A solved level after an unsolved one, as when a level is added before
+  // levels a save had solved, counts once the gap is filled.
   solved: number;
   // Bumped whenever a test run begins or is aborted, so a caller holding a
   // run can tell it's stale.
@@ -37,6 +40,7 @@ export class Session {
   stamped = false;
   flags = new Set<string>();
   private boards: Boards = {};
+  private solvedGates: Set<NodeType>;
   // The current test run, or the last one until the board or level changes.
   private testRun: TestRun | null = null;
 
@@ -53,7 +57,8 @@ export class Session {
     this.parts = levels === LEVELS ? PARTS : partsFrom([...levels, ...levels.flatMap((level) => level.gives ?? [])]);
     this.game = loadLevel(levelAt(0, levels), this.parts);
     const data = store.load();
-    this.solved = data?.solved ?? 0;
+    this.solvedGates = new Set(data?.solved);
+    this.solved = this.countSolved();
     this.boards = data?.boards ?? {};
   }
 
@@ -67,7 +72,9 @@ export class Session {
   get savedLevel(): number {
     const data = this.store.load();
     if (!data) return 0;
-    return Math.max(0, Math.min(data.levelIndex, playableCount(data.solved, this.levels) - 1));
+    const solved = new Set(data.solved);
+    const open = this.levels.findIndex((level) => level.gate === data.open);
+    return Math.max(0, Math.min(open, playableCount(leadingSolved(solved, this.levels), this.levels) - 1));
   }
 
   // Picks up the saved game where it left off, boards and all.
@@ -77,7 +84,8 @@ export class Session {
       this.reset();
       return;
     }
-    this.solved = Math.min(data.solved, this.levels.length);
+    this.solvedGates = new Set(data.solved);
+    this.solved = this.countSolved();
     this.flags = new Set(data.flags);
     this.boards = data.boards;
     this.start(this.savedLevel);
@@ -86,6 +94,7 @@ export class Session {
   // Throws away the saved game and starts over from the first level.
   reset(): void {
     this.store.clear();
+    this.solvedGates = new Set();
     this.solved = 0;
     this.flags = new Set();
     this.boards = {};
@@ -108,8 +117,8 @@ export class Session {
   save(): void {
     this.boards[this.level.gate] = saveBoard(this.game);
     this.store.save({
-      solved: this.solved,
-      levelIndex: this.levelIndex,
+      solved: this.levels.flatMap((level) => (this.solvedGates.has(level.gate) ? [level.gate] : [])),
+      open: this.level.gate,
       boards: this.boards,
       flags: [...this.flags],
     });
@@ -215,10 +224,21 @@ export class Session {
       this.sound.play("stamp");
       this.sound.play("bell");
     } else this.sound.play("fail-stamp");
-    if (result.passed && this.levelIndex + 1 > this.solved) {
-      this.solved = this.levelIndex + 1;
+    if (result.passed && !this.solvedGates.has(this.level.gate)) {
+      this.solvedGates.add(this.level.gate);
+      this.solved = this.countSolved();
       this.save();
     }
     return false;
   }
+
+  private countSolved(): number {
+    return leadingSolved(this.solvedGates, this.levels);
+  }
+}
+
+// How many levels from the first have their gate in solved.
+function leadingSolved(solved: Set<NodeType>, levels: Level[]): number {
+  const gap = levels.findIndex((level) => !solved.has(level.gate));
+  return gap === -1 ? levels.length : gap;
 }

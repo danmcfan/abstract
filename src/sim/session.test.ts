@@ -9,6 +9,7 @@ import { recordingSound } from "./sound";
 
 const out = (node: NodeID): Pin => ({ node, side: "out", index: 0 });
 const inp = (node: NodeID, index = 0): Pin => ({ node, side: "in", index });
+const terminal = (game: Game, label: string): NodeID => [...game.nodes.values()].find((n) => n.label === label)!.id;
 const find = (game: Game, type: NodeType): NodeID => [...game.nodes.values()].find((n) => n.type === type)!.id;
 
 // Wires the NOT level with a single gate of the given type, both inputs from A.
@@ -29,7 +30,13 @@ function runAll(session: Session): void {
 }
 
 const NOT_LEVEL = 1;
-const saved = (solved: number, levelIndex = solved): SaveData => ({ solved, levelIndex, boards: {}, flags: [] });
+// A save with the first solved levels solved, open on the level at open.
+const saved = (solved: number, open = solved, levels: Level[] = LEVELS): SaveData => ({
+  solved: levels.slice(0, solved).map((level) => level.gate),
+  open: levels[open]!.gate,
+  boards: {},
+  flags: [],
+});
 
 // A session on the NOT level, with the NAND level already solved.
 function fresh(solved = 1): { session: Session; store: SaveStore } {
@@ -66,7 +73,7 @@ describe("session", () => {
     expect(session.result?.passed).toBe(true);
     expect(session.solved).toBe(2);
     expect(session.unlockedCount).toBe(3);
-    expect(store.load()?.solved).toBe(2);
+    expect(store.load()?.solved).toEqual(["NAND", "NOT"]);
   });
 
   test("failing doesn't unlock or save", () => {
@@ -74,7 +81,7 @@ describe("session", () => {
     runAll(session);
     expect(session.result?.passed).toBe(false);
     expect(session.solved).toBe(1);
-    expect(store.load()?.solved).toBe(1);
+    expect(store.load()?.solved).toEqual(["NAND"]);
   });
 
   test("re-solving an earlier level doesn't lower progress", () => {
@@ -83,7 +90,7 @@ describe("session", () => {
     runAll(session);
     expect(session.result?.passed).toBe(true);
     expect(session.solved).toBe(3);
-    expect(store.load()?.solved).toBe(3);
+    expect(store.load()?.solved).toEqual(["NAND", "NOT", "AND"]);
   });
 
   test("starting another level mid-test aborts without a result", () => {
@@ -99,7 +106,7 @@ describe("session", () => {
     expect(session.result).toBeNull();
     expect(tested(session)).toEqual([]);
     expect(session.solved).toBe(1);
-    expect(store.load()?.solved).toBe(1);
+    expect(store.load()?.solved).toEqual(["NAND"]);
   });
 
   test("forbidden gates fail", () => {
@@ -296,7 +303,7 @@ describe("saved games", () => {
     expect(session.levelIndex).toBe(0);
     expect(session.solved).toBe(0);
     expect(session.flags.size).toBe(0);
-    expect(store.load()?.solved).toBe(0);
+    expect(store.load()?.solved).toEqual([]);
   });
 
   test("a board that doesn't look like a board is dropped, keeping the rest of the save", () => {
@@ -307,6 +314,47 @@ describe("saved games", () => {
     expect(session.levelIndex).toBe(1);
     expect(session.solved).toBe(2);
     expect(session.game.edges.size).toBe(0);
+  });
+
+  test("a save from before progress was kept by gate resumes on the same level", () => {
+    const store = memorySave({ solved: 3, levelIndex: 2, boards: {}, flags: [] });
+    const session = new Session(store);
+    session.resume();
+    expect(session.level.gate).toBe("AND");
+    expect(session.solved).toBe(3);
+    session.save();
+    expect(store.load()).toMatchObject({ solved: ["NAND", "NOT", "AND"], open: "AND" });
+  });
+
+  test("a save written before a level was taken out still opens on the same part", () => {
+    // The game had a NOR level after OR when this was saved, on MUX.
+    const old = [...LEVELS.slice(0, 4), { ...LEVELS[3]!, gate: "NOR" }, ...LEVELS.slice(4)];
+    const session = new Session(memorySave(saved(6, 6, old)));
+    session.resume();
+    expect(session.level.gate).toBe("MUX");
+    expect(session.solved).toBe(5);
+  });
+
+  test("a level inserted before the saved one must be solved first, and isn't counted solved", () => {
+    // The game had no AND level when this was saved, on XOR.
+    const old = LEVELS.filter((level) => level.gate !== "AND");
+    const session = new Session(memorySave(saved(3, 3, old)));
+    session.resume();
+    expect(session.level.gate).toBe("AND");
+    expect(session.solved).toBe(2);
+
+    const a = session.game;
+    const nand = placeNode(a, "NAND", { x: 16, y: 18 })!.id;
+    const not = placeNode(a, "NOT", { x: 30, y: 18 })!.id;
+    wire(a, out(terminal(a, "A")), inp(nand, 0));
+    wire(a, out(terminal(a, "B")), inp(nand, 1));
+    wire(a, out(nand), inp(not));
+    wire(a, out(not), inp(terminal(a, "OUT")));
+    runAll(session);
+    expect(session.result?.passed).toBe(true);
+    // OR was solved before AND came in, so XOR opens next.
+    expect(session.solved).toBe(4);
+    expect(session.unlockedCount).toBe(5);
   });
 
   test("no save means nothing to continue", () => {
@@ -433,7 +481,7 @@ const CLOCKED: Level[] = [
 
 function clocked(): { session: Session; sound: ReturnType<typeof recordingSound>; label: (l: string) => NodeID } {
   const sound = recordingSound();
-  const session = new Session(memorySave(saved(1)), sound, CLOCKED);
+  const session = new Session(memorySave(saved(1, 1, CLOCKED)), sound, CLOCKED);
   session.start(1);
   const label = (l: string): NodeID => [...session.game.nodes.values()].find((n) => n.label === l)!.id;
   return { session, sound, label };
