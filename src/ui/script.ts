@@ -455,7 +455,7 @@ const LEVELS: Partial<Record<NodeType, LevelScript>> = {
     ],
     solved: [
       { face: "happy", text: "Zero test, done! Every signal off, one lamp on." },
-      { face: "idle", text: "8 signals is just one more row of ORs. I've put an 8-signal zero test in the bin." },
+      { face: "idle", text: "8 signals is just one more row of ORs. There's an 8-signal zero test in your parts bin!" },
     ],
   },
   SEQUENCER: {
