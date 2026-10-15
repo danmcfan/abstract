@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { placeNode, wire, type Game, type Pin } from "./circuit";
-import { hasKind, kindOf } from "./kind";
+import { kindOf } from "./kind";
 import {
   checkLevel,
   layerLevels,
@@ -61,9 +61,9 @@ describe("the L4 parts", () => {
     ]);
   });
 
-  test("the zero test is gone", () => {
+  test("the zero test isn't one of them: it waits for L6", () => {
     expect(levelIndex("ZERO TEST")).toBe(-1);
-    expect(hasKind(PARTS, "ZERO TEST")).toBe(false);
+    expect(LEVELS[levelIndex("4-BIT ZERO TEST")]!.layer).toBe(6);
   });
 
   test("the ALU slice's Wiring has a 2-bit join for the logic unit's SEL, besides OP's 3-bit split and join", () => {

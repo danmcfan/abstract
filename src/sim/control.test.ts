@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test";
+import { kindOf } from "./kind";
 import { placeNode, restart, setInputs, terminalNamed, tick, wire } from "./circuit";
 import {
   buildSolution,
+  PARTS,
   checkLevel,
   floorAbove,
   layerLevels,
@@ -19,7 +21,7 @@ const levelOf = (type: NodeType): Level => LEVELS[levelIndex(type)]!;
 
 const wiringOf = (gate: NodeType): NodeType[] => wiring(levelOf(gate)).map((w) => w.type);
 
-const L6 = ["PROGRAM COUNTER", "2-TO-4 DECODER", "4-TO-16 DECODER", "SEQUENCER"];
+const L6 = ["PROGRAM COUNTER", "2-TO-4 DECODER", "4-TO-16 DECODER", "4-BIT ZERO TEST", "SEQUENCER"];
 
 // The level's own part, wired straight between its terminals, ticked with
 // the given inputs (CLK left off) and read after each tick.
@@ -44,10 +46,13 @@ describe("the L6 levels", () => {
     expect(floorAbove(levelIndex("RAM"))?.floor).toBe("the clock tower");
   });
 
-  test.each(L6)("%s puts its part in the parts bin once solved", (gate) => {
-    expect(partsBin(levelIndex(gate) + 1)).toContain(gate);
-    expect(partsBin(levelIndex(gate))).not.toContain(gate);
-  });
+  test.each(L6.filter((gate) => gate !== "4-BIT ZERO TEST"))(
+    "%s puts its part in the parts bin once solved",
+    (gate) => {
+      expect(partsBin(levelIndex(gate) + 1)).toContain(gate);
+      expect(partsBin(levelIndex(gate))).not.toContain(gate);
+    },
+  );
 
   test("the program counter and the sequencer have timing tables, and the decoders truth tables", () => {
     expect(L6.filter((gate) => levelOf(gate).steps !== undefined)).toEqual(["PROGRAM COUNTER", "SEQUENCER"]);
@@ -135,6 +140,28 @@ describe("the 4-to-16 decoder", () => {
       const [lo = 0, hi = 0] = expected;
       expect(lo | (hi << 8)).toBe(1 << s);
     }
+  });
+});
+
+describe("the zero test", () => {
+  test("turns ZERO on only when every signal of a 4-signal A is off", () => {
+    const rows = truthTable(levelOf("4-BIT ZERO TEST"));
+    expect(rows).toHaveLength(16);
+    for (const [a, { expected }] of rows.entries()) expect(expected).toEqual([a === 0 ? 1 : 0]);
+  });
+
+  test("gives the 8-signal zero test, not its own 4-signal one", () => {
+    const index = levelIndex("4-BIT ZERO TEST");
+    expect(partsBin(index + 1)).toContain("ZERO TEST");
+    expect(partsBin(index + 1)).not.toContain("4-BIT ZERO TEST");
+    expect(partsBin(index)).not.toContain("ZERO TEST");
+  });
+
+  test("the part it gives tests all 8 signals of A", () => {
+    const zero = kindOf(PARTS, "ZERO TEST");
+    expect(zero.evaluate([0], 1)).toEqual([1]);
+    expect(zero.evaluate([128], 1)).toEqual([0]);
+    expect(zero.evaluate([16], 1)).toEqual([0]);
   });
 });
 

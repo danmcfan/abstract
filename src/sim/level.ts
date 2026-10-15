@@ -87,7 +87,7 @@ export const LAYERS: Layer[] = [
     number: 6,
     name: "Control",
     floor: "the clock tower",
-    parts: "Constants, program counter, decoder, sequencer, clock speed",
+    parts: "Constants, program counter, decoder, zero test, sequencer, clock speed",
   },
   { number: 7, name: "Assembly", floor: "the typing pool", parts: "Name and number your own instruction set" },
   { number: 8, name: "CPU", floor: "the control room", parts: "Fetch, decode, execute, in your instruction set" },
@@ -1145,6 +1145,46 @@ export const LEVELS: Level[] = [
         ]),
         ["lo", "LO"],
         ["hi", "HI"],
+      ],
+    },
+  },
+  {
+    gate: "4-BIT ZERO TEST",
+    goal: "ZERO is on only when every signal of A is off.",
+    layer: 6,
+    inputs: ["A"],
+    outputs: ["ZERO"],
+    widths: { A: 4 },
+    target: ([a = 0]) => [a === 0 ? 1 : 0],
+    // Like the adder: 8 signals is the same OR tree one level deeper, so
+    // Bitbox hands over the 8-signal zero test for the CPU's jump-if-zero.
+    gives: {
+      gate: "ZERO TEST",
+      inputs: ["A"],
+      outputs: ["ZERO"],
+      widths: { A: 8 },
+      target: ([a = 0]) => [a === 0 ? 1 : 0],
+    },
+    // OR A's signals together in pairs, down to one wire that's on when A
+    // isn't zero, and NOT it.
+    solution: {
+      nodes: [
+        { name: "split", type: "SPLIT", x: 11, y: 22, width: 4 },
+        { name: "or0", type: "OR", x: 18, y: 15 },
+        { name: "or1", type: "OR", x: 18, y: 29 },
+        { name: "or2", type: "OR", x: 26, y: 22 },
+        { name: "not", type: "NOT", x: 33, y: 22 },
+      ],
+      wires: [
+        ["A", "split"],
+        ["split:0", "or0:0"],
+        ["split:1", "or0:1"],
+        ["split:2", "or1:0"],
+        ["split:3", "or1:1"],
+        ["or0", "or2:0"],
+        ["or1", "or2:1"],
+        ["or2", "not"],
+        ["not", "ZERO"],
       ],
     },
   },
