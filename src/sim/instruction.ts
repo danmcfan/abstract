@@ -6,24 +6,25 @@ export const INSTRUCTIONS = [
   { id: "halt", operands: "", does: "stop" },
   { id: "set", operands: "R, n", does: "R = n" },
   { id: "copy", operands: "R, S", does: "R = S" },
-  { id: "add", operands: "R, S", does: "R = R + S" },
-  { id: "subtract", operands: "R, S", does: "R = R − S" },
+  { id: "add", operands: "R, S", does: "R = R + S (mod 256)" },
+  { id: "subtract", operands: "R, S", does: "R = R − S (mod 256)" },
   { id: "and", operands: "R, S", does: "R = R AND S" },
   { id: "or", operands: "R, S", does: "R = R OR S" },
   { id: "xor", operands: "R, S", does: "R = R XOR S" },
   { id: "not", operands: "R", does: "R = NOT R" },
   { id: "read", operands: "R, a", does: "R = RAM[a]" },
   { id: "write", operands: "R, a", does: "RAM[a] = R" },
-  { id: "jump", operands: "a", does: "go to a" },
-  { id: "jump if zero", operands: "R, a", does: "go to a if R is 0" },
-  { id: "in", operands: "R, d", does: "R = next from d" },
-  { id: "out", operands: "R, d", does: "send R to d" },
+  { id: "jump", operands: "a", does: "the next instruction is at program address a" },
+  { id: "jump if zero", operands: "R, a", does: "jump to a if R is 0" },
+  { id: "in", operands: "R, d", does: "R = the next value from device d" },
+  { id: "out", operands: "R, d", does: "send R to device d" },
 ] as const satisfies readonly { id: string; operands: string; does: string }[];
 
 export type InstructionID = (typeof INSTRUCTIONS)[number]["id"];
 
 // The opcodes run 0 to 15: four signals.
 export const OPCODES = 16;
+export const OPCODE_LIST = Array.from({ length: OPCODES }, (_, n) => n);
 export const MAX_MNEMONIC = 6;
 
 // One row of the table. An opcode not picked yet is null.
@@ -38,9 +39,15 @@ export type InstructionSet = Partial<Record<InstructionID, InstructionRow>>;
 const BLANK_ROW: InstructionRow = { mnemonic: "", opcode: null };
 export const rowOf = (set: InstructionSet, id: InstructionID): InstructionRow => set[id] ?? BLANK_ROW;
 
+function isComplete<T>(rows: Partial<Record<InstructionID, T>>): rows is Record<InstructionID, T> {
+  return INSTRUCTIONS.every(({ id }) => id in rows);
+}
+
 // A value for each instruction, in table order.
-function table<T>(row: (id: InstructionID, i: number) => T): Partial<Record<InstructionID, T>> {
-  return Object.fromEntries(INSTRUCTIONS.map(({ id }, i) => [id, row(id, i)]));
+function table<T>(row: (id: InstructionID, i: number) => T): Record<InstructionID, T> {
+  const rows: Partial<Record<InstructionID, T>> = Object.fromEntries(INSTRUCTIONS.map(({ id }, i) => [id, row(id, i)]));
+  if (!isComplete(rows)) throw new Error("A row is missing from the instruction table");
+  return rows;
 }
 
 // Bitbox's picks: HALT is 0 so blank program memory stops the CPU, and the
@@ -70,10 +77,19 @@ export type Problem = "needed" | "used twice" | "letters only" | "too long";
 export interface RowCheck {
   mnemonic: Problem | null;
   opcode: Problem | null;
+  // Nothing typed or picked yet, so "needed" isn't worth showing.
+  blank: boolean;
+}
+
+// The problems worth showing for a row: a blank row isn't marked "needed"
+// until the player has started on it.
+export function shownProblems(row: RowCheck): { mnemonic: Problem | null; opcode: Problem | null } {
+  const shown = (problem: Problem | null): Problem | null => (row.blank && problem === "needed" ? null : problem);
+  return { mnemonic: shown(row.mnemonic), opcode: shown(row.opcode) };
 }
 
 export interface InstructionSetCheck {
-  rows: Partial<Record<InstructionID, RowCheck>>;
+  rows: Record<InstructionID, RowCheck>;
   // How many rows have no problem.
   good: number;
   // The opcodes no row has.
@@ -114,9 +130,10 @@ export function checkInstructionSet(set: InstructionSet): InstructionSetCheck {
     return {
       mnemonic: mnemonicProblem(name, names.get(name) ?? 0),
       opcode: opcodeProblem(opcode, numbers),
+      blank: name === "" && opcode === null,
     };
   });
-  const good = ids.filter((id) => rows[id]?.mnemonic === null && rows[id].opcode === null).length;
-  const spare = Array.from({ length: OPCODES }, (_, n) => n).filter((n) => !numbers.has(n));
+  const good = ids.filter((id) => rows[id].mnemonic === null && rows[id].opcode === null).length;
+  const spare = OPCODE_LIST.filter((n) => !numbers.has(n));
   return { rows, good, spare, solved: good === ids.length };
 }

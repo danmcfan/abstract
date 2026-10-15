@@ -3,20 +3,20 @@ import {
   BITBOX_INSTRUCTION_SET,
   INSTRUCTIONS,
   MAX_MNEMONIC,
+  OPCODE_LIST,
   OPCODES,
   rowOf,
   type InstructionID,
   type InstructionSet,
   type InstructionSetCheck,
   type Problem,
-  type RowCheck,
+  shownProblems,
 } from "../sim/instruction";
 import { speak } from "./speech";
 import { editInstructions, session } from "./state";
 
 const pad = (n: number): string => String(n).padStart(2, "0");
 const binary = (n: number): string => n.toString(2).padStart(4, "0");
-const OPCODE_LIST = Array.from({ length: OPCODES }, (_, n) => n);
 
 // Every change to the table goes through the session, which checks it and
 // says whether Bitbox has anything to say about it.
@@ -25,6 +25,8 @@ function edit(rows: InstructionSet): void {
 }
 
 const pick = (id: InstructionID): InstructionSet => ({ [id]: rowOf(BITBOX_INSTRUCTION_SET, id) });
+
+const underline = (problem: Problem | null): string => (problem === null ? "border-ink" : "border-fail");
 
 const check = (): InstructionSetCheck => session().instructionCheck;
 // The opcodes no row has yet: one, once the table is good.
@@ -77,16 +79,9 @@ export function InstructionForm(): JSX.Element {
               {(instruction) => {
                 const { id } = instruction;
                 const row = (): ReturnType<typeof rowOf> => rowOf(session().instructionSet, id);
-                const problems = (): RowCheck => check().rows[id] ?? { mnemonic: "needed", opcode: "needed" };
-                // A blank row only says "needed" once the player has started on it.
-                const shown = (problem: Problem | null): Problem | null =>
-                  problem === "needed" && row().mnemonic === "" && row().opcode === null ? null : problem;
+                const problems = (): ReturnType<typeof shownProblems> => shownProblems(check().rows[id]);
                 const reason = (): string =>
-                  [...new Set([shown(problems().mnemonic), shown(problems().opcode)])]
-                    .filter((p) => p !== null)
-                    .join(", ");
-                const underline = (problem: Problem | null): string =>
-                  shown(problem) === null ? "border-ink" : "border-fail";
+                  [...new Set([problems().mnemonic, problems().opcode])].filter((p) => p !== null).join(", ");
                 return (
                   <tr class="border-b-hair border-wash" data-instruction={id}>
                     <td class="py-1 pr-3 whitespace-nowrap">

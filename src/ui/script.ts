@@ -1,4 +1,4 @@
-import { levelId, type Level } from "../sim/level";
+import { INSTRUCTION_SET_ID, levelId, type Level } from "../sim/level";
 import type { NodeType } from "../sim/node";
 import type { Cue } from "../sim/story";
 import type { Line } from "./speech";
@@ -475,7 +475,7 @@ const LEVELS: Partial<Record<string, LevelScript>> = {
       { face: "thinking", text: "Next we decide what our instructions are called." },
     ],
   },
-  "INSTRUCTION SET": {
+  [INSTRUCTION_SET_ID]: {
     intro: [
       { face: "idle", text: "A CPU only understands numbers. Each instruction needs one: its opcode." },
       { face: "idle", text: "And we need a short name for each, a mnemonic, so people can read a program." },
@@ -502,7 +502,7 @@ const FLOORS: Record<number, Line[]> = {
   7: [
     {
       face: "amazed",
-      text: "Typewriters! Rows and rows of them. This typing pool must be where the programs got written.",
+      text: "Typewriters! Rows and rows of them. This must be where the programs got written.",
     },
     { face: "thinking", text: "Before we build a CPU, it needs a language. We get to invent it." },
   ],

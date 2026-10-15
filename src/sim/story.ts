@@ -1,4 +1,4 @@
-import type { InstructionSetCheck } from "./instruction";
+import { shownProblems, type InstructionSetCheck } from "./instruction";
 import { levelId, type CheckResult, type Level } from "./level";
 import type { NodeType } from "./node";
 
@@ -60,9 +60,10 @@ export function respondToTable(
     const flag = flags.solved(level);
     return heard(flag) ? { cue: { react: "happy" } } : { cue: { say: "solved", level }, flag };
   }
-  const bad = Object.values(check.rows).some((row) =>
-    [row.mnemonic, row.opcode].some((problem) => problem !== null && problem !== "needed"),
-  );
+  const bad = Object.values(check.rows).some((row) => {
+    const { mnemonic, opcode } = shownProblems(row);
+    return [mnemonic, opcode].some((problem) => problem !== null && problem !== "needed");
+  });
   const flag = flags.failed(level);
   return bad && !heard(flag) ? { cue: { say: "error" }, flag } : null;
 }

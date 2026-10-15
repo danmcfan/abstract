@@ -104,7 +104,7 @@ function Play(props: { onMenu: () => void; onStack: (arrive?: number) => void; s
       <MenuBar onMenu={props.onMenu} onStack={props.onStack} />
       <Brief onStack={props.onStack} />
       <div class="relative min-h-0 min-w-0">
-        <Show when={session().level.kind === "instruction set"} fallback={<Board />}>
+        <Show when={!session().circuit} fallback={<Board />}>
           <InstructionForm />
         </Show>
       </div>
@@ -148,8 +148,7 @@ if (import.meta.env.DEV) {
       // The open level's intended solution, and its wires once its nodes
       // are on the board as the given nodes, so the playthrough can build it.
       get solution() {
-        const { level } = session();
-        return level.kind === "instruction set" ? null : (level.solution ?? null);
+        return session().circuit?.solution ?? null;
       },
       solutionWires: (ids: NodeID[]) => solutionWires(current(), circuitAt(session().levelIndex), ids),
       nodes: () => [...current().nodes.values()].map(({ id, type, label, isHigh }) => ({ id, type, label, isHigh })),

@@ -27,10 +27,7 @@ const binary = (value: Value, width: number): string => value.toString(2).padSta
 // bin along the bottom. Passing a layer's last level leads up to the next
 // floor, through the stack. The instruction set level has no circuit, so
 // its brief has no table or test, and its parts bin is shut.
-function circuit(): CircuitLevel | null {
-  const { level } = session();
-  return level.kind === "instruction set" ? null : level;
-}
+const circuit = (): CircuitLevel | null => session().circuit;
 const labels = (): string[] => {
   const level = circuit();
   return level ? [...level.inputs, ...level.outputs] : [];
@@ -63,11 +60,12 @@ function status(): { text: string; tone: string } | null {
     return { text: `${r.forbidden.join(", ")} isn't in this level's parts bin.`, tone: "text-fail" };
   if (r.unstable) return { text: "Unstable: a loop on the board never settles.", tone: "text-fail" };
   if (!r.passed) return { text: "Not quite. Some rows don't match.", tone: "text-fail" };
+  const given = partGiven(session().level);
   return {
     text:
-      session().next?.to === "end"
+      session().next?.to === "end" || !given
         ? "Tested! That's every level so far."
-        : `Tested! ${partGiven(session().level)?.gate ?? ""} is in your parts bin.`,
+        : `Tested! ${given.gate} is in your parts bin.`,
     tone: "text-pass",
   };
 }

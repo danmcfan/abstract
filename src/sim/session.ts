@@ -18,6 +18,7 @@ import {
   solvedCount,
   playableCount,
   type CheckResult,
+  type CircuitLevel,
   type Layer,
   type Level,
   type Solved,
@@ -140,11 +141,11 @@ export class Session {
   }
 
   save(): void {
-    const { level } = this;
-    if (level.kind !== "instruction set") this.boards[level.gate] = saveBoard(this.game);
+    const { circuit } = this;
+    if (circuit) this.boards[circuit.gate] = saveBoard(this.game);
     this.store.save({
       solved: this.solvedLevels,
-      open: levelId(level),
+      open: levelId(this.level),
       boards: this.boards,
       flags: [...this.flags],
       clockSpeed: this.clockSpeed,
@@ -188,12 +189,17 @@ export class Session {
     return levelAt(this.levelIndex, this.levels);
   }
 
+  // The open level, if it has a circuit: the instruction set level doesn't.
+  get circuit(): CircuitLevel | null {
+    const { level } = this;
+    return level.kind === "instruction set" ? null : level;
+  }
+
   // The rows the level panel shows, checked as far as the test run has
   // gone, then any rows the last run found failing out of sight.
   get rows(): TableRow[] {
-    const { level } = this;
-    if (level.kind === "instruction set") return [];
-    return this.testRun?.rows ?? table(level);
+    const { circuit } = this;
+    return circuit ? (this.testRun?.rows ?? table(circuit)) : [];
   }
 
   // Whether a test run is going.
@@ -255,8 +261,8 @@ export class Session {
   // Turns the level's clock on and off, if it has one and no test run is
   // going. Returns whether it ticked.
   tick(): boolean {
-    const { level } = this;
-    const clock = level.kind === "instruction set" ? undefined : clockOf(this.game, level);
+    const { circuit } = this;
+    const clock = circuit ? clockOf(this.game, circuit) : undefined;
     if (this.testing || clock === undefined) return false;
     this.edit((game) => {
       tick(game, clock);
@@ -307,7 +313,7 @@ export class Session {
   // Where the player goes from here, once the last test run has passed, or
   // while the instruction set is good.
   get next(): Next | null {
-    const done = this.level.kind === "instruction set" ? this.instructionCheck.solved : this.result?.passed === true;
+    const done = this.circuit ? this.result?.passed === true : this.instructionCheck.solved;
     if (!done) return null;
     if (this.levelIndex + 1 >= this.levels.length) return { to: "end" };
     const layer = floorAbove(this.levelIndex, this.levels);

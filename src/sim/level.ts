@@ -12,6 +12,8 @@ import { mask, type Label, type Node, type NodeID, type NodeType, type State, ty
 // memory level gives a rule for its part's state instead of a target, and
 // is tested by a timing table. An instruction set level isn't a circuit:
 // the player fills in a table instead.
+export const INSTRUCTION_SET_ID = "INSTRUCTION SET";
+
 export type Level = CircuitLevel | InstructionSetLevel;
 
 export type CircuitLevel = TruthTableLevel | (CircuitInfo & Pins & MemoryLevel);
@@ -1237,7 +1239,7 @@ export const LEVELS: Level[] = [
   },
   {
     kind: "instruction set",
-    id: "INSTRUCTION SET",
+    id: INSTRUCTION_SET_ID,
     goal: "Give each instruction a mnemonic and an opcode, all different.",
     layer: 7,
   },

@@ -15,38 +15,38 @@ describe("checkInstructionSet", () => {
   test("marks both rows of a mnemonic used twice", () => {
     const check = checkInstructionSet(edited({ add: { mnemonic: "SET", opcode: 3 } }));
     expect(check.solved).toBe(false);
-    expect(check.rows.add?.mnemonic).toBe("used twice");
-    expect(check.rows.set?.mnemonic).toBe("used twice");
+    expect(check.rows.add.mnemonic).toBe("used twice");
+    expect(check.rows.set.mnemonic).toBe("used twice");
     expect(check.good).toBe(13);
   });
 
   test("marks both rows of an opcode used twice", () => {
     const check = checkInstructionSet(edited({ add: { mnemonic: "ADD", opcode: 1 } }));
-    expect(check.rows.add?.opcode).toBe("used twice");
-    expect(check.rows.set?.opcode).toBe("used twice");
+    expect(check.rows.add.opcode).toBe("used twice");
+    expect(check.rows.set.opcode).toBe("used twice");
     expect(check.spare).toEqual([3, 15]);
     expect(check.solved).toBe(false);
   });
 
   test("rejects names with anything but letters", () => {
-    expect(checkInstructionSet(edited({ add: { mnemonic: "ADD2", opcode: 3 } })).rows.add?.mnemonic).toBe(
+    expect(checkInstructionSet(edited({ add: { mnemonic: "ADD2", opcode: 3 } })).rows.add.mnemonic).toBe(
       "letters only",
     );
   });
 
   test("rejects names over six letters", () => {
-    expect(checkInstructionSet(edited({ add: { mnemonic: "ADDITION", opcode: 3 } })).rows.add?.mnemonic).toBe(
+    expect(checkInstructionSet(edited({ add: { mnemonic: "ADDITION", opcode: 3 } })).rows.add.mnemonic).toBe(
       "too long",
     );
   });
 
   test("needs every name and number", () => {
     const check = checkInstructionSet(edited({ add: { mnemonic: "", opcode: null } }));
-    expect(check.rows.add).toEqual({ mnemonic: "needed", opcode: "needed" });
+    expect(check.rows.add).toEqual({ mnemonic: "needed", opcode: "needed", blank: true });
     expect(check.solved).toBe(false);
   });
 
   test("reads names in any case as the same name", () => {
-    expect(checkInstructionSet(edited({ add: { mnemonic: "set", opcode: 3 } })).rows.add?.mnemonic).toBe("used twice");
+    expect(checkInstructionSet(edited({ add: { mnemonic: "set", opcode: 3 } })).rows.add.mnemonic).toBe("used twice");
   });
 });

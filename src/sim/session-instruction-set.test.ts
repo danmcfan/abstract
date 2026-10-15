@@ -83,6 +83,20 @@ describe("the instruction set level", () => {
     expect(session.solved).toBe(solved);
   });
 
+  test("a save from before the instruction set loads with a blank one", () => {
+    const old = {
+      solved: Object.fromEntries(LEVELS.slice(0, L7).map((l) => [levelId(l), revisionOf(l)])),
+      open: "INSTRUCTION SET",
+      boards: {},
+      flags: [],
+    };
+    const session = new Session(memorySave(old));
+    session.resume();
+    expect(session.instructionSet).toEqual({});
+    expect(session.validInstructionSet).toBeNull();
+    expect(session.instructionCheck.good).toBe(0);
+  });
+
   test("starting over blanks the table", () => {
     const session = atTypingPool();
     session.editInstructions(BITBOX_INSTRUCTION_SET);
