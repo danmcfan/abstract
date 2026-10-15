@@ -1,6 +1,7 @@
 {
   "name": "abstract",
   "devDependencies": {
+    "@ai-hero/sandcastle": "0.12.0",
     "@shadcn/lint": "0.2.1",
     "@tailwindcss/vite": "^4.3.3",
     "@types/bun": "^1.4.2",
@@ -30,7 +31,8 @@
     "lint": "oxlint",
     "format": "prettier --write .",
     "check:static": "tsc --noEmit && oxlint && prettier --check . && knip && bun scripts/check-escapes.ts",
-    "prepare": "lefthook install"
+    "prepare": "lefthook install",
+    "sandcastle": "bun .sandcastle/main.ts"
   },
   "type": "module",
   "dependencies": {

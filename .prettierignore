@@ -4,3 +4,5 @@ shots
 evidence
 bun.lock
 docs/vision
+.sandcastle/logs
+out
