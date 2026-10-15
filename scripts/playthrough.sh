@@ -137,9 +137,32 @@ stop_recording() {
   agent-browser record stop >/dev/null 2>&1 || echo "warning: video not saved (agent-browser needs ffmpeg)" >&2
 }
 
+# Whether the open level is the instruction set, which has a form, not a board.
+typing_pool() { [[ $(js "!!document.querySelector('#instruction-set')") == true ]]; }
+
+# Fills in the instruction set the way a player would: Bitbox's picks for
+# every row, then a name of their own for one, typed in. The check is live,
+# so the level is solved once every row is good.
+write_table() {
+  hush
+  ab click "#use-all"
+  sleep 0.5; hush
+  ab fill "tr[data-instruction=\"add\"] input" plus
+  sleep 0.5
+  wait_for "document.querySelector('#table-status').textContent.startsWith('15 of 15')" "level $1: every row is good"
+  expect "document.querySelector('tr[data-instruction=\"add\"] input').value === 'PLUS'" "level $1 keeps the typed name"
+  echo "level $1: $(js "document.querySelector('#table-status').textContent")"
+  if [[ -n ${2:-} ]]; then agent-browser screenshot "$2" >/dev/null; fi
+}
+
 # Plays level $1 on its own: open it, build its solution and test it.
 play() {
   open_level "$1" "$OUT/level$1.webm"
+  if typing_pool; then
+    write_table "$1" "$OUT/level$1.png"
+    stop_recording
+    return
+  fi
   # On the AND level, a stray gate goes on first, to try Clear.
   if [[ $(js "__abstract.gate" | tr -d '"') == AND ]]; then
     add NOT 28 10 >/dev/null
@@ -177,7 +200,7 @@ finish() {
   local count=$1 floor number
   # The last level has no way on until its layer's next level exists.
   open_level "$count" "$OUT/stack-built.webm"
-  check 2 "$count"
+  if typing_pool; then write_table "$count"; else check 2 "$count"; fi
   expect "!document.querySelector('#up') && !document.querySelector('#next')" "no way on from the last level"
 
   # The menu bar's button opens the stack on the current layer, and each level keeps
