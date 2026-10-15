@@ -500,7 +500,10 @@ const FLOORS: Record<number, Line[]> = {
   5: [{ face: "thinking", text: "The filing vault. Our parts forget everything. Here they learn to remember." }],
   6: [{ face: "amazed", text: "The clock tower. Hear that ticking? The whole factory keeps time from here." }],
   7: [
-    { face: "amazed", text: "Typewriters! Rows and rows of them. This must be where the programs got written." },
+    {
+      face: "amazed",
+      text: "Typewriters! Rows and rows of them. This typing pool must be where the programs got written.",
+    },
     { face: "thinking", text: "Before we build a CPU, it needs a language. We get to invent it." },
   ],
   8: [{ face: "amazed", text: "The control room. Every part we've built comes together up here." }],

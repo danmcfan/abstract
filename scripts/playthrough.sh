@@ -211,6 +211,9 @@ finish() {
   ab click "#open-stack"; sleep 0.8; hush
   layer "$number" built
   agent-browser screenshot "$OUT/stack-built.png" >/dev/null
+  # The level before may be on the floor below, which the stack has shut.
+  local below; below=$(js "__abstract.layerOf($count - 2).number")
+  if ((below != number)); then ab click "[data-layer=\"$below\"]"; sleep 0.5; fi
   sheet $((count - 1))
   wait_for "__abstract.levelIndex === $((count - 2))" "the stack opens level $((count - 1))"
   expect "__abstract.game.edges.size === __abstract.solution.wires.length" "level $((count - 1)) keeps its board"
