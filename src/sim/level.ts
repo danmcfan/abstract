@@ -10,11 +10,23 @@ import { mask, type Label, type Node, type NodeID, type NodeType, type State, ty
 // one value per output, in order; the part it adds to the bin computes the
 // same (ADR 6), with bus pins as wide as the level's bus terminals. A
 // memory level gives a rule for its part's state instead of a target, and
-// is tested by a timing table.
-export type Level = TruthTableLevel | (LevelInfo & Pins & MemoryLevel);
+// is tested by a timing table. An instruction set level isn't a circuit:
+// the player fills in a table instead.
+export type Level = CircuitLevel | InstructionSetLevel;
+
+export type CircuitLevel = TruthTableLevel | (CircuitInfo & Pins & MemoryLevel);
 
 // A level of combinational parts, tested by a truth table.
-export type TruthTableLevel = LevelInfo & Pins & TruthLevel;
+export type TruthTableLevel = CircuitInfo & Pins & TruthLevel;
+
+// The level where the player names and numbers the CPU's instructions. It
+// is solved as soon as the table is good, and adds no part to the bin.
+interface InstructionSetLevel extends LevelInfo {
+  kind: "instruction set";
+  // Saves and story flags know the level by this, as they know a circuit
+  // level by its gate.
+  id: string;
+}
 
 interface TruthLevel extends Combinational {
   steps?: never;
@@ -29,13 +41,17 @@ interface MemoryLevel {
 }
 
 interface LevelInfo {
-  gate: NodeType;
   // Bumped when the level changes enough that a player who solved it must
   // solve it again, such as a new truth table or terminals. Missing means 1.
   revision?: number;
   goal: string;
   // The number of the layer the level belongs to.
   layer: number;
+}
+
+interface CircuitInfo extends LevelInfo {
+  kind?: never;
+  gate: NodeType;
   prebuilt?: boolean;
   // The rows the level panel shows, as input values, when the whole truth
   // table is too long to read. The test run checks the rest out of sight.
@@ -1219,6 +1235,12 @@ export const LEVELS: Level[] = [
       ],
     },
   },
+  {
+    kind: "instruction set",
+    id: "INSTRUCTION SET",
+    goal: "Give each instruction a mnemonic and an opcode, all different.",
+    layer: 7,
+  },
 ];
 
 // An ALU on buses width signals wide. Subtract is add with B flipped and a
@@ -1247,23 +1269,37 @@ function operate(op: Value, a: Value, b: Value, cin: Value, width: number): Valu
 
 // The part a solved level adds to the bin: the gate it builds, unless it
 // gives another.
-export function partGiven(level: Level): Part {
+export function partGiven(level: Level): Part | null {
+  if (level.kind === "instruction set") return null;
   return level.gives ?? level;
 }
+
+// What saves, story flags and solved progress know a level by: the gate it
+// builds, or an instruction set level's own identifier.
+export const levelId = (level: Level): string => (level.kind === "instruction set" ? level.id : level.gate);
+
+// The game's circuit levels, the ones with a board.
+export const circuits = (levels: readonly Level[]): CircuitLevel[] =>
+  levels.flatMap((level) => (level.kind === "instruction set" ? [] : [level]));
 
 // The parts the game's boards can hold: each level's gate, computing what
 // its level asks for, and each part a level gives instead. A level's own
 // gate stays a kind, so its board can still be loaded and tested.
-export const PARTS: Parts = partsFrom([...LEVELS, ...LEVELS.flatMap((level) => level.gives ?? [])]);
+export const PARTS: Parts = partsOf(LEVELS);
+
+export function partsOf(levels: readonly Level[]): Parts {
+  const built = circuits(levels);
+  return partsFrom([...built, ...built.flatMap((level) => level.gives ?? [])]);
+}
 
 // Every solved level adds its part; the first level hands you NAND.
 export function partsBin(levelIndex: number, levels = LEVELS): NodeType[] {
-  return levels.slice(0, levelIndex).map((level) => partGiven(level).gate);
+  return levels.slice(0, levelIndex).flatMap((level) => partGiven(level)?.gate ?? []);
 }
 
 // The levels that can be played: every solved level plus the next one.
-// The revision of each level the player has solved, by the gate it builds.
-// Keyed by gate, not position, so it still means the same levels after one
+// The revision of each level the player has solved, by its levelId.
+// Keyed by identifier, not position, so it still means the same levels after one
 // is added, taken out or moved.
 export type Solved = Partial<Record<NodeType, number>>;
 
@@ -1273,7 +1309,7 @@ export const revisionOf = (level: Level): number => level.revision ?? 1;
 // Progress goes one level at a time, so a level added or changed before
 // ones already solved must be solved first; then the count jumps past them.
 export function solvedCount(solved: Solved, levels = LEVELS): number {
-  const gap = levels.findIndex((level) => solved[level.gate] !== revisionOf(level));
+  const gap = levels.findIndex((level) => solved[levelId(level)] !== revisionOf(level));
   return gap === -1 ? levels.length : gap;
 }
 
@@ -1312,6 +1348,13 @@ export function levelAt(levelIndex: number, levels = LEVELS): Level {
   return level;
 }
 
+// The level at an index, which must be a circuit level.
+export function circuitAt(levelIndex: number, levels = LEVELS): CircuitLevel {
+  const level = levelAt(levelIndex, levels);
+  if (level.kind === "instruction set") throw new Error(`Level ${levelIndex} isn't a circuit`);
+  return level;
+}
+
 // The layer a level leads up to: the next layer, if the level is the last
 // of its own and the next layer has a level in the game yet.
 export function floorAbove(levelIndex: number, levels = LEVELS): Layer | null {
@@ -1321,7 +1364,7 @@ export function floorAbove(levelIndex: number, levels = LEVELS): Layer | null {
 }
 
 // How many signals a level's terminal carries.
-export function terminalWidth(level: Level, label: Label): number {
+export function terminalWidth(level: CircuitLevel, label: Label): number {
   return level.widths?.[label] ?? 1;
 }
 
@@ -1332,7 +1375,7 @@ const CONSTANTS_LAYER = 6;
 // level's terminals use, widest first, then from L6 on the constants. Levels
 // without buses have no splits or joins. None of them are parts, so the
 // level supplies them (ADR 5).
-export function wiring(level: Level): { type: NodeType; width: number }[] {
+export function wiring(level: CircuitLevel): { type: NodeType; width: number }[] {
   const terminals = [...level.inputs, ...level.outputs].map((label) => terminalWidth(level, label));
   const widths = [...new Set([...terminals, ...(level.buses ?? [])])];
   const buses = widths.filter((width) => width > 1);
@@ -1350,7 +1393,7 @@ export function wiring(level: Level): { type: NodeType; width: number }[] {
 // A fresh board with the level's input terminals down the left edge, its
 // output terminals down the right, and the gate wired between them if it's
 // prebuilt. The board can hold the given parts.
-export function loadLevel(level: Level, parts = PARTS): Game {
+export function loadLevel(level: CircuitLevel, parts = PARTS): Game {
   const grid = level.grid ?? DEFAULT_GRID;
   const game = newGame(parts, grid);
   const column = (x: number, i: number, count: number): { x: number; y: number } => ({
@@ -1377,7 +1420,7 @@ export function loadLevel(level: Level, parts = PARTS): Game {
 
 // The pins a level's solution wires together, once its nodes are on the
 // board as the given nodes, in the solution's order.
-export function solutionWires(game: Game, level: Level, ids: NodeID[]): { from: Pin; to: Pin }[] {
+export function solutionWires(game: Game, level: CircuitLevel, ids: NodeID[]): { from: Pin; to: Pin }[] {
   const nodes = level.solution?.nodes ?? [];
   const pin = (end: string, side: Pin["side"]): Pin => {
     const [name = "", index = "0"] = end.split(":");
@@ -1390,7 +1433,7 @@ export function solutionWires(game: Game, level: Level, ids: NodeID[]): { from: 
 }
 
 // Builds a level's solution onto its board.
-export function buildSolution(game: Game, level: Level): void {
+export function buildSolution(game: Game, level: CircuitLevel): void {
   const ids = (level.solution?.nodes ?? []).map(
     (node) => placed(placeNode(game, node.type, node, "", node.width ?? 1)).id,
   );
@@ -1420,12 +1463,12 @@ export interface Row {
 // The input terminal a level with a clock has.
 export const CLOCK: Label = "CLK";
 
-export function hasClock(level: Level): boolean {
+export function hasClock(level: CircuitLevel): boolean {
   return level.inputs.includes(CLOCK);
 }
 
 // The level's clock switch on the board, if the level has one.
-export function clockOf(game: Game, level: Level): NodeID | undefined {
+export function clockOf(game: Game, level: CircuitLevel): NodeID | undefined {
   if (!hasClock(level)) return undefined;
   return [...game.nodes.values()].find((node) => node.type === "INPUT" && node.label === CLOCK)?.id;
 }
@@ -1444,7 +1487,7 @@ function expectedFor(level: TruthTableLevel, inputs: Value[]): Value[] {
 
 // How many rows the whole truth table has: one for every combination of
 // every input signal.
-export function rowCount(level: Level): number {
+export function rowCount(level: CircuitLevel): number {
   return 2 ** level.inputs.reduce((bits, label) => bits + terminalWidth(level, label), 0);
 }
 
@@ -1465,19 +1508,19 @@ function rowAt(level: TruthTableLevel, n: number): Row {
 
 // Where a row of input values comes in the whole truth table: rowAt's
 // inverse.
-function rowNumber(level: Level, inputs: Value[]): number {
+function rowNumber(level: CircuitLevel, inputs: Value[]): number {
   return level.inputs.reduce((n, label, i) => n * 2 ** terminalWidth(level, label) + (inputs[i] ?? 0), 0);
 }
 
 // The rows the level panel shows: the timing table on a memory level, or
 // else the truth table.
-export function testTable(level: Level): Row[] {
+export function testTable(level: CircuitLevel): Row[] {
   return level.steps ?? truthTable(level);
 }
 
 // The rows of the truth table the level panel shows: the level's cases if it
 // has them, or else every combination of inputs. A memory level has none.
-export function truthTable(level: Level): Row[] {
+export function truthTable(level: CircuitLevel): Row[] {
   if (level.steps !== undefined) return [];
   if (level.cases !== undefined) return level.cases.map((inputs) => ({ inputs, expected: expectedFor(level, inputs) }));
   return Array.from({ length: rowCount(level) }, (_, n) => rowAt(level, n));
@@ -1485,7 +1528,7 @@ export function truthTable(level: Level): Row[] {
 
 // Sets the input terminals to the given values, in the level's label order,
 // settling the circuit.
-export function applyInputs(game: Game, level: Level, values: Value[]): void {
+export function applyInputs(game: Game, level: CircuitLevel, values: Value[]): void {
   const settings = new Map<NodeID, Value>();
   for (const node of game.nodes.values()) {
     const i = level.inputs.indexOf(node.label);
@@ -1526,7 +1569,7 @@ export interface CheckResult {
 // few cases, every other row out of sight. The run starts where restart
 // would leave the board, so every memory part starts at 0.
 export function checkLevel(board: Game, levelIndex: number, levels = LEVELS): CheckResult {
-  const level = levelAt(levelIndex, levels);
+  const level = circuitAt(levelIndex, levels);
   const allowed = new Set<NodeType>([...partsBin(levelIndex, levels), ...wiring(level).map((w) => w.type)]);
   if (level.prebuilt === true) allowed.add(level.gate);
   const gates = [...board.nodes.values()].filter((node) => nodeKind(board, node).terminal === undefined);
@@ -1566,7 +1609,7 @@ export function checkLevel(board: Game, levelIndex: number, levels = LEVELS): Ch
 
 // Sets a step's inputs and, if it ticks, turns the clock on and off, giving
 // the outputs at the end.
-function playStep(level: Level, step: Row, run: (values: Value[]) => Value[]): Value[] {
+function playStep(level: CircuitLevel, step: Row, run: (values: Value[]) => Value[]): Value[] {
   const actual = run(step.inputs);
   const clock = level.inputs.indexOf(CLOCK);
   if (step.tick !== true || clock < 0) return actual;

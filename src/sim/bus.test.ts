@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { edgeInto, newGame, placeNode, setInput, switchAt, widthOf, wire, type Game, type Pin } from "./circuit";
 import { createGestures } from "./gesture";
-import { partsFrom } from "./kind";
 import {
   checkLevel,
   LEVELS,
@@ -12,6 +11,10 @@ import {
   wiring,
   type Level,
   type TruthTableLevel,
+  circuitAt,
+  circuits,
+  partsOf,
+  type CircuitLevel,
 } from "./level";
 import type { Label, NodeID, NodeType } from "./node";
 import { loadBoard, saveBoard, type SavedBoard } from "./save";
@@ -25,7 +28,7 @@ function terminal(game: Game, type: NodeType, label: Label): NodeID {
 
 // A full adder, as a level before the adders below would define it. The
 // game has no such level yet, so the test makes one.
-const FULL_ADDER: Level = {
+const FULL_ADDER: CircuitLevel = {
   gate: "FULL",
   goal: "SUM is the low bit of A + B + CIN; COUT is the high bit.",
   layer: 3,
@@ -64,7 +67,7 @@ const ADD8 = adder(8, [
 ]);
 const levelsWith = (level: Level): Level[] => [...LEVELS, FULL_ADDER, level];
 // A fresh board for an adder level, which can hold the full adder below it.
-const adderBoard = (level: Level): Game => loadLevel(level, partsFrom(levelsWith(level)));
+const adderBoard = (level: CircuitLevel): Game => loadLevel(level, partsOf(levelsWith(level)));
 
 // A ripple-carry adder: split A and B into bits, chain a full adder per bit
 // from the low bit up, and join the sums. With a glitch, COUT is also forced
@@ -233,7 +236,8 @@ describe("a level with buses", () => {
       { type: "SPLIT", width: 8 },
       { type: "JOIN", width: 8 },
     ]);
-    for (const level of LEVELS.filter((l) => l.widths === undefined && l.layer < 6)) expect(wiring(level)).toEqual([]);
+    for (const level of circuits(LEVELS).filter((l) => l.widths === undefined && l.layer < 6))
+      expect(wiring(level)).toEqual([]);
   });
 
   test("a 4-bit adder built from full adders with split and join passes", () => {
@@ -258,7 +262,7 @@ describe("a level with buses", () => {
   });
 
   test("split and join fail the parts-bin rule on a level without buses", () => {
-    const game = loadLevel(LEVELS[1]!);
+    const game = loadLevel(circuitAt(1));
     placeNode(game, "SPLIT", { x: 20, y: 20 }, "", 2);
     expect(checkLevel(game, 1).forbidden).toEqual(["SPLIT"]);
   });
@@ -296,7 +300,7 @@ describe("a level with buses", () => {
 
 describe("a part with bus pins", () => {
   test("has bus pins as wide as its level's terminals, and settles on a later board", () => {
-    const game = newGame(partsFrom([...LEVELS, ADD8]));
+    const game = newGame(partsOf([...LEVELS, ADD8]));
     const a = placeNode(game, "INPUT", { x: 6, y: 5 }, "A", 8)!.id;
     const b = placeNode(game, "INPUT", { x: 6, y: 15 }, "B", 8)!.id;
     const cin = placeNode(game, "INPUT", { x: 6, y: 25 }, "CIN")!.id;

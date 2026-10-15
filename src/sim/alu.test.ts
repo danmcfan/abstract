@@ -12,12 +12,14 @@ import {
   revisionOf,
   truthTable,
   wiring,
+  circuitAt,
+  levelId,
 } from "./level";
 import type { Label, NodeID, NodeType, Value } from "./node";
 
 const out = (node: NodeID, index = 0): Pin => ({ node, side: "out", index });
 const inp = (node: NodeID, index = 0): Pin => ({ node, side: "in", index });
-const levelIndex = (type: NodeType): number => LEVELS.findIndex((level) => level.gate === type);
+const levelIndex = (type: NodeType): number => LEVELS.findIndex((level) => levelId(level) === type);
 
 function terminal(game: Game, type: NodeType, label: Label): Pin {
   const id = [...game.nodes.values()].find((node) => node.type === type && node.label === label)?.id ?? -1;
@@ -51,7 +53,7 @@ describe("the L4 parts", () => {
   test("open L4 after the 2-bit adder, in order, with the ALU last", () => {
     const first = levelIndex("2-BIT ADDER") + 1;
     expect(layerLevels(4)).toEqual([first, first + 1, first + 2, first + 3, first + 4, first + 5]);
-    expect(layerLevels(4).map((i) => LEVELS[i]!.gate)).toEqual([
+    expect(layerLevels(4).map((i) => levelId(LEVELS[i]!))).toEqual([
       "2-BIT MUX",
       "MUX4",
       "ADD/SUB",
@@ -67,7 +69,7 @@ describe("the L4 parts", () => {
   });
 
   test("the ALU slice's Wiring has a 2-bit join for the logic unit's SEL, besides OP's 3-bit split and join", () => {
-    expect(wiring(LEVELS[levelIndex("ALU SLICE")]!)).toEqual([
+    expect(wiring(circuitAt(levelIndex("ALU SLICE")))).toEqual([
       { type: "SPLIT", width: 3 },
       { type: "JOIN", width: 3 },
       { type: "SPLIT", width: 2 },
@@ -138,8 +140,8 @@ describe("the L4 parts", () => {
   });
 
   test("the ALU SLICE and 2-BIT ALU levels changed, so they're at revision 2", () => {
-    expect(revisionOf(LEVELS[levelIndex("ALU SLICE")]!)).toBe(2);
-    expect(revisionOf(LEVELS[levelIndex("2-BIT ALU")]!)).toBe(2);
+    expect(revisionOf(circuitAt(levelIndex("ALU SLICE")))).toBe(2);
+    expect(revisionOf(circuitAt(levelIndex("2-BIT ALU")))).toBe(2);
   });
 
   test("once solved, the 2-bit levels give the 8-bit parts, and the others their own", () => {
@@ -169,7 +171,7 @@ function buildMux2(game: Game): void {
 
 describe("the 2-bit MUX level", () => {
   const index = levelIndex("2-BIT MUX");
-  const level = LEVELS[index]!;
+  const level = circuitAt(index);
 
   test("chooses between 2-signal buses with one SEL, using a 2-bit split and join", () => {
     expect(level.widths).toEqual({ A: 2, B: 2, OUT: 2 });
@@ -219,7 +221,7 @@ function buildAlu(game: Game, missingSubtractCarry = false): void {
 
 describe("the 2-bit ALU level", () => {
   const index = levelIndex("2-BIT ALU");
-  const level = LEVELS[index]!;
+  const level = circuitAt(index);
 
   test("is the last level of L4", () => {
     expect(layerLevels(4).at(-1)).toBe(index);

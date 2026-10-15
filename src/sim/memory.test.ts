@@ -11,13 +11,15 @@ import {
   PARTS,
   partsBin,
   truthTable,
-  type Level,
   type Row,
+  circuitAt,
+  levelId,
+  type CircuitLevel,
 } from "./level";
 import type { NodeType, Value } from "./node";
 
-const levelIndex = (type: NodeType): number => LEVELS.findIndex((level) => level.gate === type);
-const levelOf = (type: NodeType): Level => LEVELS[levelIndex(type)]!;
+const levelIndex = (type: NodeType): number => LEVELS.findIndex((level) => levelId(level) === type);
+const levelOf = (type: NodeType): CircuitLevel => circuitAt(levelIndex(type));
 
 const L5 = [
   "SR LATCH",
@@ -33,9 +35,9 @@ const L5 = [
 
 // What the level's own part gives on each step of the given timing table,
 // wired straight between the level's terminals.
-function partPlays(level: Level, steps: Row[]): Value[][] {
+function partPlays(level: CircuitLevel, steps: Row[]): Value[][] {
   if (level.steps === undefined) throw new Error(`${level.gate} has no timing table`);
-  const played: Level = { ...level, prebuilt: true, steps };
+  const played: CircuitLevel = { ...level, prebuilt: true, steps };
   const levels = LEVELS.map((l) => (l === level ? played : l));
   const index = LEVELS.indexOf(level);
   return checkLevel(loadLevel(played), index, levels).rows.map((row) => row.actual);
@@ -43,9 +45,9 @@ function partPlays(level: Level, steps: Row[]): Value[][] {
 
 // The index of the first step a board fails, building the level's solution
 // with some wires changed.
-function firstFailure(level: Level, rewire: (wires: [string, string][]) => [string, string][]): number {
+function firstFailure(level: CircuitLevel, rewire: (wires: [string, string][]) => [string, string][]): number {
   const solution = level.solution!;
-  const changed: Level = { ...level, solution: { ...solution, wires: rewire(solution.wires) } };
+  const changed: CircuitLevel = { ...level, solution: { ...solution, wires: rewire(solution.wires) } };
   const game = loadLevel(changed);
   buildSolution(game, changed);
   const result = checkLevel(game, levelIndex(level.gate));
@@ -57,7 +59,7 @@ describe("the L5 levels", () => {
   test("follow the ALU, in order, with RAM last", () => {
     const first = levelIndex("2-BIT ALU") + 1;
     expect(layerLevels(5)).toEqual(L5.map((_, i) => first + i));
-    expect(layerLevels(5).map((i) => LEVELS[i]!.gate)).toEqual(L5);
+    expect(layerLevels(5).map((i) => levelId(LEVELS[i]!))).toEqual(L5);
     expect(floorAbove(levelIndex("2-BIT ALU"))?.floor).toBe("the filing vault");
   });
 
