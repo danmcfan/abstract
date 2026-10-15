@@ -27,13 +27,13 @@ function edit(rows: InstructionSet): void {
 const pick = (id: InstructionID): InstructionSet => ({ [id]: rowOf(BITBOX_INSTRUCTION_SET, id) });
 
 const check = (): InstructionSetCheck => session().instructionCheck;
+// The opcodes no row has yet: one, once the table is good.
+const spare = (): string => (check().spare.length === OPCODES ? "all of them" : check().spare.join(", ") || "none");
 
 // The typing pool: in place of the board, a typewritten form with one row
 // per instruction. The player types a mnemonic and picks an opcode for each,
 // and the check runs live, so there's no test run.
 export function InstructionForm(): JSX.Element {
-  const spare = (): string => (check().spare.length === 1 ? String(check().spare[0]) : "none yet");
-
   return (
     <section
       id="instruction-set"
@@ -152,7 +152,8 @@ export function InstructionForm(): JSX.Element {
         id="table-status"
         class={`shrink-0 border-t-2 border-ink pt-2 font-bold ${check().solved ? "text-pass" : "text-ink"}`}
       >
-        {check().good} of {INSTRUCTIONS.length} rows good · spare opcode: {spare()}
+        {check().good} of {INSTRUCTIONS.length} rows good · spare opcode{check().spare.length === 1 ? "" : "s"}:{" "}
+        {spare()}
       </p>
     </section>
   );
