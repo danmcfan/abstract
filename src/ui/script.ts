@@ -292,6 +292,7 @@ const LEVELS: Partial<Record<NodeType, LevelScript>> = {
       { face: "idle", text: "Meet CLK, the clock. It says when a part may change its mind." },
       { face: "idle", text: "While CLK is on, Q follows D. While it's off, Q stays put." },
       { face: "idle", text: "Press Tick to turn the clock on and off once. Press Run to keep it ticking." },
+      { face: "idle", text: "Clock speed sets how many ticks a second Run gives." },
     ],
     hint: [
       { face: "thinking", text: "Use an SR latch. S should be on when D and CLK are both on." },
@@ -401,10 +402,6 @@ const LEVELS: Partial<Record<NodeType, LevelScript>> = {
   },
   "PROGRAM COUNTER": {
     intro: [
-      {
-        face: "amazed",
-        text: "Up here, the whole factory starts ticking. Clock speed sets how many ticks a second Run gives.",
-      },
       { face: "idle", text: "A program is a list of instructions. The program counter keeps our place in it." },
       { face: "idle", text: "Each tick it counts up by 1. With LOAD on, it jumps to ADDR instead." },
       { face: "happy", text: "New in the Wiring section: ON and OFF. Each gives one signal that never changes." },

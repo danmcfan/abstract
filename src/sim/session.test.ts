@@ -785,6 +785,11 @@ describe("the clock speed", () => {
     expect(session.clockSpeed).toBe(64);
   });
 
+  test("snaps a saved speed to the nearest doubling", () => {
+    expect(new Session(memorySave({ ...saved(1), clockSpeed: 5 })).clockSpeed).toBe(4);
+    expect(new Session(memorySave({ ...saved(1), clockSpeed: 12 })).clockSpeed).toBe(16);
+  });
+
   test("a save from before the gauge, or with a speed out of range, starts at 4", () => {
     expect(new Session(memorySave(saved(1))).clockSpeed).toBe(4);
     expect(new Session(memorySave({ ...saved(1), clockSpeed: "fast" })).clockSpeed).toBe(4);

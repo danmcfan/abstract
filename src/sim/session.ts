@@ -29,7 +29,7 @@ import { table, TestRun, type TableRow } from "./testrun";
 export const CLOCK_SPEED = { min: 1, max: 64, start: 4 };
 
 const clockSpeedFrom = (speed: number): number =>
-  Math.min(CLOCK_SPEED.max, Math.max(CLOCK_SPEED.min, Math.round(speed)));
+  2 ** Math.round(Math.log2(Math.min(CLOCK_SPEED.max, Math.max(CLOCK_SPEED.min, speed))));
 
 // Where a passed level leads: the next level on the same floor, up to the
 // floor above through the stack, or nowhere yet.
