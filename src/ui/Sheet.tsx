@@ -1,6 +1,7 @@
 import { For, Match, Show, Switch, createEffect, createSignal, on, onCleanup, onMount, type JSX } from "solid-js";
 import { CLOCK, hasClock, layerOf, type Layer, partGiven, partsBin, terminalWidth, wiring } from "../sim/level";
 import type { Value } from "../sim/node";
+import { CLOCK_SPEED } from "../sim/session";
 import { say } from "./speech";
 import { GateIcon } from "./GateIcon";
 import { SoundButton } from "./SoundButton";
@@ -207,6 +208,25 @@ export function Brief(props: { onStack: (arrive?: number) => void }): JSX.Elemen
             >
               {running() ? "Pause" : "Run"}
             </button>
+            {/* The gauge steps through doublings, 1 to 64 ticks a second. */}
+            <label class="flex items-center gap-1.5 text-xs text-pencil">
+              Clock speed
+              <input
+                id="clock-speed"
+                type="range"
+                min={Math.log2(CLOCK_SPEED.min)}
+                max={Math.log2(CLOCK_SPEED.max)}
+                step={1}
+                value={Math.log2(session().clockSpeed)}
+                class="w-20 accent-ink"
+                onInput={(event) => {
+                  driver.setClockSpeed(2 ** Number(event.currentTarget.value));
+                }}
+              />
+              <output for="clock-speed" class="w-8 font-bold text-ink">
+                {session().clockSpeed}/s
+              </output>
+            </label>
           </Show>
           <button
             id="clear"

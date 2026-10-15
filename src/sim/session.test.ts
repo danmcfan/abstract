@@ -3,8 +3,8 @@ import { moveNode, placeNode, setInput, wire, type Game, type Pin } from "./circ
 import type { Node, NodeID, NodeType } from "./node";
 import type { Rect } from "./grid";
 import { memorySave, type SaveData, type SaveStore } from "./save";
-import { CLOCK_MS, Driver, TEST_STEP_MS, type Scheduler } from "./driver";
-import { Session } from "./session";
+import { Driver, TEST_STEP_MS, type Scheduler } from "./driver";
+import { CLOCK_SPEED, Session } from "./session";
 import { buildSolution, layerOf, LEVELS, type Level } from "./level";
 import { recordingSound } from "./sound";
 
@@ -740,7 +740,7 @@ describe("driving a session", () => {
     const driver = new Driver(session, scheduler, () => {});
     driver.toggleClock();
     expect(driver.running).toBe(true);
-    expect(scheduler.tasks.map((t) => t.ms)).toEqual([CLOCK_MS]);
+    expect(scheduler.tasks.map((t) => t.ms)).toEqual([1000 / CLOCK_SPEED.start]);
     scheduler.fire();
     expect(sound.played.filter((cue) => cue === "clock")).toHaveLength(2);
     driver.toggleClock();
@@ -761,5 +761,56 @@ describe("driving a session", () => {
     driver.clear();
     expect(driver.running).toBe(false);
     expect(scheduler.tasks).toHaveLength(0);
+  });
+});
+
+describe("the clock speed", () => {
+  test("starts at 4 ticks a second", () => {
+    expect(CLOCK_SPEED.start).toBe(4);
+    expect(fresh().session.clockSpeed).toBe(4);
+  });
+
+  test("is kept in the save, and read back by the next session", () => {
+    const { session, store } = fresh();
+    session.setClockSpeed(16);
+    expect(store.load()?.clockSpeed).toBe(16);
+    expect(new Session(store).clockSpeed).toBe(16);
+  });
+
+  test("stays from 1 to 64 ticks a second", () => {
+    const { session } = fresh();
+    session.setClockSpeed(0);
+    expect(session.clockSpeed).toBe(1);
+    session.setClockSpeed(100);
+    expect(session.clockSpeed).toBe(64);
+  });
+
+  test("a save from before the gauge, or with a speed out of range, starts at 4", () => {
+    expect(new Session(memorySave(saved(1))).clockSpeed).toBe(4);
+    expect(new Session(memorySave({ ...saved(1), clockSpeed: "fast" })).clockSpeed).toBe(4);
+    expect(new Session(memorySave({ ...saved(1), clockSpeed: 1000 })).clockSpeed).toBe(64);
+  });
+
+  test("Run ticks as many times a second as it says, and changes pace while running", () => {
+    const { session } = clocked();
+    const scheduler = fakeScheduler();
+    const driver = new Driver(session, scheduler, () => {});
+    driver.setClockSpeed(8);
+    driver.toggleClock();
+    expect(scheduler.tasks.map((t) => t.ms)).toEqual([125]);
+    driver.setClockSpeed(64);
+    expect(driver.running).toBe(true);
+    expect(scheduler.tasks.map((t) => t.ms)).toEqual([1000 / 64]);
+  });
+
+  test("doesn't change a test run's pace", () => {
+    const { session } = clocked();
+    const scheduler = fakeScheduler();
+    const driver = new Driver(session, scheduler, () => {});
+    driver.setClockSpeed(64);
+    driver.test();
+    expect(scheduler.tasks.map((t) => t.ms)).toEqual([TEST_STEP_MS]);
+    driver.setClockSpeed(1);
+    expect(scheduler.tasks.map((t) => t.ms)).toEqual([TEST_STEP_MS]);
   });
 });

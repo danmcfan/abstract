@@ -8,8 +8,6 @@ export interface Scheduler {
 
 // How long a test run waits between rows.
 export const TEST_STEP_MS = 600;
-// How long Run waits between ticks of the clock.
-export const CLOCK_MS = 500;
 
 // Moves a session along in time: steps a test run through its rows, and
 // ticks the clock over and over while Run is on. Opening, clearing or
@@ -87,11 +85,26 @@ export class Driver {
       this.pause();
       return;
     }
-    this.stopClock = this.scheduler.every(CLOCK_MS, () => {
-      this.tick();
-    });
+    this.runClock();
     this.tick();
     this.changed();
+  }
+
+  // Sets the clock speed. A running clock carries on at the new pace.
+  setClockSpeed(speed: number): void {
+    this.session.setClockSpeed(speed);
+    if (this.stopClock) {
+      this.stopClock();
+      this.runClock();
+    }
+    this.changed();
+  }
+
+  // Ticks as many times a second as the clock speed says.
+  private runClock(): void {
+    this.stopClock = this.scheduler.every(1000 / this.session.clockSpeed, () => {
+      this.tick();
+    });
   }
 
   // A new board stops whatever was timed on the old one.
