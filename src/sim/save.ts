@@ -7,12 +7,14 @@ import type { Label, Node, NodeType, Value } from "./node";
 // A saved game: the levels the player has solved and the one they're on,
 // each by the gate it builds, so a save still means the same levels after a
 // level is added or moved; the board they left on each level; and story
-// flags (such as which robot lines they've already heard).
+// flags (such as which robot lines they've already heard); and the clock
+// speed they set, missing from saves written before the gauge.
 export interface SaveData {
   solved: Solved;
   open: NodeType;
   boards: Boards;
   flags: string[];
+  clockSpeed?: number;
 }
 
 // Each level's board, by the gate the level builds.
@@ -158,6 +160,7 @@ interface RawSave {
   boards?: unknown;
   board?: unknown;
   flags?: unknown;
+  clockSpeed?: unknown;
 }
 
 // Saves from before progress was kept by gate held a count of solved levels
@@ -193,5 +196,6 @@ function parseSave(value: unknown): SaveData | null {
   }
   if (isBoard(v.board)) boards[saved.open] = v.board;
   const flags = Array.isArray(v.flags) ? v.flags.filter((f) => typeof f === "string") : [];
-  return { ...saved, boards, flags };
+  const clock = typeof v.clockSpeed === "number" && Number.isFinite(v.clockSpeed) ? { clockSpeed: v.clockSpeed } : {};
+  return { ...saved, boards, flags, ...clock };
 }

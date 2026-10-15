@@ -24,6 +24,13 @@ import { silent, type Sound } from "./sound";
 import { flags, respond, type Cue } from "./story";
 import { table, TestRun, type TableRow } from "./testrun";
 
+// How many ticks a second Run gives the clock: the player sets it on the
+// gauge, and a test run ignores it.
+export const CLOCK_SPEED = { min: 1, max: 64, start: 4 };
+
+const clockSpeedFrom = (speed: number): number =>
+  2 ** Math.round(Math.log2(Math.min(CLOCK_SPEED.max, Math.max(CLOCK_SPEED.min, speed))));
+
 // Where a passed level leads: the next level on the same floor, up to the
 // floor above through the stack, or nowhere yet.
 export type Next = { to: "level"; index: number } | { to: "floor"; layer: Layer } | { to: "end" };
@@ -43,6 +50,8 @@ export class Session {
   // board hasn't changed since.
   stamped = false;
   flags = new Set<string>();
+  // The player's setting, kept in the save. Starting over keeps it.
+  clockSpeed: number = CLOCK_SPEED.start;
   private boards: Boards = {};
   private solvedLevels: Solved;
   // The current test run, or the last one until the board or level changes.
@@ -63,6 +72,7 @@ export class Session {
     const data = store.load();
     this.solvedLevels = data?.solved ?? {};
     this.boards = data?.boards ?? {};
+    if (data?.clockSpeed !== undefined) this.clockSpeed = clockSpeedFrom(data.clockSpeed);
   }
 
   // Whether there's a game to continue.
@@ -122,7 +132,14 @@ export class Session {
       open: this.level.gate,
       boards: this.boards,
       flags: [...this.flags],
+      clockSpeed: this.clockSpeed,
     });
+  }
+
+  // Sets how many ticks a second Run gives, from 1 to 64, and saves it.
+  setClockSpeed(speed: number): void {
+    this.clockSpeed = clockSpeedFrom(speed);
+    this.save();
   }
 
   get level(): Level {

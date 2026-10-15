@@ -1015,6 +1015,170 @@ export const LEVELS: Level[] = [
       ],
     },
   },
+  {
+    gate: "PROGRAM COUNTER",
+    goal: "On a tick, the count takes ADDR if LOAD is on, or else goes up by 1. After 255 comes 0.",
+    layer: 6,
+    inputs: ["CLK", "LOAD", "ADDR"],
+    outputs: ["PC"],
+    widths: { ADDR: 8, PC: 8 },
+    memory: {
+      next: onTick(([, load = 0, addr = 0], [pc = 0]) => [load ? addr : (pc + 1) & 0xff]),
+      outputs: ([, pc = 0]) => [pc],
+    },
+    // It counts, holds while LOAD is set up without a tick, loads, counts
+    // on from there, and wraps.
+    steps: [
+      { inputs: [0, 0, 0], expected: [0] },
+      { inputs: [0, 0, 0], tick: true, expected: [1] },
+      { inputs: [0, 0, 0], tick: true, expected: [2] },
+      { inputs: [0, 0, 0], tick: true, expected: [3] },
+      { inputs: [0, 1, 100], expected: [3] },
+      { inputs: [0, 1, 100], tick: true, expected: [100] },
+      { inputs: [0, 0, 100], tick: true, expected: [101] },
+      { inputs: [0, 1, 254], tick: true, expected: [254] },
+      { inputs: [0, 0, 0], tick: true, expected: [255] },
+      { inputs: [0, 0, 0], tick: true, expected: [0] },
+    ],
+    // A register that loads on every tick. An adder with an ON in CIN gives
+    // PC + 1, and a MUX8 on LOAD picks that or ADDR for the register.
+    solution: {
+      nodes: [
+        { name: "on", type: "ON", x: 20, y: 6 },
+        { name: "pick", type: "MUX8", x: 20, y: 24 },
+        { name: "pc", type: "REGISTER", x: 31, y: 16 },
+        { name: "add", type: "8-BIT ADDER", x: 31, y: 32 },
+      ],
+      wires: [
+        ["CLK", "pc:0"],
+        ["on", "pc:1"],
+        ["pick", "pc:2"],
+        ["pc", "add:0"],
+        ["on", "add:2"],
+        ["add", "pick:0"],
+        ["ADDR", "pick:1"],
+        ["LOAD", "pick:2"],
+        ["pc", "PC"],
+      ],
+    },
+  },
+  {
+    gate: "2-TO-4 DECODER",
+    goal: "Only the output S numbers is on, D0 to D3.",
+    layer: 6,
+    inputs: ["S"],
+    outputs: ["D0", "D1", "D2", "D3"],
+    widths: { S: 2 },
+    target: ([s = 0]) => [0, 1, 2, 3].map((i) => (i === s ? 1 : 0)),
+    // An AND for each output, fed each signal of S or its NOT.
+    solution: {
+      nodes: [
+        { name: "s", type: "SPLIT", x: 11, y: 22, width: 2 },
+        { name: "notHigh", type: "NOT", x: 18, y: 12 },
+        { name: "notLow", type: "NOT", x: 18, y: 32 },
+        { name: "d0", type: "AND", x: 31, y: 9 },
+        { name: "d1", type: "AND", x: 31, y: 18 },
+        { name: "d2", type: "AND", x: 31, y: 27 },
+        { name: "d3", type: "AND", x: 31, y: 36 },
+      ],
+      wires: [
+        ["S", "s"],
+        ["s:0", "notHigh"],
+        ["s:1", "notLow"],
+        ["notHigh", "d0:0"],
+        ["notLow", "d0:1"],
+        ["notHigh", "d1:0"],
+        ["s:1", "d1:1"],
+        ["s:0", "d2:0"],
+        ["notLow", "d2:1"],
+        ["s:0", "d3:0"],
+        ["s:1", "d3:1"],
+        ["d0", "D0"],
+        ["d1", "D1"],
+        ["d2", "D2"],
+        ["d3", "D3"],
+      ],
+    },
+  },
+  {
+    gate: "4-TO-16 DECODER",
+    goal: "Only the signal S numbers is on: LO holds numbers 0 to 7, and HI numbers 8 to 15.",
+    layer: 6,
+    inputs: ["S"],
+    outputs: ["LO", "HI"],
+    widths: { S: 4, LO: 8, HI: 8 },
+    // Joins for S's top and bottom two signals.
+    buses: [2],
+    target: ([s = 0]) => [s < 8 ? 1 << s : 0, s < 8 ? 0 : 1 << (s - 8)],
+    grid: { width: 60, height: 48 },
+    // A 2-to-4 decoder on S's top two signals picks a group of four, and a
+    // DEMUX4 per group sends it to the number S's bottom two signals pick.
+    // Sixteen ANDs would do it too, but go over ten parts (ADR 10).
+    solution: {
+      nodes: [
+        { name: "s", type: "SPLIT", x: 13, y: 24, width: 4 },
+        { name: "high", type: "JOIN", x: 19, y: 12, width: 2 },
+        { name: "low", type: "JOIN", x: 19, y: 38, width: 2 },
+        { name: "group", type: "2-TO-4 DECODER", x: 26, y: 12 },
+        { name: "g0", type: "DEMUX4", x: 35, y: 7 },
+        { name: "g1", type: "DEMUX4", x: 35, y: 17 },
+        { name: "g2", type: "DEMUX4", x: 35, y: 27 },
+        { name: "g3", type: "DEMUX4", x: 35, y: 37 },
+        { name: "lo", type: "JOIN", x: 43, y: 14, width: 8 },
+        { name: "hi", type: "JOIN", x: 43, y: 34, width: 8 },
+      ],
+      wires: [
+        ["S", "s"],
+        ["s:0", "high:0"],
+        ["s:1", "high:1"],
+        ["s:2", "low:0"],
+        ["s:3", "low:1"],
+        ["high", "group"],
+        ...[0, 1, 2, 3].flatMap((g): [string, string][] => [
+          [`group:${g}`, `g${g}:0`],
+          ["low", `g${g}:1`],
+        ]),
+        // A join takes its high bit first, so number n goes in pin 7 - n.
+        ...Array.from({ length: 16 }, (_, n): [string, string] => [
+          `g${Math.floor(n / 4)}:${n % 4}`,
+          n < 8 ? `lo:${7 - n}` : `hi:${15 - n}`,
+        ]),
+        ["lo", "LO"],
+        ["hi", "HI"],
+      ],
+    },
+  },
+  {
+    gate: "SEQUENCER",
+    goal: "EXEC starts off and changes on every tick: off for fetch, on for execute.",
+    layer: 6,
+    inputs: ["CLK"],
+    outputs: ["EXEC"],
+    memory: {
+      next: onTick((_, [exec = 0]) => [1 - exec]),
+      outputs: ([, exec = 0]) => [exec],
+    },
+    steps: [
+      { inputs: [0], expected: [0] },
+      { inputs: [0], tick: true, expected: [1] },
+      { inputs: [0], tick: true, expected: [0] },
+      { inputs: [0], tick: true, expected: [1] },
+      { inputs: [0], tick: true, expected: [0] },
+    ],
+    // A flip-flop that takes the NOT of its own Q on every tick.
+    solution: {
+      nodes: [
+        { name: "not", type: "NOT", x: 16, y: 30 },
+        { name: "ff", type: "D FLIP-FLOP", x: 26, y: 20 },
+      ],
+      wires: [
+        ["not", "ff:0"],
+        ["CLK", "ff:1"],
+        ["ff", "not"],
+        ["ff", "EXEC"],
+      ],
+    },
+  },
 ];
 
 // An ALU on buses width signals wide. Subtract is add with B flipped and a
@@ -1121,18 +1285,26 @@ export function terminalWidth(level: Level, label: Label): number {
   return level.widths?.[label] ?? 1;
 }
 
+// The first layer whose Wiring has the constant nodes, ON and OFF.
+const CONSTANTS_LAYER = 6;
+
 // The parts bin's Wiring section: a split and a join for each bus width the
-// level's terminals use, widest first. Levels without buses have none. They
-// aren't parts, so the level supplies them (ADR 5).
+// level's terminals use, widest first, then from L6 on the constants. Levels
+// without buses have no splits or joins. None of them are parts, so the
+// level supplies them (ADR 5).
 export function wiring(level: Level): { type: NodeType; width: number }[] {
   const terminals = [...level.inputs, ...level.outputs].map((label) => terminalWidth(level, label));
   const widths = [...new Set([...terminals, ...(level.buses ?? [])])];
   const buses = widths.filter((width) => width > 1);
   buses.sort((a, b) => b - a);
-  return buses.flatMap((width) => [
-    { type: "SPLIT" as const, width },
-    { type: "JOIN" as const, width },
-  ]);
+  const constants = level.layer >= CONSTANTS_LAYER ? ["ON", "OFF"].map((type) => ({ type, width: 1 })) : [];
+  return [
+    ...buses.flatMap((width) => [
+      { type: "SPLIT", width },
+      { type: "JOIN", width },
+    ]),
+    ...constants,
+  ];
 }
 
 // A fresh board with the level's input terminals down the left edge, its
