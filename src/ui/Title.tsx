@@ -2,6 +2,7 @@ import { Show, createSignal, type JSX } from "solid-js";
 import { LEVELS, type Level } from "../sim/level";
 import type { Expression } from "../robot/expression";
 import { RobotScreen } from "./RobotScreen";
+import { heading } from "./script";
 import { SoundButton } from "./SoundButton";
 import { session } from "./state";
 
@@ -100,8 +101,7 @@ export function Title(props: { onContinue: () => void; onStack: () => void; onNe
                   >
                     Continue
                     <small class="block text-xs font-normal opacity-80">
-                      {saved().prebuilt === true ? "Meet" : "Build"} {saved().gate}, level {session().savedLevel + 1} of{" "}
-                      {LEVELS.length}
+                      {heading(saved())}, level {session().savedLevel + 1} of {LEVELS.length}
                     </small>
                   </button>
                   <button

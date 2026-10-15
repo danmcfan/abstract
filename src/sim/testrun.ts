@@ -6,7 +6,7 @@ import {
   testTable,
   type CheckResult,
   type CheckedRow,
-  type Level,
+  type CircuitLevel,
   type Row,
 } from "./level";
 import type { Value } from "./node";
@@ -30,7 +30,7 @@ function tableRow(row: Row, actual?: Value[]): TableRow {
 }
 
 // The level's truth table or timing table, before any test run.
-export function table(level: Level): TableRow[] {
+export function table(level: CircuitLevel): TableRow[] {
   return testTable(level).map((row) => tableRow(row));
 }
 
@@ -53,10 +53,10 @@ export class TestRun {
   // A new array each time a row is shown, and only then, so the level panel
   // redraws once per row.
   rows: TableRow[];
-  private readonly level: Level;
+  private readonly level: CircuitLevel;
   private shown = 0;
 
-  constructor(level: Level, result: CheckResult) {
+  constructor(level: CircuitLevel, result: CheckResult) {
     this.level = level;
     this.result = result;
     this.rows = result.rows.map((row) => tableRow(row));

@@ -1,4 +1,5 @@
-import type { CheckResult, Level } from "./level";
+import type { InstructionSetCheck } from "./instruction";
+import { levelId, type CheckResult, type Level } from "./level";
 import type { NodeType } from "./node";
 
 // Something Bitbox reacts to. The sim decides when he speaks and which story
@@ -11,13 +12,14 @@ export type Cue =
   | { say: "failed" }
   | { say: "forbidden"; parts: NodeType[] }
   | { say: "unstable" }
+  | { say: "error" }
   | { react: "happy" };
 
 // The story flag keys, one per thing Bitbox only says once.
 export const flags = {
-  intro: (level: Level): string => `intro:${level.gate}`,
-  solved: (level: Level): string => `solved:${level.gate}`,
-  failed: (level: Level): string => `failed:${level.gate}`,
+  intro: (level: Level): string => `intro:${levelId(level)}`,
+  solved: (level: Level): string => `solved:${levelId(level)}`,
+  failed: (level: Level): string => `failed:${levelId(level)}`,
   floor: (layer: number): string => `floor:${layer}`,
 };
 
@@ -40,4 +42,27 @@ export function respond(
   if (result.unstable) return { cue: { say: "unstable" } };
   const flag = flags.failed(level);
   return heard(flag) ? null : { cue: { say: "failed" }, flag };
+}
+
+// What Bitbox does after an edit to the instruction set, which is checked
+// as the player types. A table that turns good gets the solved lines the
+// first time and a happy face after, but an edit to a table already good
+// gets nothing, or every keystroke would; the first row that goes bad gets one warning. A row
+// still blank isn't bad, since the table starts blank.
+export function respondToTable(
+  before: InstructionSetCheck,
+  check: InstructionSetCheck,
+  level: Level,
+  heard: (flag: string) => boolean,
+): { cue: Cue; flag?: string } | null {
+  if (check.solved) {
+    if (before.solved) return null;
+    const flag = flags.solved(level);
+    return heard(flag) ? { cue: { react: "happy" } } : { cue: { say: "solved", level }, flag };
+  }
+  const bad = Object.values(check.rows).some((row) =>
+    [row.mnemonic, row.opcode].some((problem) => problem !== null && problem !== "needed"),
+  );
+  const flag = flags.failed(level);
+  return bad && !heard(flag) ? { cue: { say: "error" }, flag } : null;
 }

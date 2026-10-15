@@ -1,6 +1,7 @@
 import { restart, type Edge, type Game } from "./circuit";
 import { DEFAULT_GRID, type Size } from "./grid";
-import { LEVELS, PARTS, revisionOf, type Solved } from "./level";
+import { INSTRUCTIONS, OPCODES, type InstructionRow, type InstructionSet } from "./instruction";
+import { circuits, LEVELS, levelId, PARTS, revisionOf, type Solved } from "./level";
 import { hasKind, kindOf, type Parts } from "./kind";
 import type { Label, Node, NodeType, Value } from "./node";
 
@@ -8,13 +9,17 @@ import type { Label, Node, NodeType, Value } from "./node";
 // each by the gate it builds, so a save still means the same levels after a
 // level is added or moved; the board they left on each level; and story
 // flags (such as which robot lines they've already heard); and the clock
-// speed they set, missing from saves written before the gauge.
+// speed they set, missing from saves written before the gauge; and their
+// instruction set as it stands, with the last one that was good, which
+// everything after L7 reads. Saves from before L7 have neither.
 export interface SaveData {
   solved: Solved;
   open: NodeType;
   boards: Boards;
   flags: string[];
   clockSpeed?: number;
+  instructionSet?: InstructionSet;
+  validInstructionSet?: InstructionSet;
 }
 
 // Each level's board, by the gate the level builds.
@@ -161,6 +166,8 @@ interface RawSave {
   board?: unknown;
   flags?: unknown;
   clockSpeed?: unknown;
+  instructionSet?: unknown;
+  validInstructionSet?: unknown;
 }
 
 // Saves from before progress was kept by gate held a count of solved levels
@@ -177,8 +184,8 @@ function readProgress(v: RawSave): Pick<SaveData, "solved" | "open"> | null {
   if (typeof v.solved !== "number" || typeof v.levelIndex !== "number") return null;
   const open = LEVELS[Math.min(Math.max(v.levelIndex, 0), LEVELS.length - 1)];
   if (open === undefined) return null;
-  const solved = Object.fromEntries(LEVELS.slice(0, v.solved).map((level) => [level.gate, revisionOf(level)]));
-  return { solved, open: open.gate };
+  const solved = Object.fromEntries(LEVELS.slice(0, v.solved).map((level) => [levelId(level), revisionOf(level)]));
+  return { solved, open: levelId(open) };
 }
 
 // Anything that doesn't look like a save reads as no save, and a board that
@@ -192,10 +199,41 @@ function parseSave(value: unknown): SaveData | null {
   const boards: Boards = {};
   if (typeof v.boards === "object" && v.boards !== null) {
     for (const [gate, board] of Object.entries(v.boards))
-      if (LEVELS.some((level) => level.gate === gate) && isBoard(board)) boards[gate] = board;
+      if (circuits(LEVELS).some((level) => level.gate === gate) && isBoard(board)) boards[gate] = board;
   }
   if (isBoard(v.board)) boards[saved.open] = v.board;
   const flags = Array.isArray(v.flags) ? v.flags.filter((f) => typeof f === "string") : [];
   const clock = typeof v.clockSpeed === "number" && Number.isFinite(v.clockSpeed) ? { clockSpeed: v.clockSpeed } : {};
-  return { ...saved, boards, flags, ...clock };
+  const table = readInstructionSet(v.instructionSet);
+  const valid = readInstructionSet(v.validInstructionSet);
+  return {
+    ...saved,
+    boards,
+    flags,
+    ...clock,
+    ...(table && { instructionSet: table }),
+    ...(valid && { validInstructionSet: valid }),
+  };
+}
+
+// Keeps each row of a saved instruction set that looks like a row; the
+// rest read as blank.
+function readInstructionSet(value: unknown): InstructionSet | null {
+  if (typeof value !== "object" || value === null) return null;
+  const rows: Record<string, unknown> = { ...value };
+  const set: InstructionSet = {};
+  for (const { id } of INSTRUCTIONS) {
+    const row = readRow(rows[id]);
+    if (row) set[id] = row;
+  }
+  return set;
+}
+
+function readRow(row: unknown): InstructionRow | null {
+  if (typeof row !== "object" || row === null || !("mnemonic" in row) || !("opcode" in row)) return null;
+  const { mnemonic, opcode } = row;
+  if (typeof mnemonic !== "string") return null;
+  if (opcode === null) return { mnemonic, opcode };
+  if (typeof opcode !== "number" || !Number.isInteger(opcode) || opcode < 0 || opcode >= OPCODES) return null;
+  return { mnemonic, opcode };
 }
