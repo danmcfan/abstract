@@ -259,6 +259,28 @@ const EXPECTED: Record<NodeType, Expected[]> = {
       cases: [[[2], [0, 0, 1, 0]]],
     },
   ],
+  "4-BIT ZERO TEST": [
+    {
+      ins: [4],
+      outs: [1],
+      size: [6, 4],
+      cases: [
+        [[0], [1]],
+        [[8], [0]],
+      ],
+    },
+  ],
+  "ZERO TEST": [
+    {
+      ins: [8],
+      outs: [1],
+      size: [6, 4],
+      cases: [
+        [[0], [1]],
+        [[128], [0]],
+      ],
+    },
+  ],
   "4-TO-16 DECODER": [
     {
       ins: [4],

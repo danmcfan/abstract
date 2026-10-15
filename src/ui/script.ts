@@ -442,6 +442,22 @@ const LEVELS: Partial<Record<NodeType, LevelScript>> = {
     ],
     solved: [{ face: "happy", text: "4-to-16 decoder, done! Any instruction number, one signal lit." }],
   },
+  "4-BIT ZERO TEST": {
+    intro: [
+      { face: "idle", text: "Soon our CPU will need to ask: is this number zero? Then it can decide where to jump." },
+      { face: "idle", text: "ZERO is on only when every signal of A is off." },
+    ],
+    hint: [
+      { face: "thinking", text: "Split A. An OR of two signals is on if either is." },
+      { face: "thinking", text: "OR them in pairs, then OR the pairs. That one wire is on when A isn't zero." },
+      { face: "thinking", text: "NOT it, and ZERO is on only when A is 0." },
+      CONTROLS,
+    ],
+    solved: [
+      { face: "happy", text: "Zero test, done! Every signal off, one lamp on." },
+      { face: "idle", text: "8 signals is just one more row of ORs. There's an 8-signal zero test in your parts bin!" },
+    ],
+  },
   SEQUENCER: {
     intro: [
       { face: "idle", text: "Every instruction takes two ticks. Fetch reads it, then execute does it." },
