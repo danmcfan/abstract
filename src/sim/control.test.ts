@@ -1,0 +1,175 @@
+import { describe, expect, test } from "bun:test";
+import { placeNode, restart, setInputs, terminalNamed, tick, wire } from "./circuit";
+import {
+  buildSolution,
+  checkLevel,
+  floorAbove,
+  layerLevels,
+  LEVELS,
+  loadLevel,
+  partsBin,
+  truthTable,
+  wiring,
+  type Level,
+} from "./level";
+import type { NodeType, Value } from "./node";
+
+const levelIndex = (type: NodeType): number => LEVELS.findIndex((level) => level.gate === type);
+const levelOf = (type: NodeType): Level => LEVELS[levelIndex(type)]!;
+
+const wiringOf = (gate: NodeType): NodeType[] => wiring(levelOf(gate)).map((w) => w.type);
+
+const L6 = ["PROGRAM COUNTER", "2-TO-4 DECODER", "4-TO-16 DECODER", "SEQUENCER"];
+
+// The level's own part, wired straight between its terminals, ticked with
+// the given inputs (CLK left off) and read after each tick.
+function ticks(gate: NodeType, inputs: Value[][]): Value[][] {
+  const level = levelOf(gate);
+  const game = loadLevel({ ...level, prebuilt: true });
+  const clock = terminalNamed(game, "input", "CLK")!.id;
+  const lamps = level.outputs.map((label) => terminalNamed(game, "output", label)!);
+  const switches = level.inputs.map((label) => terminalNamed(game, "input", label)!.id);
+  return inputs.map((values) => {
+    setInputs(game, new Map(switches.flatMap((id, i) => (id === clock ? [] : [[id, values[i] ?? 0] as const]))));
+    tick(game, clock);
+    return lamps.map((lamp) => [...game.edges.values()].find((edge) => edge.to === lamp.id)!.value);
+  });
+}
+
+describe("the L6 levels", () => {
+  test("follow RAM, in order, with the sequencer last", () => {
+    const first = levelIndex("RAM") + 1;
+    expect(layerLevels(6).map((i) => LEVELS[i]!.gate)).toEqual(L6);
+    expect(layerLevels(6)[0]).toBe(first);
+    expect(floorAbove(levelIndex("RAM"))?.floor).toBe("the clock tower");
+  });
+
+  test.each(L6)("%s puts its part in the parts bin once solved", (gate) => {
+    expect(partsBin(levelIndex(gate) + 1)).toContain(gate);
+    expect(partsBin(levelIndex(gate))).not.toContain(gate);
+  });
+
+  test("the program counter and the sequencer have timing tables, and the decoders truth tables", () => {
+    expect(L6.filter((gate) => levelOf(gate).steps !== undefined)).toEqual(["PROGRAM COUNTER", "SEQUENCER"]);
+  });
+});
+
+describe("the constant node", () => {
+  test("is in the Wiring section from L6 on, and not before", () => {
+    expect(wiringOf("RAM")).not.toContain("ON");
+    for (const gate of L6) expect(wiringOf(gate)).toContain("ON");
+    for (const gate of L6) expect(wiringOf(gate)).toContain("OFF");
+  });
+
+  test("doesn't fail the parts-bin rule", () => {
+    const index = levelIndex("SEQUENCER");
+    const game = loadLevel(levelOf("SEQUENCER"));
+    placeNode(game, "ON", { x: 20, y: 10 });
+    placeNode(game, "OFF", { x: 20, y: 30 });
+    expect(checkLevel(game, index).forbidden).toEqual([]);
+  });
+
+  test("ON always gives 1 and OFF always 0", () => {
+    const game = loadLevel(levelOf("SEQUENCER"));
+    const on = placeNode(game, "ON", { x: 20, y: 10 })!;
+    const off = placeNode(game, "OFF", { x: 20, y: 30 })!;
+    restart(game);
+    expect(on.signals).toEqual([1]);
+    expect(off.signals).toEqual([0]);
+  });
+});
+
+describe("the program counter", () => {
+  test("counts 0, 1, 2 from 0, one a tick", () => {
+    expect(
+      ticks("PROGRAM COUNTER", [
+        [0, 0, 0],
+        [0, 0, 0],
+        [0, 0, 0],
+      ]),
+    ).toEqual([[1], [2], [3]]);
+  });
+
+  test("takes ADDR on a tick with LOAD on, and counts on from there", () => {
+    expect(
+      ticks("PROGRAM COUNTER", [
+        [0, 1, 200],
+        [0, 0, 7],
+        [0, 0, 7],
+      ]),
+    ).toEqual([[200], [201], [202]]);
+  });
+
+  test("wraps from 255 to 0", () => {
+    expect(
+      ticks("PROGRAM COUNTER", [
+        [0, 1, 255],
+        [0, 0, 0],
+      ]),
+    ).toEqual([[255], [0]]);
+  });
+
+  test("its timing table loads and wraps", () => {
+    const steps = levelOf("PROGRAM COUNTER").steps!;
+    expect(steps.some((step) => step.inputs[1] === 1 && step.tick === true)).toBe(true);
+    expect(steps.some((step) => step.expected[0] === 0 && step.tick === true && step.inputs[1] === 0)).toBe(true);
+  });
+});
+
+describe("the 2-to-4 decoder", () => {
+  test("turns on only the output S numbers", () => {
+    expect(truthTable(levelOf("2-TO-4 DECODER")).map((row) => row.expected)).toEqual([
+      [1, 0, 0, 0],
+      [0, 1, 0, 0],
+      [0, 0, 1, 0],
+      [0, 0, 0, 1],
+    ]);
+  });
+});
+
+describe("the 4-to-16 decoder", () => {
+  test("has exactly one of its 16 signals on for each S, the one S numbers", () => {
+    const rows = truthTable(levelOf("4-TO-16 DECODER"));
+    expect(rows).toHaveLength(16);
+    for (const [s, { expected }] of rows.entries()) {
+      const [lo = 0, hi = 0] = expected;
+      expect(lo | (hi << 8)).toBe(1 << s);
+    }
+  });
+});
+
+describe("the sequencer", () => {
+  test("gives off, on, off, on over four ticks", () => {
+    expect(ticks("SEQUENCER", [[0], [0], [0], [0]])).toEqual([[1], [0], [1], [0]]);
+  });
+
+  test("starts off, and its timing table goes off, on, off, on", () => {
+    const steps = levelOf("SEQUENCER").steps!;
+    expect(steps.map((step) => step.expected[0])).toEqual([0, 1, 0, 1, 0]);
+  });
+
+  test("is off again at the start of every test run", () => {
+    const level = levelOf("SEQUENCER");
+    const game = loadLevel(level);
+    buildSolution(game, level);
+    tick(game, terminalNamed(game, "input", "CLK")!.id);
+    expect(terminalNamed(game, "output", "EXEC")!.isHigh).toBe(true);
+    const index = levelIndex("SEQUENCER");
+    expect(checkLevel(game, index).passed).toBe(true);
+    expect(checkLevel(game, index).rows[0]!.actual).toEqual([0]);
+  });
+});
+
+test("a NOT fed back into a flip-flop is a sequencer", () => {
+  const level = levelOf("SEQUENCER");
+  const game = loadLevel(level);
+  const ff = placeNode(game, "D FLIP-FLOP", { x: 24, y: 20 })!.id;
+  const not = placeNode(game, "NOT", { x: 14, y: 30 })!.id;
+  const clk = terminalNamed(game, "input", "CLK")!.id;
+  const exec = terminalNamed(game, "output", "EXEC")!.id;
+  wire(game, { node: ff, side: "out", index: 0 }, { node: not, side: "in", index: 0 });
+  wire(game, { node: not, side: "out", index: 0 }, { node: ff, side: "in", index: 0 });
+  wire(game, { node: clk, side: "out", index: 0 }, { node: ff, side: "in", index: 1 });
+  wire(game, { node: ff, side: "out", index: 0 }, { node: exec, side: "in", index: 0 });
+  expect(checkLevel(game, levelIndex("SEQUENCER")).passed).toBe(true);
+});

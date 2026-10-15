@@ -399,6 +399,68 @@ const LEVELS: Partial<Record<NodeType, LevelScript>> = {
       { face: "thinking", text: "But nothing ticks the clock for us yet. Next floor up, we find out who keeps time." },
     ],
   },
+  "PROGRAM COUNTER": {
+    intro: [
+      {
+        face: "amazed",
+        text: "Up here, the whole factory starts ticking. Clock speed sets how many ticks a second Run gives.",
+      },
+      { face: "idle", text: "A program is a list of instructions. The program counter keeps our place in it." },
+      { face: "idle", text: "Each tick it counts up by 1. With LOAD on, it jumps to ADDR instead." },
+      { face: "happy", text: "New in the Wiring section: ON and OFF. Each gives one signal that never changes." },
+    ],
+    hint: [
+      { face: "thinking", text: "A register keeps the count. Give its LOAD an ON, so it takes a value every tick." },
+      { face: "thinking", text: "An 8-bit adder with ON in CIN gives the count plus 1." },
+      { face: "thinking", text: "A MUX8 on LOAD picks that or ADDR for the register." },
+      CONTROLS,
+    ],
+    solved: [
+      { face: "happy", text: "Program counter, done! 1, 2, 3, and round again after 255." },
+      { face: "idle", text: "Our CPU will never lose its place now." },
+    ],
+  },
+  "2-TO-4 DECODER": {
+    intro: [
+      { face: "idle", text: "A decoder turns a number into one signal." },
+      { face: "idle", text: "S is a number from 0 to 3. Only the output with S's number is on." },
+    ],
+    hint: [
+      { face: "thinking", text: "Split S. Each output is an AND of two signals." },
+      { face: "thinking", text: "D0 wants both of S's signals off. NOT them first." },
+      CONTROLS,
+    ],
+    solved: [{ face: "happy", text: "Decoder, done! Two signals in, one of four lit." }],
+  },
+  "4-TO-16 DECODER": {
+    intro: [
+      { face: "idle", text: "Our CPU will read a number from 0 to 15 for each instruction." },
+      { face: "idle", text: "This decoder lights one of 16 signals for it. LO has 0 to 7, and HI 8 to 15." },
+    ],
+    hint: [
+      { face: "thinking", text: "Split S. Its top two signals pick a group of four, with a 2-to-4 decoder." },
+      { face: "thinking", text: "A DEMUX4 per group, on S's bottom two signals, picks the one within it." },
+      { face: "thinking", text: "Join the 16 signals into LO and HI. Number 0 goes in LO's bottom pin." },
+      CONTROLS,
+    ],
+    solved: [{ face: "happy", text: "4-to-16 decoder, done! Any instruction number, one signal lit." }],
+  },
+  SEQUENCER: {
+    intro: [
+      { face: "idle", text: "Every instruction takes two ticks. Fetch reads it, then execute does it." },
+      { face: "idle", text: "The sequencer keeps track. EXEC is off on fetch ticks and on on execute ticks." },
+    ],
+    hint: [
+      { face: "thinking", text: "EXEC changes on every tick. A flip-flop changes on a tick." },
+      { face: "thinking", text: "Feed the flip-flop the NOT of its own Q." },
+      CONTROLS,
+    ],
+    solved: [
+      { face: "happy", text: "Sequencer, done! Fetch, execute, fetch, execute." },
+      { face: "amazed", text: "That's the clock tower wound up. The whole factory keeps time with us now." },
+      { face: "thinking", text: "Next we decide what our instructions are called." },
+    ],
+  },
 };
 
 // The first time the elevator reaches each floor, by layer number.

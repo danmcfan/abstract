@@ -385,9 +385,9 @@ export function PartsBin(): JSX.Element {
               </button>
             )}
           </For>
-          {/* Split and join are wiring the level supplies, not parts, so they
-              sit apart at the end, from a fresh column, and only on levels
-              with buses. */}
+          {/* Splits, joins and constants are wiring the level supplies, not
+              parts, so they sit apart at the end, from a fresh column, and
+              only on levels that have some. */}
           <Show when={wiring(session().level).length > 0}>
             <span class="row-span-2 border-l-2 border-dashed border-ink" aria-hidden="true" />
             <For each={wiring(session().level)}>
@@ -402,7 +402,7 @@ export function PartsBin(): JSX.Element {
                   }}
                 >
                   <GateIcon type={w.type} width={Math.min(w.width, 4)} class="h-6 w-10 shrink-0" />
-                  {`${w.type} ${w.width}`}
+                  {w.width > 1 ? `${w.type} ${w.width}` : w.type}
                 </button>
               )}
             </For>

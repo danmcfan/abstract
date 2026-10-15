@@ -3,7 +3,7 @@ import { bitOf, mask, type Label, type NodeType, type State, type Value } from "
 
 // What a node kind is, all in one place: its pins and their widths, its
 // size, what it computes, what the player can do with it, and how it's
-// drawn. Terminals, splits and joins are the same on every level; parts come
+// drawn. Terminals, splits, joins and constants are the same on every level; parts come
 // from the levels that build them (ADR 6), through a registry made from
 // those levels. Width is how many signals a terminal, split or join carries;
 // other kinds ignore it.
@@ -140,7 +140,25 @@ const SUPPLIED: readonly NodeKind[] = [
     removable: true,
     look: { shape: "bundle", bus: "out" },
   },
+  constant("ON", 1),
+  constant("OFF", 0),
 ];
+
+// A constant node gives one fixed signal from its only pin, always. It's
+// drawn as a small box with its signal written inside.
+function constant(type: NodeType, signal: Value): NodeKind {
+  return {
+    type,
+    inputCount: () => 0,
+    outputCount: () => 1,
+    pinWidth: () => 1,
+    size: () => TERMINAL_SIZE,
+    evaluate: () => [signal],
+    clickable: false,
+    removable: true,
+    look: { shape: "box", inputs: [], outputs: [""], flare: 0 },
+  };
+}
 
 // Terminals and the wiring a level supplies: never parts (ADR 5).
 const SUPPLIED_KINDS = new Map(SUPPLIED.map((kind) => [kind.type, kind]));

@@ -228,12 +228,12 @@ describe("a level with buses", () => {
     ]);
   });
 
-  test("offers a split and a join for each bus width; single-signal levels offer none", () => {
+  test("offers a split and a join for each bus width; single-signal levels before L6 offer none", () => {
     expect(wiring(ADD8)).toEqual([
       { type: "SPLIT", width: 8 },
       { type: "JOIN", width: 8 },
     ]);
-    for (const level of LEVELS.filter((l) => l.widths === undefined)) expect(wiring(level)).toEqual([]);
+    for (const level of LEVELS.filter((l) => l.widths === undefined && l.layer < 6)) expect(wiring(level)).toEqual([]);
   });
 
   test("a 4-bit adder built from full adders with split and join passes", () => {
