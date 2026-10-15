@@ -1,4 +1,4 @@
-import type { Level } from "../sim/level";
+import { INSTRUCTION_SET_ID, levelId, type Level } from "../sim/level";
 import type { NodeType } from "../sim/node";
 import type { Cue } from "../sim/story";
 import type { Line } from "./speech";
@@ -19,7 +19,8 @@ interface LevelScript {
   solved: Line[];
 }
 
-const LEVELS: Partial<Record<NodeType, LevelScript>> = {
+// Keyed by levelId: a circuit level's gate, or the instruction set level's id.
+const LEVELS: Partial<Record<string, LevelScript>> = {
   NAND: {
     intro: [
       { face: "loading", text: "Booting up. Memory banks: mostly empty." },
@@ -474,34 +475,64 @@ const LEVELS: Partial<Record<NodeType, LevelScript>> = {
       { face: "thinking", text: "Next we decide what our instructions are called." },
     ],
   },
+  [INSTRUCTION_SET_ID]: {
+    intro: [
+      { face: "idle", text: "A CPU only understands numbers. Each instruction needs one: its opcode." },
+      { face: "idle", text: "And we need a short name for each, a mnemonic, so people can read a program." },
+      { face: "happy", text: "I've pencilled in my picks. Use them, or type your own. Letters only, six at most." },
+    ],
+    hint: [
+      { face: "thinking", text: "Every mnemonic and every opcode has to be different. One opcode is left spare." },
+      { face: "idle", text: "Use Bitbox's fills a row with my pick. Use all of Bitbox's fills the lot." },
+    ],
+    solved: [
+      { face: "amazed", text: "Fifteen instructions, fifteen names. That's a language, partner." },
+      { face: "happy", text: "You can come back and rename things any time. The CPU will read whatever's on file." },
+    ],
+  },
 };
 
 // The first time the elevator reaches each floor, by layer number.
-const FLOORS: Record<number, Line> = {
-  2: { face: "amazed", text: "The logic line! Belts full of gates. Let's build some of our own." },
-  3: { face: "happy", text: "Adder assembly. Gates that count. Let's teach them to add." },
-  4: { face: "thinking", text: "The calculation shop. One part that does six jobs, built from what we have." },
-  5: { face: "thinking", text: "The filing vault. Our parts forget everything. Here they learn to remember." },
-  6: { face: "amazed", text: "The clock tower. Hear that ticking? The whole factory keeps time from here." },
-  7: { face: "idle", text: "The typing pool. Rows of old typewriters. Here we name our own instructions." },
-  8: { face: "amazed", text: "The control room. Every part we've built comes together up here." },
-  9: { face: "happy", text: "The exit hall. I can see the door! One program left to write." },
+const FLOORS: Record<number, Line[]> = {
+  2: [{ face: "amazed", text: "The logic line! Belts full of gates. Let's build some of our own." }],
+  3: [{ face: "happy", text: "Adder assembly. Gates that count. Let's teach them to add." }],
+  4: [{ face: "thinking", text: "The calculation shop. One part that does six jobs, built from what we have." }],
+  5: [{ face: "thinking", text: "The filing vault. Our parts forget everything. Here they learn to remember." }],
+  6: [{ face: "amazed", text: "The clock tower. Hear that ticking? The whole factory keeps time from here." }],
+  7: [
+    {
+      face: "amazed",
+      text: "Typewriters! Rows and rows of them. This must be where the programs got written.",
+    },
+    { face: "thinking", text: "Before we build a CPU, it needs a language. We get to invent it." },
+  ],
+  8: [{ face: "amazed", text: "The control room. Every part we've built comes together up here." }],
+  9: [{ face: "happy", text: "The exit hall. I can see the door! One program left to write." }],
 };
 
-const floor = (layer: number): Line[] => (FLOORS[layer] ? [FLOORS[layer]] : []);
+const floor = (layer: number): Line[] => FLOORS[layer] ?? [];
 
-export const intro = (level: Level): Line[] => LEVELS[level.gate]?.intro ?? [];
+// The sheet's title for a level.
+export function heading(level: Level): string {
+  if (level.kind === "instruction set") return "Instruction set";
+  return `${level.prebuilt === true ? "Meet" : "Build"} ${level.gate}`;
+}
+
+export const intro = (level: Level): Line[] => LEVELS[levelId(level)]?.intro ?? [];
 
 export const solved = (level: Level): Line[] =>
-  LEVELS[level.gate]?.solved ?? [{ face: "happy", text: `${level.gate}, done!` }];
+  LEVELS[levelId(level)]?.solved ?? [{ face: "happy", text: `${levelId(level)}, done!` }];
+
+function about(level: Level): string {
+  if (level.kind === "instruction set") return `We're writing our instruction set. ${level.goal}`;
+  return level.prebuilt === true
+    ? `This is ${level.gate}. ${level.goal}`
+    : `We're building ${level.gate}. ${level.goal}`;
+}
 
 export const help = (level: Level): Line[] => [
-  {
-    face: "idle",
-    text:
-      level.prebuilt === true ? `This is ${level.gate}. ${level.goal}` : `We're building ${level.gate}. ${level.goal}`,
-  },
-  ...(LEVELS[level.gate]?.hint ?? [CONTROLS]),
+  { face: "idle", text: about(level) },
+  ...(LEVELS[levelId(level)]?.hint ?? [CONTROLS]),
 ];
 
 const failed: Line[] = [
@@ -518,15 +549,26 @@ const forbidden = (types: NodeType[]): Line[] => [
   { face: "worried", text: `${types.join(" and ")} isn't allowed on this level yet. Stick to the parts in the bin.` },
 ];
 
-const welcomeBack = (level: Level): Line[] => [
+const tableError: Line[] = [
   {
-    face: "happy",
-    text:
-      level.prebuilt === true
-        ? `Welcome back! We were looking at ${level.gate}.`
-        : `Welcome back! We were building ${level.gate}.`,
+    face: "worried",
+    text: "Careful: every name and every number has to be different, or the CPU won't know which you meant.",
   },
 ];
+
+function welcomeBack(level: Level): Line[] {
+  if (level.kind === "instruction set")
+    return [{ face: "idle", text: "Changing your mind? Go ahead. Everything downstream reads this table." }];
+  return [
+    {
+      face: "happy",
+      text:
+        level.prebuilt === true
+          ? `Welcome back! We were looking at ${level.gate}.`
+          : `Welcome back! We were building ${level.gate}.`,
+    },
+  ];
+}
 
 // On the notice that shows instead of the game: on a touch device, which
 // never plays, and on a desktop window too small to fit the sheet.
@@ -564,6 +606,9 @@ export function lines(cue: Exclude<Cue, { react: string }>): Line[] {
       break;
     case "unstable":
       said = unstable;
+      break;
+    case "error":
+      said = tableError;
       break;
   }
   return said;

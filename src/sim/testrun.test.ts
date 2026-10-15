@@ -1,12 +1,21 @@
 import { describe, expect, test } from "bun:test";
 import { edgeInto, placeNode, restart, terminalNamed, wire, type Game, type Pin } from "./circuit";
-import { partsFrom } from "./kind";
-import { buildSolution, checkLevel, loadLevel, LEVELS, type CheckResult, type Level } from "./level";
+import {
+  buildSolution,
+  checkLevel,
+  loadLevel,
+  LEVELS,
+  type CheckResult,
+  type Level,
+  type CircuitLevel,
+  circuitAt,
+  partsOf,
+} from "./level";
 import type { NodeID, Value } from "./node";
 import { table, TestRun } from "./testrun";
 
 // The NOT level: input A, output Y, two rows.
-const NOT = LEVELS[1]!;
+const NOT = circuitAt(1);
 
 // A run's check, as checkLevel would give it: the first shown row wrong, the second
 // right, and any rows that failed out of sight.
@@ -80,14 +89,14 @@ describe("test run", () => {
 
 // What the board's output terminals show, in the level's label order: the
 // value on the wire into each, or 0 when it isn't wired.
-function boardOutputs(game: Game, level: Level): Value[] {
+function boardOutputs(game: Game, level: CircuitLevel): Value[] {
   return level.outputs.map((label) => edgeInto(game, terminalNamed(game, "output", label)!.id, 0)?.value ?? 0);
 }
 
 // Steps a whole test run of the board after a restart, as the session does,
 // and gives each shown row's recorded actual next to what the board showed.
 function stepRun(game: Game, levels: Level[], index: number): { recorded: Value[]; shown: Value[] }[] {
-  const level = levels[index]!;
+  const level = circuitAt(index, levels);
   restart(game);
   const run = new TestRun(level, checkLevel(game, index, levels));
   const seen: { recorded: Value[]; shown: Value[] }[] = [];
@@ -156,7 +165,7 @@ describe("a test run's board", () => {
   test("shows the recorded outputs on every row of every level's intended solution", () => {
     // Each value is paired with its gate, so a failure names the level.
     LEVELS.forEach((level, index) => {
-      if (level.solution === undefined) return;
+      if (level.kind === "instruction set" || level.solution === undefined) return;
       const game = loadLevel(level);
       buildSolution(game, level);
       for (const { recorded, shown } of stepRun(game, LEVELS, index))
@@ -166,13 +175,13 @@ describe("a test run's board", () => {
 
   test("shows the recorded outputs on a memory level whose steps tick the clock", () => {
     const levels = [...LEVELS, FLIP_FLOP];
-    const game = loadLevel(FLIP_FLOP, partsFrom(levels));
+    const game = loadLevel(FLIP_FLOP, partsOf(levels));
     expectShownAsRecorded(game, levels, [[0], [1], [1], [0]]);
   });
 
   test("shows the recorded outputs on a board that holds its value in a stable loop", () => {
     const levels = [...LEVELS, LATCH];
-    const game = loadLevel(LATCH, partsFrom(levels));
+    const game = loadLevel(LATCH, partsOf(levels));
     const top = placeNode(game, "NAND", { x: 12, y: 6 })!.id;
     const bottom = placeNode(game, "NAND", { x: 12, y: 14 })!.id;
     wire(game, out(terminalNamed(game, "input", "S")!.id), inp(top, 0));

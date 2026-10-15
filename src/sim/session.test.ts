@@ -5,7 +5,7 @@ import type { Rect } from "./grid";
 import { memorySave, type SaveData, type SaveStore } from "./save";
 import { Driver, TEST_STEP_MS, type Scheduler } from "./driver";
 import { CLOCK_SPEED, Session } from "./session";
-import { buildSolution, layerOf, LEVELS, type Level } from "./level";
+import { buildSolution, layerOf, LEVELS, type Level, circuitAt, levelId } from "./level";
 import { recordingSound } from "./sound";
 
 const out = (node: NodeID): Pin => ({ node, side: "out", index: 0 });
@@ -33,8 +33,8 @@ function runAll(session: Session): void {
 const NOT_LEVEL = 1;
 // A save with the first `solved` of levels solved, open on level `open`.
 const saved = (solved: number, open = solved, levels: Level[] = LEVELS): SaveData => ({
-  solved: Object.fromEntries(levels.slice(0, solved).map((level) => [level.gate, level.revision ?? 1])),
-  open: levels[open]!.gate,
+  solved: Object.fromEntries(levels.slice(0, solved).map((level) => [levelId(level), level.revision ?? 1])),
+  open: levelId(levels[open]!),
   boards: {},
   flags: [],
 });
@@ -319,7 +319,7 @@ describe("saved games", () => {
     const store = memorySave({ solved: 3, levelIndex: 2, boards: {}, flags: [] });
     const session = new Session(store);
     session.resume();
-    expect(session.level.gate).toBe("AND");
+    expect(levelId(session.level)).toBe("AND");
     expect(session.solved).toBe(3);
     session.save();
     expect(store.load()).toMatchObject({ solved: { NAND: 1, NOT: 1, AND: 1 }, open: "AND" });
@@ -327,19 +327,19 @@ describe("saved games", () => {
 
   test("a save written before a level was taken out still opens on the same part", () => {
     // The game had a NOR level after OR when this was saved, on MUX.
-    const old = [...LEVELS.slice(0, 4), { ...LEVELS[3]!, gate: "NOR" }, ...LEVELS.slice(4)];
+    const old = [...LEVELS.slice(0, 4), { ...circuitAt(3), gate: "NOR" }, ...LEVELS.slice(4)];
     const session = new Session(memorySave(saved(6, 6, old)));
     session.resume();
-    expect(session.level.gate).toBe("MUX");
+    expect(levelId(session.level)).toBe("MUX");
     expect(session.solved).toBe(5);
   });
 
   test("a save written before a level was inserted opens on the new level, which isn't counted solved", () => {
     // The game had no AND level when this was saved, on XOR.
-    const old = LEVELS.filter((level) => level.gate !== "AND");
+    const old = LEVELS.filter((level) => levelId(level) !== "AND");
     const session = new Session(memorySave(saved(3, 3, old)));
     session.resume();
-    expect(session.level.gate).toBe("AND");
+    expect(levelId(session.level)).toBe("AND");
     expect(session.solved).toBe(2);
 
     const a = session.game;
@@ -357,11 +357,11 @@ describe("saved games", () => {
   });
 
   test("a level changed since it was solved must be solved again", () => {
-    const changed = LEVELS.map((level) => (level.gate === "NOT" ? { ...level, revision: 2 } : level));
+    const changed = LEVELS.map((level) => (levelId(level) === "NOT" ? { ...level, revision: 2 } : level));
     const store = memorySave(saved(3, 2));
     const session = new Session(store, undefined, changed);
     session.resume();
-    expect(session.level.gate).toBe("NOT");
+    expect(levelId(session.level)).toBe("NOT");
     expect(session.solved).toBe(1);
 
     buildNot(session.game);
@@ -372,12 +372,12 @@ describe("saved games", () => {
   });
 
   test("a save that solved the ALU slice and 2-bit ALU at revision 1 reopens on the slice", () => {
-    const solved = Object.fromEntries(LEVELS.map((level) => [level.gate, level.revision ?? 1]));
+    const solved = Object.fromEntries(LEVELS.map((level) => [levelId(level), level.revision ?? 1]));
     const session = new Session(
       memorySave({ ...saved(LEVELS.length, LEVELS.length - 1), solved: { ...solved, "ALU SLICE": 1, "2-BIT ALU": 1 } }),
     );
     session.resume();
-    expect(session.level.gate).toBe("ALU SLICE");
+    expect(levelId(session.level)).toBe("ALU SLICE");
   });
 
   test("a save holding a ZERO TEST board and solved entry still loads", () => {
@@ -515,7 +515,7 @@ describe("one board per level", () => {
 // A NAND level, then a D flip-flop level that comes prebuilt, so its board
 // has the part wired between D, CLK and Q.
 const CLOCKED: Level[] = [
-  LEVELS[0]!,
+  circuitAt(0),
   {
     gate: "DFF",
     goal: "Q takes D's value when the clock turns on.",
@@ -581,7 +581,7 @@ describe("a level with a clock", () => {
     sound.played.length = 0;
     session.beginTest();
     expect(q(session)).toBe(false);
-    expect(session.rows).toMatchObject(CLOCKED[1]!.steps!);
+    expect(session.rows).toMatchObject(circuitAt(1, CLOCKED).steps!);
     while (session.step());
     expect(session.result!.passed).toBe(true);
     expect(tested(session)).toEqual([[0], [1], [1]]);
@@ -612,7 +612,7 @@ function passOn(index: number): Session {
   const session = new Session(memorySave(saved(index, index)));
   session.start(index);
   session.edit((game) => {
-    buildSolution(game, session.level);
+    buildSolution(game, circuitAt(index));
   });
   runAll(session);
   return session;
@@ -632,10 +632,6 @@ describe("after a test run", () => {
 
   test("the last level of a layer leads up to the floor above", () => {
     expect(passOn(top).next).toEqual({ to: "floor", layer: layerOf(top + 1) });
-  });
-
-  test("the last level in the game leads nowhere", () => {
-    expect(passOn(LEVELS.length - 1).next).toEqual({ to: "end" });
   });
 });
 

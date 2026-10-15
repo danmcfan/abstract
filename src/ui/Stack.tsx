@@ -1,5 +1,14 @@
 import { For, Show, createEffect, createSignal, onCleanup, onMount, untrack, type JSX } from "solid-js";
-import { LAYERS, LEVELS, layerLevels, layerOf, layerState, playableCount, type LayerState } from "../sim/level";
+import {
+  LAYERS,
+  LEVELS,
+  layerLevels,
+  levelId,
+  layerOf,
+  layerState,
+  playableCount,
+  type LayerState,
+} from "../sim/level";
 import { GateIcon } from "./GateIcon";
 import { session } from "./state";
 
@@ -165,8 +174,10 @@ export function Stack(props: {
                               >
                                 <span class="text-fine text-pencil">SH {pad(i + 1)}</span>
                                 <span class="flex items-center gap-1.5 text-note font-bold">
-                                  <GateIcon type={level.gate} class="h-5 w-7" />
-                                  {level.gate}
+                                  <Show when={level.kind !== "instruction set" && level}>
+                                    {(circuit) => <GateIcon type={circuit().gate} class="h-5 w-7" />}
+                                  </Show>
+                                  {levelId(level)}
                                 </span>
                               </button>
                             );

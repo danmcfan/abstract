@@ -12,12 +12,14 @@ import {
   partsBin,
   truthTable,
   wiring,
-  type Level,
+  circuitAt,
+  levelId,
+  type CircuitLevel,
 } from "./level";
 import type { NodeType, Value } from "./node";
 
-const levelIndex = (type: NodeType): number => LEVELS.findIndex((level) => level.gate === type);
-const levelOf = (type: NodeType): Level => LEVELS[levelIndex(type)]!;
+const levelIndex = (type: NodeType): number => LEVELS.findIndex((level) => levelId(level) === type);
+const levelOf = (type: NodeType): CircuitLevel => circuitAt(levelIndex(type));
 
 const wiringOf = (gate: NodeType): NodeType[] => wiring(levelOf(gate)).map((w) => w.type);
 
@@ -41,7 +43,7 @@ function ticks(gate: NodeType, inputs: Value[][]): Value[][] {
 describe("the L6 levels", () => {
   test("follow RAM, in order, with the sequencer last", () => {
     const first = levelIndex("RAM") + 1;
-    expect(layerLevels(6).map((i) => LEVELS[i]!.gate)).toEqual(L6);
+    expect(layerLevels(6).map((i) => levelId(LEVELS[i]!))).toEqual(L6);
     expect(layerLevels(6)[0]).toBe(first);
     expect(floorAbove(levelIndex("RAM"))?.floor).toBe("the clock tower");
   });

@@ -1,12 +1,13 @@
 import { Show, createSignal, type JSX } from "solid-js";
 import { render } from "solid-js/web";
 import { pinPosition, type Pin } from "./sim/circuit";
-import { layerOf, LEVELS, solutionWires } from "./sim/level";
+import { circuitAt, layerOf, LEVELS, levelId, solutionWires } from "./sim/level";
 import type { Node, NodeID } from "./sim/node";
 import { Board, toScreen } from "./ui/Board";
 import { DesktopNotice } from "./ui/DesktopNotice";
 import { watchScreen } from "./ui/device";
 import { Dialogue } from "./ui/Dialogue";
+import { InstructionForm } from "./ui/InstructionForm";
 import { listenForFirstGesture } from "./ui/sound";
 import { hush, speak, speech } from "./ui/speech";
 import { Brief, MenuBar, PartsBin } from "./ui/Sheet";
@@ -94,7 +95,8 @@ function App(): JSX.Element {
 }
 
 // The sheet: the menu bar across the top, the brief down the left over
-// Bitbox's desk, and the board over the parts bin.
+// Bitbox's desk, and the board over the parts bin. The instruction set level
+// has its form where the board goes.
 function Play(props: { onMenu: () => void; onStack: (arrive?: number) => void; stacked: boolean }): JSX.Element {
   useTutorial();
   return (
@@ -102,7 +104,9 @@ function Play(props: { onMenu: () => void; onStack: (arrive?: number) => void; s
       <MenuBar onMenu={props.onMenu} onStack={props.onStack} />
       <Brief onStack={props.onStack} />
       <div class="relative min-h-0 min-w-0">
-        <Board />
+        <Show when={!session().circuit} fallback={<Board />}>
+          <InstructionForm />
+        </Show>
       </div>
       <Show when={!props.stacked} fallback={<div />}>
         <Dialogue docked />
@@ -132,7 +136,7 @@ if (import.meta.env.DEV) {
         return session().levelIndex;
       },
       get gate() {
-        return session().level.gate;
+        return levelId(session().level);
       },
       // The whole line Bitbox is on, however much of it is typed out yet.
       get saying() {
@@ -144,9 +148,9 @@ if (import.meta.env.DEV) {
       // The open level's intended solution, and its wires once its nodes
       // are on the board as the given nodes, so the playthrough can build it.
       get solution() {
-        return session().level.solution ?? null;
+        return session().circuit?.solution ?? null;
       },
-      solutionWires: (ids: NodeID[]) => solutionWires(current(), session().level, ids),
+      solutionWires: (ids: NodeID[]) => solutionWires(current(), circuitAt(session().levelIndex), ids),
       nodes: () => [...current().nodes.values()].map(({ id, type, label, isHigh }) => ({ id, type, label, isHigh })),
       pinScreen: (id: NodeID, side: Pin["side"], index = 0) => {
         const p = pinPosition(current(), node(id), side, index);

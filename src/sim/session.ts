@@ -1,19 +1,24 @@
 import type { Game } from "./circuit";
-import { placeNode, restart, tick } from "./circuit";
-import { partsFrom, type Parts } from "./kind";
+import { newGame, placeNode, restart, tick } from "./circuit";
+import { DEFAULT_GRID } from "./grid";
+import { checkInstructionSet, normalMnemonic, type InstructionSet, type InstructionSetCheck } from "./instruction";
+import type { Parts } from "./kind";
 import {
   checkLevel,
   clockOf,
   floorAbove,
   levelAt,
+  levelId,
   LEVELS,
   loadLevel,
   PARTS,
+  partsOf,
   matches,
   revisionOf,
   solvedCount,
   playableCount,
   type CheckResult,
+  type CircuitLevel,
   type Layer,
   type Level,
   type Solved,
@@ -21,7 +26,7 @@ import {
 import type { NodeType } from "./node";
 import { loadBoard, saveBoard, type Boards, type SaveStore } from "./save";
 import { silent, type Sound } from "./sound";
-import { flags, respond, type Cue } from "./story";
+import { flags, respond, respondToTable, type Cue } from "./story";
 import { table, TestRun, type TableRow } from "./testrun";
 
 // How many ticks a second Run gives the clock: the player sets it on the
@@ -52,6 +57,10 @@ export class Session {
   flags = new Set<string>();
   // The player's setting, kept in the save. Starting over keeps it.
   clockSpeed: number = CLOCK_SPEED.start;
+  // The instruction set as the player has it in L7, and the last one that
+  // was good, which the levels after it read. Starting over blanks both.
+  instructionSet: InstructionSet = {};
+  validInstructionSet: InstructionSet | null = null;
   private boards: Boards = {};
   private solvedLevels: Solved;
   // The current test run, or the last one until the board or level changes.
@@ -67,11 +76,13 @@ export class Session {
     this.store = store;
     this.sound = sound;
     this.levels = levels;
-    this.parts = levels === LEVELS ? PARTS : partsFrom([...levels, ...levels.flatMap((level) => level.gives ?? [])]);
-    this.game = loadLevel(levelAt(0, levels), this.parts);
+    this.parts = levels === LEVELS ? PARTS : partsOf(levels);
+    this.game = this.boardFor(levelAt(0, levels));
     const data = store.load();
     this.solvedLevels = data?.solved ?? {};
     this.boards = data?.boards ?? {};
+    this.instructionSet = data?.instructionSet ?? {};
+    this.validInstructionSet = data?.validInstructionSet ?? null;
     if (data?.clockSpeed !== undefined) this.clockSpeed = clockSpeedFrom(data.clockSpeed);
   }
 
@@ -86,7 +97,7 @@ export class Session {
     const data = this.store.load();
     if (!data) return 0;
     const last = playableCount(solvedCount(data.solved, this.levels), this.levels) - 1;
-    const open = this.levels.findIndex((level) => level.gate === data.open);
+    const open = this.levels.findIndex((level) => levelId(level) === data.open);
     return open === -1 ? last : Math.min(open, last);
   }
 
@@ -100,6 +111,8 @@ export class Session {
     this.solvedLevels = data.solved;
     this.flags = new Set(data.flags);
     this.boards = data.boards;
+    this.instructionSet = data.instructionSet ?? {};
+    this.validInstructionSet = data.validInstructionSet ?? null;
     this.start(this.savedLevel);
   }
 
@@ -109,6 +122,8 @@ export class Session {
     this.solvedLevels = {};
     this.flags = new Set();
     this.boards = {};
+    this.instructionSet = {};
+    this.validInstructionSet = null;
     this.start(0);
   }
 
@@ -126,14 +141,42 @@ export class Session {
   }
 
   save(): void {
-    this.boards[this.level.gate] = saveBoard(this.game);
+    const { circuit } = this;
+    if (circuit) this.boards[circuit.gate] = saveBoard(this.game);
     this.store.save({
       solved: this.solvedLevels,
-      open: this.level.gate,
+      open: levelId(this.level),
       boards: this.boards,
       flags: [...this.flags],
       clockSpeed: this.clockSpeed,
+      instructionSet: this.instructionSet,
+      ...(this.validInstructionSet && { validInstructionSet: this.validInstructionSet }),
     });
+  }
+
+  // How each row of the instruction set stands.
+  get instructionCheck(): InstructionSetCheck {
+    return checkInstructionSet(this.instructionSet);
+  }
+
+  // Changes rows of the instruction set and saves it. A table that comes
+  // out good solves L7, and becomes the one later levels read; one that
+  // doesn't leaves L7 solved and the last good table in place. Returns what
+  // Bitbox says about it, if anything.
+  editInstructions(rows: InstructionSet): Cue | null {
+    const before = this.instructionCheck;
+    for (const [id, row] of Object.entries(rows)) {
+      Object.assign(this.instructionSet, { [id]: { ...row, mnemonic: normalMnemonic(row.mnemonic) } });
+    }
+    const check = this.instructionCheck;
+    if (check.solved) {
+      this.validInstructionSet = structuredClone(this.instructionSet);
+      this.solvedLevels[levelId(this.level)] = revisionOf(this.level);
+    }
+    const response = respondToTable(before, check, this.level, (flag) => this.flags.has(flag));
+    if (response?.flag !== undefined) this.flags.add(response.flag);
+    this.save();
+    return response?.cue ?? null;
   }
 
   // Sets how many ticks a second Run gives, from 1 to 64, and saves it.
@@ -146,10 +189,17 @@ export class Session {
     return levelAt(this.levelIndex, this.levels);
   }
 
+  // The open level, if it has a circuit: the instruction set level doesn't.
+  get circuit(): CircuitLevel | null {
+    const { level } = this;
+    return level.kind === "instruction set" ? null : level;
+  }
+
   // The rows the level panel shows, checked as far as the test run has
   // gone, then any rows the last run found failing out of sight.
   get rows(): TableRow[] {
-    return this.testRun?.rows ?? table(this.level);
+    const { circuit } = this;
+    return circuit ? (this.testRun?.rows ?? table(circuit)) : [];
   }
 
   // Whether a test run is going.
@@ -175,15 +225,21 @@ export class Session {
   // they've never been, aborting any test run without recording a result.
   start(index: number): void {
     const level = levelAt(index, this.levels);
-    const board = this.boards[level.gate];
+    const board = level.kind === "instruction set" ? undefined : this.boards[level.gate];
     this.levelIndex = index;
-    this.load(board ? loadBoard(board, this.parts) : loadLevel(level, this.parts));
+    this.load(board ? loadBoard(board, this.parts) : this.boardFor(level));
   }
 
   // Throws away the current level's board for a fresh one. Other levels'
   // boards are kept.
   clear(): void {
-    this.load(loadLevel(this.level, this.parts));
+    this.load(this.boardFor(this.level));
+  }
+
+  // A fresh board for a level. The instruction set level has no circuit, so
+  // its board stays empty.
+  private boardFor(level: Level): Game {
+    return level.kind === "instruction set" ? newGame(this.parts, DEFAULT_GRID) : loadLevel(level, this.parts);
   }
 
   private load(game: Game): void {
@@ -205,7 +261,8 @@ export class Session {
   // Turns the level's clock on and off, if it has one and no test run is
   // going. Returns whether it ticked.
   tick(): boolean {
-    const clock = clockOf(this.game, this.level);
+    const { circuit } = this;
+    const clock = circuit ? clockOf(this.game, circuit) : undefined;
     if (this.testing || clock === undefined) return false;
     this.edit((game) => {
       tick(game, clock);
@@ -218,10 +275,11 @@ export class Session {
   // of sight and without a sound; step() shows them, one tick each. The
   // board restarts first, so the rows it shows are the ones checked.
   beginTest(): boolean {
-    if (this.testing) return false;
+    const { level } = this;
+    if (this.testing || level.kind === "instruction set") return false;
     this.sound.play("carriage");
     restart(this.game);
-    this.testRun = new TestRun(this.level, checkLevel(this.game, this.levelIndex, this.levels));
+    this.testRun = new TestRun(level, checkLevel(this.game, this.levelIndex, this.levels));
     this.result = null;
     this.stamped = false;
     return true;
@@ -245,16 +303,18 @@ export class Session {
       this.sound.play("stamp");
       this.sound.play("bell");
     } else this.sound.play("fail-stamp");
-    if (result.passed && this.solvedLevels[this.level.gate] !== revisionOf(this.level)) {
-      this.solvedLevels[this.level.gate] = revisionOf(this.level);
+    if (result.passed && this.solvedLevels[levelId(this.level)] !== revisionOf(this.level)) {
+      this.solvedLevels[levelId(this.level)] = revisionOf(this.level);
       this.save();
     }
     return false;
   }
 
-  // Where the player goes from here, once the last test run has passed.
+  // Where the player goes from here, once the last test run has passed, or
+  // while the instruction set is good.
   get next(): Next | null {
-    if (this.result?.passed !== true) return null;
+    const done = this.circuit ? this.result?.passed === true : this.instructionCheck.solved;
+    if (!done) return null;
     if (this.levelIndex + 1 >= this.levels.length) return { to: "end" };
     const layer = floorAbove(this.levelIndex, this.levels);
     return layer ? { to: "floor", layer } : { to: "level", index: this.levelIndex + 1 };

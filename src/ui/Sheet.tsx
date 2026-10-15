@@ -1,5 +1,15 @@
 import { For, Match, Show, Switch, createEffect, createSignal, on, onCleanup, onMount, type JSX } from "solid-js";
-import { CLOCK, hasClock, layerOf, type Layer, partGiven, partsBin, terminalWidth, wiring } from "../sim/level";
+import {
+  CLOCK,
+  hasClock,
+  layerOf,
+  type CircuitLevel,
+  type Layer,
+  partGiven,
+  partsBin,
+  terminalWidth,
+  wiring,
+} from "../sim/level";
 import type { Value } from "../sim/node";
 import { CLOCK_SPEED } from "../sim/session";
 import { say } from "./speech";
@@ -15,14 +25,26 @@ const binary = (value: Value, width: number): string => value.toString(2).padSta
 // The sheets pinned around the board: the menu bar across the top, the
 // brief down the left with the level's truth table and test, and the parts
 // bin along the bottom. Passing a layer's last level leads up to the next
-// floor, through the stack.
-const labels = (): string[] => [...session().level.inputs, ...session().level.outputs];
-const widths = (): number[] => labels().map((label) => terminalWidth(session().level, label));
+// floor, through the stack. The instruction set level has no circuit, so
+// its brief has no table or test, and its parts bin is shut.
+const circuit = (): CircuitLevel | null => session().circuit;
+const labels = (): string[] => {
+  const level = circuit();
+  return level ? [...level.inputs, ...level.outputs] : [];
+};
+const widths = (): number[] => {
+  const level = circuit();
+  return level ? labels().map((label) => terminalWidth(level, label)) : [];
+};
 // A row's outputs as the test column writes them: single signals run
 // together as bits, bus values are numbers apart.
 const written = (values: Value[]): string => values.join(widths().some((width) => width > 1) ? " " : "");
 // A timing table numbers its steps, and marks the steps that tick the clock.
-const timed = (): boolean => session().level.steps !== undefined;
+const clocked = (): boolean => {
+  const level = circuit();
+  return level !== null && hasClock(level);
+};
+const timed = (): boolean => circuit()?.steps !== undefined;
 const layer = (): Layer => layerOf(session().levelIndex);
 // The floor a passed level leads up to, if it's the last of its layer.
 function floor(): Layer | null {
@@ -38,11 +60,12 @@ function status(): { text: string; tone: string } | null {
     return { text: `${r.forbidden.join(", ")} isn't in this level's parts bin.`, tone: "text-fail" };
   if (r.unstable) return { text: "Unstable: a loop on the board never settles.", tone: "text-fail" };
   if (!r.passed) return { text: "Not quite. Some rows don't match.", tone: "text-fail" };
+  const given = partGiven(session().level);
   return {
     text:
-      session().next?.to === "end"
+      session().next?.to === "end" || !given
         ? "Tested! That's every level so far."
-        : `Tested! ${partGiven(session().level).gate} is in your parts bin.`,
+        : `Tested! ${given.gate} is in your parts bin.`,
     tone: "text-pass",
   };
 }
@@ -53,9 +76,7 @@ export function MenuBar(props: { onMenu: () => void; onStack: (arrive?: number) 
       <span class="flex items-center border-r-2 border-ink px-3 text-xs text-pencil">
         SH {pad(session().levelIndex + 1)}
       </span>
-      <h1 class="flex items-center px-3 text-lg font-bold text-ink">
-        {session().level.prebuilt === true ? "Meet" : "Build"} {session().level.gate}
-      </h1>
+      <h1 class="flex items-center px-3 text-lg font-bold text-ink">{script.heading(session().level)}</h1>
       <nav class="ml-auto flex items-center gap-2.5 py-1.5 pr-3 pl-2">
         <button
           id="open-stack"
@@ -109,162 +130,178 @@ export function Brief(props: { onStack: (arrive?: number) => void }): JSX.Elemen
     >
       <div class="min-h-0 flex-1 overflow-y-auto">
         <div class="flex items-center gap-3">
-          <GateIcon type={session().level.gate} class="h-11 w-16 shrink-0 text-ink" />
+          <Show when={circuit()}>
+            {(level) => <GateIcon type={level().gate} class="h-11 w-16 shrink-0 text-ink" />}
+          </Show>
           <p class="text-note leading-snug">{session().level.goal}</p>
         </div>
 
-        <div class="mt-3">
-          <div class="relative w-full">
-            <table class="w-full border-collapse text-center text-note tabular-nums">
-              <thead>
-                <tr class="text-ink">
-                  <Show when={timed()}>
-                    <th class="border-hair border-ink px-1 py-0.5 text-xs font-normal text-pencil">step</th>
-                  </Show>
-                  <For each={labels()}>{(label) => <th class="border-hair border-ink px-2 py-0.5">{label}</th>}</For>
-                  <th class="w-12 border-hair border-ink px-1 py-0.5 text-xs font-normal text-pencil">test</th>
-                </tr>
-              </thead>
-              <tbody>
-                <For each={session().rows}>
-                  {(row, i) => {
-                    const got = (): string | undefined =>
-                      row.status === "failed" && row.actual ? `got ${written(row.actual)}` : undefined;
-                    return (
-                      <tr class={session().currentRow === i() ? "bg-wash font-bold" : ""}>
-                        <Show when={timed()}>
-                          <td class="border-hair border-ink px-1 py-0.5 text-pencil">{i() + 1}</td>
-                        </Show>
-                        <For each={[...row.inputs, ...row.expected]}>
-                          {(value, column) => {
-                            const width = (): number => widths()[column()] ?? 1;
-                            const ticks = (): boolean => row.tick === true && labels()[column()] === CLOCK;
-                            return (
-                              <td
-                                class="border-hair border-ink px-2 py-0.5"
-                                title={width() > 1 ? binary(value, width()) : undefined}
-                              >
-                                <Show when={ticks()} fallback={value}>
-                                  tick
-                                </Show>
-                              </td>
-                            );
-                          }}
-                        </For>
-                        <td class="border-hair border-ink px-1 py-0.5" title={got()}>
-                          <Show when={row.actual} fallback={<span class="text-pencil/50">·</span>}>
-                            {(values) => (
-                              <span class={row.status === "passed" ? "text-pass" : "text-fail"}>
-                                {row.status === "passed" ? "✓" : `✗${written(values())}`}
-                              </span>
-                            )}
+        <Show when={!circuit()}>
+          <p class="mt-3 text-note leading-snug text-pencil">
+            The table is checked as you type. Every mnemonic and every opcode must be different.
+          </p>
+        </Show>
+
+        <Show when={circuit()}>
+          <div class="mt-3">
+            <div class="relative w-full">
+              <table class="w-full border-collapse text-center text-note tabular-nums">
+                <thead>
+                  <tr class="text-ink">
+                    <Show when={timed()}>
+                      <th class="border-hair border-ink px-1 py-0.5 text-xs font-normal text-pencil">step</th>
+                    </Show>
+                    <For each={labels()}>{(label) => <th class="border-hair border-ink px-2 py-0.5">{label}</th>}</For>
+                    <th class="w-12 border-hair border-ink px-1 py-0.5 text-xs font-normal text-pencil">test</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <For each={session().rows}>
+                    {(row, i) => {
+                      const got = (): string | undefined =>
+                        row.status === "failed" && row.actual ? `got ${written(row.actual)}` : undefined;
+                      return (
+                        <tr class={session().currentRow === i() ? "bg-wash font-bold" : ""}>
+                          <Show when={timed()}>
+                            <td class="border-hair border-ink px-1 py-0.5 text-pencil">{i() + 1}</td>
                           </Show>
-                        </td>
-                      </tr>
-                    );
-                  }}
-                </For>
-              </tbody>
-            </table>
-            <Show when={session().stamped}>
-              <span id="stamp" class="stamp">
-                PASSED
-              </span>
-            </Show>
+                          <For each={[...row.inputs, ...row.expected]}>
+                            {(value, column) => {
+                              const width = (): number => widths()[column()] ?? 1;
+                              const ticks = (): boolean => row.tick === true && labels()[column()] === CLOCK;
+                              return (
+                                <td
+                                  class="border-hair border-ink px-2 py-0.5"
+                                  title={width() > 1 ? binary(value, width()) : undefined}
+                                >
+                                  <Show when={ticks()} fallback={value}>
+                                    tick
+                                  </Show>
+                                </td>
+                              );
+                            }}
+                          </For>
+                          <td class="border-hair border-ink px-1 py-0.5" title={got()}>
+                            <Show when={row.actual} fallback={<span class="text-pencil/50">·</span>}>
+                              {(values) => (
+                                <span class={row.status === "passed" ? "text-pass" : "text-fail"}>
+                                  {row.status === "passed" ? "✓" : `✗${written(values())}`}
+                                </span>
+                              )}
+                            </Show>
+                          </td>
+                        </tr>
+                      );
+                    }}
+                  </For>
+                </tbody>
+              </table>
+              <Show when={session().stamped}>
+                <span id="stamp" class="stamp">
+                  PASSED
+                </span>
+              </Show>
+            </div>
           </div>
-        </div>
+        </Show>
       </div>
 
       <div class="shrink-0 border-t-2 border-ink pt-3">
-        <div class="flex flex-wrap items-center gap-3">
-          <button
-            id="test"
-            class="btn"
-            disabled={session().testing}
-            onClick={() => {
-              driver.test();
-            }}
-          >
-            Run test
-          </button>
-          <Show when={hasClock(session().level)}>
+        <Show when={circuit()}>
+          <div class="flex flex-wrap items-center gap-3">
             <button
-              id="tick"
-              class="btn btn-sm"
+              id="test"
+              class="btn"
               disabled={session().testing}
               onClick={() => {
-                driver.tick();
+                driver.test();
               }}
             >
-              Tick
+              Run test
             </button>
+            <Show when={clocked()}>
+              <button
+                id="tick"
+                class="btn btn-sm"
+                disabled={session().testing}
+                onClick={() => {
+                  driver.tick();
+                }}
+              >
+                Tick
+              </button>
+              <button
+                id="run-clock"
+                class="btn btn-sm"
+                disabled={session().testing}
+                onClick={() => {
+                  driver.toggleClock();
+                }}
+              >
+                {running() ? "Pause" : "Run"}
+              </button>
+              {/* The gauge steps through doublings, 1 to 64 ticks a second. */}
+              <label class="flex items-center gap-1.5 text-xs text-pencil">
+                Clock speed
+                <input
+                  id="clock-speed"
+                  type="range"
+                  min={Math.log2(CLOCK_SPEED.min)}
+                  max={Math.log2(CLOCK_SPEED.max)}
+                  step={1}
+                  value={Math.log2(session().clockSpeed)}
+                  class="w-20 accent-ink"
+                  onInput={(event) => {
+                    driver.setClockSpeed(2 ** Number(event.currentTarget.value));
+                  }}
+                />
+                <output for="clock-speed" class="w-8 font-bold text-ink">
+                  {session().clockSpeed}/s
+                </output>
+              </label>
+            </Show>
             <button
-              id="run-clock"
-              class="btn btn-sm"
-              disabled={session().testing}
+              id="clear"
+              class="btn btn-sm btn-ghost"
+              disabled={clearing()}
               onClick={() => {
-                driver.toggleClock();
+                setClearing(true);
               }}
             >
-              {running() ? "Pause" : "Run"}
+              Clear
             </button>
-            {/* The gauge steps through doublings, 1 to 64 ticks a second. */}
-            <label class="flex items-center gap-1.5 text-xs text-pencil">
-              Clock speed
-              <input
-                id="clock-speed"
-                type="range"
-                min={Math.log2(CLOCK_SPEED.min)}
-                max={Math.log2(CLOCK_SPEED.max)}
-                step={1}
-                value={Math.log2(session().clockSpeed)}
-                class="w-20 accent-ink"
-                onInput={(event) => {
-                  driver.setClockSpeed(2 ** Number(event.currentTarget.value));
-                }}
-              />
-              <output for="clock-speed" class="w-8 font-bold text-ink">
-                {session().clockSpeed}/s
-              </output>
-            </label>
-          </Show>
-          <button
-            id="clear"
-            class="btn btn-sm btn-ghost"
-            disabled={clearing()}
-            onClick={() => {
-              setClearing(true);
-            }}
-          >
-            Clear
-          </button>
-        </div>
-
-        <Show when={clearing()}>
-          <div class="mt-3 border-2 border-dashed border-fail p-2.5" role="alertdialog" aria-label="Clear this board?">
-            <p class="mb-2 text-note">Clear this board?</p>
-            <div class="flex gap-3">
-              <button
-                id="clear-confirm"
-                class="btn border-fail bg-fail btn-sm"
-                onClick={() => {
-                  setClearing(false);
-                  driver.clear();
-                }}
-              >
-                Clear
-              </button>
-              <button
-                id="clear-keep"
-                class="btn btn-sm btn-ghost"
-                onClick={() => {
-                  setClearing(false);
-                }}
-              >
-                Keep it
-              </button>
-            </div>
           </div>
+
+          <Show when={clearing()}>
+            <div
+              class="mt-3 border-2 border-dashed border-fail p-2.5"
+              role="alertdialog"
+              aria-label="Clear this board?"
+            >
+              <p class="mb-2 text-note">Clear this board?</p>
+              <div class="flex gap-3">
+                <button
+                  id="clear-confirm"
+                  class="btn border-fail bg-fail btn-sm"
+                  onClick={() => {
+                    setClearing(false);
+                    driver.clear();
+                  }}
+                >
+                  Clear
+                </button>
+                <button
+                  id="clear-keep"
+                  class="btn btn-sm btn-ghost"
+                  onClick={() => {
+                    setClearing(false);
+                  }}
+                >
+                  Keep it
+                </button>
+              </div>
+            </div>
+          </Show>
         </Show>
 
         <Show when={status()}>
@@ -305,6 +342,11 @@ export function Brief(props: { onStack: (arrive?: number) => void }): JSX.Elemen
     </section>
   );
 }
+
+const wiringHere = (): ReturnType<typeof wiring> => {
+  const level = circuit();
+  return level ? wiring(level) : [];
+};
 
 export function PartsBin(): JSX.Element {
   let shelf: HTMLDivElement | undefined;
@@ -386,7 +428,7 @@ export function PartsBin(): JSX.Element {
           }}
         >
           <For
-            each={partsBin(session().levelIndex)}
+            each={circuit() ? partsBin(session().levelIndex) : []}
             fallback={
               <span class="row-span-2 self-center px-1 text-xs whitespace-nowrap text-pencil">Empty, for now</span>
             }
@@ -408,9 +450,9 @@ export function PartsBin(): JSX.Element {
           {/* Splits, joins and constants are wiring the level supplies, not
               parts, so they sit apart at the end, from a fresh column, and
               only on levels that have some. */}
-          <Show when={wiring(session().level).length > 0}>
+          <Show when={wiringHere().length > 0}>
             <span class="row-span-2 border-l-2 border-dashed border-ink" aria-hidden="true" />
-            <For each={wiring(session().level)}>
+            <For each={wiringHere()}>
               {(w) => (
                 <button
                   class={PART_CARD}

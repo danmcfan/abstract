@@ -7,6 +7,11 @@ import {
   hasClock,
   LAYERS,
   layerLevels,
+  levelAt,
+  levelId,
+  revisionOf,
+  partGiven,
+  solvedCount,
   layerState,
   LEVELS,
   loadLevel,
@@ -18,8 +23,10 @@ import {
   truthTable,
   wiring,
   type Level,
+  circuitAt,
+  partsOf,
 } from "./level";
-import { kindOf, partsFrom } from "./kind";
+import { kindOf } from "./kind";
 import { loadBoard, saveBoard } from "./save";
 import type { Label, NodeID, NodeType } from "./node";
 
@@ -37,7 +44,7 @@ function gate(game: Game, type: NodeType): NodeID {
 }
 
 function levelGame(index: number): { game: Game; a: NodeID; b: NodeID; sel: NodeID; o: NodeID } {
-  const game = loadLevel(LEVELS[index]!);
+  const game = loadLevel(circuitAt(index));
   return {
     game,
     a: terminal(game, "INPUT", "A"),
@@ -47,32 +54,36 @@ function levelGame(index: number): { game: Game; a: NodeID; b: NodeID; sel: Node
   };
 }
 
-const levelIndex = (type: NodeType): number => LEVELS.findIndex((level) => level.gate === type);
+const levelIndex = (type: NodeType): number => LEVELS.findIndex((level) => levelId(level) === type);
 
 describe("each level's intended solution", () => {
-  const unbuilt = LEVELS.flatMap((level, index) => (level.prebuilt === true ? [] : [{ level, index }]));
+  const unbuilt = LEVELS.flatMap((level, index) =>
+    level.kind === "instruction set" || level.prebuilt === true ? [] : [{ level, index }],
+  );
 
   // The NAND sheet is the one Bitbox remembers; every later level is built.
   test("only the first level comes pre-wired", () => {
-    expect(LEVELS.flatMap((level, index) => (level.prebuilt === true ? [index] : []))).toEqual([0]);
+    expect(
+      LEVELS.flatMap((level, index) => (level.kind !== "instruction set" && level.prebuilt === true ? [index] : [])),
+    ).toEqual([0]);
   });
 
   test("every level the player builds has one", () => {
-    expect(unbuilt.filter(({ level }) => level.solution === undefined).map(({ level }) => level.gate)).toEqual([]);
+    expect(unbuilt.filter(({ level }) => level.solution === undefined).map(({ level }) => levelId(level))).toEqual([]);
   });
 
   // Splits and joins are Wiring, not parts, so they don't count (ADR 10).
-  test.each(unbuilt.map(({ level }) => [level.gate, level] as const))("%s places 10 parts or fewer", (_, level) => {
+  test.each(unbuilt.map(({ level }) => [levelId(level), level] as const))("%s places 10 parts or fewer", (_, level) => {
     const parts = (level.solution?.nodes ?? []).filter((node) => node.type !== "SPLIT" && node.type !== "JOIN");
     expect(parts.length).toBeLessThanOrEqual(10);
   });
 
   // Passing includes using only the parts bin and the level's Wiring (ADR 5).
-  test.each(unbuilt.map(({ level, index }) => [level.gate, index] as const))(
+  test.each(unbuilt.map(({ level, index }) => [levelId(level), index] as const))(
     "%s builds onto its board and passes",
     (_, index) => {
-      const game = loadLevel(LEVELS[index]!);
-      buildSolution(game, LEVELS[index]!);
+      const game = loadLevel(circuitAt(index));
+      buildSolution(game, circuitAt(index));
       const result = checkLevel(game, index);
       expect(result.forbidden).toEqual([]);
       expect(result.passed).toBe(true);
@@ -81,7 +92,7 @@ describe("each level's intended solution", () => {
 
   test("a wire names a terminal by its label and a placed node by its name, with :n for its nth pin", () => {
     const level: Level = {
-      ...LEVELS[1]!,
+      ...circuitAt(1),
       solution: {
         nodes: [{ name: "nand", type: "NAND", x: 22, y: 20 }],
         wires: [
@@ -112,9 +123,9 @@ describe("solutions", () => {
 });
 
 test("XOR comes after OR and is on when exactly one input is on", () => {
-  const index = LEVELS.findIndex((level) => level.gate === "XOR");
-  expect(LEVELS[index - 1]!.gate).toBe("OR");
-  expect(truthTable(LEVELS[index]!)).toEqual([
+  const index = LEVELS.findIndex((level) => levelId(level) === "XOR");
+  expect(levelId(LEVELS[index - 1]!)).toBe("OR");
+  expect(truthTable(circuitAt(index))).toEqual([
     { inputs: [0, 0], expected: [0] },
     { inputs: [0, 1], expected: [1] },
     { inputs: [1, 0], expected: [1] },
@@ -138,7 +149,7 @@ describe("the MUX level", () => {
   });
 
   test("its truth table has 8 rows: A when SEL is off, B when SEL is on", () => {
-    const rows = truthTable(LEVELS[index]!);
+    const rows = truthTable(circuitAt(index));
     expect(rows.map((row) => row.inputs.map(Number).join(""))).toEqual([
       "000",
       "001",
@@ -170,12 +181,12 @@ describe("the DEMUX level", () => {
   const index = levelIndex("DEMUX");
 
   test("comes straight after MUX, as the last level on the logic line", () => {
-    expect(LEVELS[index - 1]!.gate).toBe("MUX");
+    expect(levelId(LEVELS[index - 1]!)).toBe("MUX");
     expect(floorAbove(index)?.floor).toBe("adder assembly");
   });
 
   test("has inputs D and SEL and outputs Y0 and Y1", () => {
-    const game = loadLevel(LEVELS[index]!);
+    const game = loadLevel(circuitAt(index));
     const labels = (type: NodeType): Label[] =>
       [...game.nodes.values()].filter((node) => node.type === type).map((node) => node.label);
     expect(labels("INPUT")).toEqual(["D", "SEL"]);
@@ -183,7 +194,7 @@ describe("the DEMUX level", () => {
   });
 
   test("its truth table sends D to Y0 when SEL is off and to Y1 when SEL is on", () => {
-    expect(truthTable(LEVELS[index]!)).toEqual([
+    expect(truthTable(circuitAt(index))).toEqual([
       { inputs: [0, 0], expected: [0, 0] },
       { inputs: [0, 1], expected: [0, 0] },
       { inputs: [1, 0], expected: [1, 0] },
@@ -195,7 +206,7 @@ describe("the DEMUX level", () => {
     expect(partsBin(index + 1)).toContain("DEMUX");
     expect(kindOf(PARTS, "DEMUX").outputCount(1)).toBe(2);
     expect(kindOf(PARTS, "DEMUX").look).toMatchObject({ inputs: ["D", "SEL"], outputs: ["Y0", "Y1"] });
-    const game = loadLevel(LEVELS[index]!);
+    const game = loadLevel(circuitAt(index));
     const demux = gate(game, "DEMUX");
     wire(game, out(terminal(game, "INPUT", "D")), inp(demux, 0));
     wire(game, out(terminal(game, "INPUT", "SEL")), inp(demux, 1));
@@ -242,7 +253,7 @@ test("checkLevel leaves the board's inputs alone", () => {
 
 // The half adder: the first level with two outputs.
 const HALF = levelIndex("HALF ADDER");
-const HALF_ADDER = LEVELS[HALF]!;
+const HALF_ADDER = circuitAt(HALF);
 
 // SUM is (A OR B) AND (A NAND B); COUT is A AND B.
 function buildHalfAdder(game: Game, cout: NodeType = "AND"): void {
@@ -283,7 +294,7 @@ describe("the adder levels", () => {
   });
 
   test("the full adder adds A, B and CIN into SUM and COUT", () => {
-    const level = LEVELS[full]!;
+    const level = circuitAt(full);
     expect(level.inputs).toEqual(["A", "B", "CIN"]);
     expect(level.outputs).toEqual(["SUM", "COUT"]);
     expect(truthTable(level).map((row) => row.expected)).toEqual(
@@ -321,7 +332,7 @@ function buildRippleAdder(game: Game, missingCarry = false): void {
 }
 
 describe("the 2-bit adder level", () => {
-  const level = LEVELS[ADD2]!;
+  const level = circuitAt(ADD2);
 
   test("comes after the full adder, as the last level of L3", () => {
     expect(ADD2).toBe(levelIndex("FULL ADDER") + 1);
@@ -456,7 +467,7 @@ describe("a level with two outputs", () => {
   });
 });
 
-const stub = (layer: number): Level => ({ ...LEVELS[1]!, layer });
+const stub = (layer: number): Level => ({ ...circuitAt(1), layer });
 
 describe("the stack", () => {
   // Two levels on L1 and one on L2, so a layer can be part solved.
@@ -531,11 +542,11 @@ const FLIP_FLOP: Level = {
 describe("a memory level", () => {
   const levels = [...LEVELS, FLIP_FLOP];
   const index = levels.length - 1;
-  const parts = partsFrom(levels);
+  const parts = partsOf(levels);
 
   test("has a clock and shows its timing table", () => {
     expect(hasClock(FLIP_FLOP)).toBe(true);
-    expect(hasClock(LEVELS[1]!)).toBe(false);
+    expect(hasClock(circuitAt(1))).toBe(false);
     expect(testTable(FLIP_FLOP)).toEqual(FLIP_FLOP.steps);
     expect(truthTable(FLIP_FLOP)).toEqual([]);
   });
@@ -581,7 +592,7 @@ describe("a memory level", () => {
 
 describe("an unstable board", () => {
   test("fails its test run with unstable set, whatever its outputs", () => {
-    const game = loadLevel(LEVELS[1]!);
+    const game = loadLevel(circuitAt(1));
     const not = gate(game, "NAND");
     wire(game, out(terminal(game, "INPUT", "A")), inp(not, 0));
     wire(game, out(not), inp(not, 1));
@@ -589,5 +600,26 @@ describe("an unstable board", () => {
     const result = checkLevel(game, 1);
     expect(result.unstable).toBe(true);
     expect(result.passed).toBe(false);
+  });
+});
+
+describe("the instruction set level", () => {
+  const index = LEVELS.findIndex((level) => level.kind === "instruction set");
+
+  test("is the first level of L7, straight after the sequencer", () => {
+    expect(layerLevels(7)).toEqual([index]);
+    expect(levelId(LEVELS[index - 1]!)).toBe("SEQUENCER");
+    expect(floorAbove(index - 1)?.number).toBe(7);
+  });
+
+  test("adds no part to the parts bin", () => {
+    expect(partGiven(levelAt(index))).toBeNull();
+    expect(partsBin(index + 1)).toEqual(partsBin(index));
+  });
+
+  test("is solved by its own identifier", () => {
+    expect(levelId(levelAt(index))).toBe("INSTRUCTION SET");
+    const solved = Object.fromEntries(LEVELS.slice(0, index + 1).map((level) => [levelId(level), revisionOf(level)]));
+    expect(solvedCount(solved)).toBe(index + 1);
   });
 });
