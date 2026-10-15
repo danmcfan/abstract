@@ -23,8 +23,9 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "noEmit": true,
+    "allowImportingTsExtensions": true,
     "jsx": "preserve",
     "jsxImportSource": "solid-js"
   },
-  "include": ["src", "scripts", "vite.config.ts", ".sandcastle"]
+  "include": ["src", "scripts", "vite.config.ts", ".sandcastle/*.ts"]
 }

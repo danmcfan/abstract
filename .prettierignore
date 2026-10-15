@@ -6,3 +6,4 @@ bun.lock
 docs/vision
 .sandcastle/logs
 out
+.sandcastle/worktrees
