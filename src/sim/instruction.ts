@@ -100,6 +100,11 @@ export interface InstructionSetCheck {
 // Mnemonics are kept in capitals, so typing is case-insensitive.
 export const normalMnemonic = (typed: string): string => typed.trim().toUpperCase();
 
+// The table with every name as it's kept. The table being typed holds the
+// names as typed, so editing one mid-word leaves the caret where it is.
+export const normalTable = (set: InstructionSet): InstructionSet =>
+  Object.fromEntries(Object.entries(set).map(([id, row]) => [id, { ...row, mnemonic: normalMnemonic(row.mnemonic) }]));
+
 function mnemonicProblem(mnemonic: string, count: number): Problem | null {
   if (mnemonic === "") return "needed";
   if (!/^[A-Z]+$/u.test(mnemonic)) return "letters only";

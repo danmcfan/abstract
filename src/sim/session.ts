@@ -6,7 +6,7 @@ import { DEFAULT_GRID } from "./grid";
 import {
   BITBOX_INSTRUCTION_SET,
   checkInstructionSet,
-  normalMnemonic,
+  normalTable,
   type InstructionSet,
   type InstructionSetCheck,
 } from "./instruction";
@@ -210,11 +210,11 @@ export class Session {
   editInstructions(rows: InstructionSet): Cue | null {
     const before = this.instructionCheck;
     for (const [id, row] of Object.entries(rows)) {
-      Object.assign(this.instructionSet, { [id]: { ...row, mnemonic: normalMnemonic(row.mnemonic) } });
+      Object.assign(this.instructionSet, { [id]: row });
     }
     const check = this.instructionCheck;
     if (check.solved) {
-      this.validInstructionSet = structuredClone(this.instructionSet);
+      this.validInstructionSet = normalTable(this.instructionSet);
       this.readInstructionSet();
       this.solvedLevels[levelId(this.level)] = revisionOf(this.level);
     }
