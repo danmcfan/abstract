@@ -236,6 +236,19 @@ const EXPECTED: Record<NodeType, Expected[]> = {
       cases: [[[10, 20, 30, 40, 2], [30]]],
     },
   ],
+  "2-REGISTER FILE": [
+    {
+      ins: [1, 1, 1, 8, 1, 1],
+      outs: [8, 8],
+      size: [6, 12],
+      cases: [
+        [
+          [1, 1, 1, 200, 1, 0],
+          [0, 0],
+        ],
+      ],
+    },
+  ],
   "REGISTER FILE": [
     {
       ins: [1, 1, 2, 8, 2, 2],

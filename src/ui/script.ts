@@ -371,21 +371,23 @@ const LEVELS: Partial<Record<string, LevelScript>> = {
     ],
     solved: [{ face: "happy", text: "4-way MUX8, done! Four buses in, one out." }],
   },
-  "REGISTER FILE": {
+  "2-REGISTER FILE": {
     intro: [
-      { face: "amazed", text: "Four registers, R0 to R3, as one part." },
+      { face: "amazed", text: "A register file keeps registers side by side, as one part." },
+      { face: "idle", text: "We'll start with 2 registers, R0 and R1." },
       { face: "idle", text: "WRITE and WSEL say which register takes DIN on a tick." },
       { face: "idle", text: "A and B show two registers at once. ASEL and BSEL say which." },
       { face: "thinking", text: "A register only shows its new value after the tick that writes it." },
     ],
     hint: [
-      { face: "thinking", text: "Four registers share CLK and DIN." },
-      { face: "thinking", text: "A DEMUX4 on WSEL sends WRITE to just one register's LOAD." },
-      { face: "thinking", text: "A 4-way MUX8 on ASEL picks A, and another on BSEL picks B." },
+      { face: "thinking", text: "Both registers share CLK and DIN." },
+      { face: "thinking", text: "A DEMUX on WSEL sends WRITE to just one register's LOAD." },
+      { face: "thinking", text: "A MUX8 on ASEL picks A, and another on BSEL picks B." },
       CONTROLS,
     ],
     solved: [
       { face: "happy", text: "Register file, done! Read two, write one, all in one tick." },
+      { face: "happy", text: "I built one with four registers the same way. It's in your parts bin!" },
       { face: "idle", text: "That's what a CPU needs to add one register to another." },
     ],
   },

@@ -380,6 +380,16 @@ describe("saved games", () => {
     expect(levelId(session.level)).toBe("ALU SLICE");
   });
 
+  test("a save that solved the 4-register REGISTER FILE reopens on the 2-register file", () => {
+    const solved = Object.fromEntries(LEVELS.map((level) => [levelId(level), level.revision ?? 1]));
+    delete solved["2-REGISTER FILE"];
+    const session = new Session(
+      memorySave({ ...saved(LEVELS.length, LEVELS.length - 1), solved: { ...solved, "REGISTER FILE": 1 } }),
+    );
+    session.resume();
+    expect(levelId(session.level)).toBe("2-REGISTER FILE");
+  });
+
   test("a save holding a ZERO TEST board and solved entry still loads", () => {
     const { session, store } = fresh();
     buildNot(session.game);
