@@ -312,16 +312,18 @@ const EXPECTED: Record<NodeType, Expected[]> = {
   SEQUENCER: [{ ins: [1], outs: [1], size: [6, 4], cases: [[[1], [0]]] }],
   STEPPER: [{ ins: [1, 1], outs: [1], size: [6, 4], cases: [[[1, 1], [0]]] }],
   "PROGRAM MEMORY": [{ ins: [8], outs: [8, 8], size: [8, 6], cases: [[[3], [0, 0]]] }],
-  // Bitbox's set: opcode 3 is add, and 1 is set.
+  // Bitbox's set: opcode 3 is add, 1 is set and 11 is jump.
+  "OP ENCODER": [{ ins: [4], outs: [3], size: [6, 4], cases: [[[3], [0]]] }],
+  "WRITE ENCODER": [{ ins: [4], outs: [1, 2], size: [6, 4], cases: [[[1], [1, 1]]] }],
   "CONTROL UNIT": [
     {
-      ins: [4, 1],
-      outs: [1, 2, 3, 1, 1, 1, 1, 1],
-      size: [6, 16],
+      ins: [4, 8],
+      outs: [1, 1, 1, 1, 1],
+      size: [6, 10],
       cases: [
         [
-          [3, 0],
-          [1, 3, 0, 0, 0, 0, 0, 0],
+          [11, 5],
+          [0, 1, 0, 0, 0],
         ],
       ],
     },

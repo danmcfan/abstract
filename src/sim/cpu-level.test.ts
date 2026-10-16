@@ -48,10 +48,4 @@ describe("the CPU level", () => {
     const { game, levels } = solved("CPU", REVERSED);
     expect(checkLevel(game, CPU, levels).passed).toBe(true);
   });
-
-  test("the control unit's board is wired for the opcodes it was built for", () => {
-    const { game, levels } = solved("CONTROL UNIT", REVERSED);
-    expect(checkLevel(game, index("CONTROL UNIT"), levels).passed).toBe(false);
-    expect(checkLevel(solved("CONTROL UNIT").game, index("CONTROL UNIT")).passed).toBe(true);
-  });
 });
