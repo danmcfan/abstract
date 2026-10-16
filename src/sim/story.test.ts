@@ -8,6 +8,7 @@ const passed: CheckResult = {
   forbidden: [],
   hidden: { checked: 0, failed: [] },
   unstable: false,
+  endless: false,
   passed: true,
 };
 const failed: CheckResult = {
@@ -15,6 +16,7 @@ const failed: CheckResult = {
   forbidden: [],
   hidden: { checked: 0, failed: [] },
   unstable: false,
+  endless: false,
   passed: false,
 };
 const forbidden: CheckResult = {
@@ -22,6 +24,7 @@ const forbidden: CheckResult = {
   forbidden: ["NOT"],
   hidden: { checked: 0, failed: [] },
   unstable: false,
+  endless: false,
   passed: false,
 };
 

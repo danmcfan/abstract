@@ -1,6 +1,33 @@
-import { newGame, nodeKind, placeNode, setInputs, simulate, terminalNamed, wire, type Game, type Pin } from "./circuit";
+import {
+  loadContents,
+  newGame,
+  nodeKind,
+  placeNode,
+  programMemoryOf,
+  setInputs,
+  simulate,
+  terminalNamed,
+  wire,
+  type Game,
+  type Pin,
+} from "./circuit";
+import {
+  assemble,
+  control,
+  cpu,
+  describeInstruction,
+  DOOR,
+  encode,
+  executeUnit,
+  finish,
+  KEYPAD,
+  play,
+  type Instruction,
+  type Machine,
+} from "./cpu";
 import { DEFAULT_GRID, type Size } from "./grid";
-import { partsFrom, type Combinational, type Memory, type Parts, type Pins, type Spec } from "./kind";
+import { BITBOX_INSTRUCTION_SET, INSTRUCTIONS, rowOf, type InstructionSet } from "./instruction";
+import { partsFrom, PROGRAM_MEMORY, type Combinational, type Memory, type Parts, type Pins, type Spec } from "./kind";
 import { mask, type Label, type Node, type NodeID, type NodeType, type State, type Value } from "./node";
 
 // A level asks the player to build one gate out of the gates they have
@@ -10,13 +37,18 @@ import { mask, type Label, type Node, type NodeID, type NodeType, type State, ty
 // one value per output, in order; the part it adds to the bin computes the
 // same (ADR 6), with bus pins as wide as the level's bus terminals. A
 // memory level gives a rule for its part's state instead of a target, and
-// is tested by a timing table. An instruction set level isn't a circuit:
-// the player fills in a table instead.
+// is tested by a timing table. A program level is a memory level with
+// program memory on its board, tested by running test programs. An
+// instruction set level isn't a circuit: the player fills in a table
+// instead.
 export const INSTRUCTION_SET_ID = "INSTRUCTION SET";
 
 export type Level = CircuitLevel | InstructionSetLevel;
 
-export type CircuitLevel = TruthTableLevel | (CircuitInfo & Pins & MemoryLevel);
+export type CircuitLevel = TruthTableLevel | (CircuitInfo & Pins & MemoryLevel) | ProgramLevel;
+
+// The CPU's level: it runs test programs from program memory.
+export type ProgramLevel = CircuitInfo & Pins & ProgramTests;
 
 // A level of combinational parts, tested by a truth table.
 export type TruthTableLevel = CircuitInfo & Pins & TruthLevel;
@@ -32,6 +64,7 @@ interface InstructionSetLevel extends LevelInfo {
 
 interface TruthLevel extends Combinational {
   steps?: never;
+  programs?: never;
 }
 
 interface MemoryLevel {
@@ -40,6 +73,32 @@ interface MemoryLevel {
   // The timing table, played in order from a board whose memory parts are
   // all at 0.
   steps: Row[];
+  programs?: never;
+}
+
+interface ProgramTests {
+  memory: Memory;
+  target?: never;
+  steps?: never;
+  // Each runs from a board whose memory parts are all at 0, with its
+  // program in program memory, until HALT or the tick limit.
+  programs: TestProgram[];
+  // The cell the level puts program memory in.
+  programMemory: { x: number; y: number };
+  // An instruction written out in the instruction set the level reads.
+  describe: (i: Value, n: Value) => string;
+}
+
+// A short program the CPU must run, written in instructions and assembled
+// with the player's instruction set: the values its device gives, in turn,
+// and the values it must send with out before it halts.
+interface TestProgram {
+  name: string;
+  program: Instruction[];
+  device: Value[];
+  outs: Value[];
+  // The program memory words, in the instruction set the level reads.
+  words: Value[];
 }
 
 interface LevelInfo {
@@ -71,14 +130,18 @@ interface CircuitInfo extends LevelInfo {
   // prebuilt one has one, so a test can solve it and the playthrough can
   // play it.
   solution?: Solution;
+  // The level as it reads an instruction set, for a level whose part
+  // depends on it (ADR 7). The level in LEVELS reads Bitbox's.
+  reads?: (set: InstructionSet) => CircuitLevel;
 }
 
 type Part = Spec & { gate: NodeType };
 
 // An intended solution, as a player builds it: nodes dropped on board
 // cells, then wires. A wire runs from an output pin to an input pin. Each
-// end names a terminal by its label, or a node the solution places by its
-// name, with ":n" for its nth pin on that side; a bare name is pin 0. A
+// end names a terminal by its label, a node the solution places by its
+// name, or a node the level supplies by its type, with ":n" for its nth pin
+// on that side; a bare name is pin 0. A
 // split or join gives its bus width.
 interface Solution {
   nodes: { name: string; type: NodeType; x: number; y: number; width?: number }[];
@@ -140,6 +203,93 @@ function places(count: number, outputs: Memory["outputs"]): Memory {
     outputs,
   };
 }
+
+// The control unit's 16 instruction lines, as its intended board splits
+// the decoder's LO and HI: the instruction with opcode n is on pin 7 - n of
+// one or the other. The board is wired for Bitbox's opcodes.
+const line = (n: number): string => `${n < 8 ? "lo" : "hi"}:${7 - (n % 8)}`;
+const lineOf = (id: (typeof INSTRUCTIONS)[number]["id"]): string => line(rowOf(BITBOX_INSTRUCTION_SET, id).opcode ?? 0);
+// The opcode no instruction has in Bitbox's set.
+const SPARE = 15;
+
+// Wires each line into its own pin of a join, from the top.
+const into = (join: string, lines: string[]): [string, string][] =>
+  lines.map((from, pin): [string, string] => [from, `${join}:${pin}`]);
+
+// The execute unit's timing table, written as instructions: every
+// instruction once, with jump if zero both ways. Each step ticks, then
+// reads the outputs.
+const EXECUTE_STEPS: (Instruction & { din?: Value })[] = [
+  { op: "set", r: 1, n: 5 },
+  { op: "set", r: 2, n: 3 },
+  { op: "add", r: 1, s: 2 },
+  { op: "out", r: 1, n: DOOR },
+  { op: "subtract", r: 1, s: 2 },
+  { op: "copy", r: 0, s: 1 },
+  { op: "and", r: 0, s: 2 },
+  { op: "or", r: 0, s: 1 },
+  { op: "xor", r: 0, s: 2 },
+  { op: "not", r: 0 },
+  { op: "write", r: 0, n: 6 },
+  { op: "read", r: 3, n: 6 },
+  { op: "in", r: 2, n: KEYPAD, din: 42 },
+  { op: "jump", n: 12 },
+  { op: "jump if zero", r: 2, n: 20 },
+  { op: "subtract", r: 2, s: 2 },
+  { op: "jump if zero", r: 2, n: 20 },
+  { op: "halt" },
+];
+
+// The CPU's test programs. The last has instructions after its HALT, which
+// a CPU that doesn't stop there would run.
+export const TEST_PROGRAMS: Omit<TestProgram, "words">[] = [
+  {
+    name: "count down from 3",
+    program: [
+      { op: "set", r: 0, n: 3 },
+      { op: "set", r: 1, n: 1 },
+      { op: "out", r: 0, n: DOOR },
+      { op: "subtract", r: 0, s: 1 },
+      { op: "jump if zero", r: 0, n: 6 },
+      { op: "jump", n: 2 },
+      { op: "halt" },
+    ],
+    device: [],
+    outs: [3, 2, 1],
+  },
+  {
+    name: "add up the keypad until 0",
+    program: [
+      { op: "in", r: 1, n: KEYPAD },
+      { op: "jump if zero", r: 1, n: 4 },
+      { op: "add", r: 0, s: 1 },
+      { op: "jump", n: 0 },
+      { op: "out", r: 0, n: DOOR },
+      { op: "halt" },
+    ],
+    device: [4, 9, 2, 0],
+    outs: [15],
+  },
+  {
+    name: "keep a number in RAM",
+    program: [
+      { op: "set", r: 0, n: 12 },
+      { op: "write", r: 0, n: 3 },
+      { op: "set", r: 0, n: 0 },
+      { op: "read", r: 2, n: 3 },
+      { op: "not", r: 2 },
+      { op: "out", r: 2, n: DOOR },
+      { op: "halt" },
+      { op: "out", r: 0, n: DOOR },
+      { op: "jump", n: 7 },
+    ],
+    device: [],
+    outs: [243],
+  },
+];
+
+// How many ticks a test program may take before it fails.
+export const TICK_LIMIT = 1000;
 
 // What the RAM level writes to its 8 places, all different.
 const RAM_VALUES: Value[] = [3, 14, 15, 92, 65, 35, 89, 79];
@@ -1243,7 +1393,268 @@ export const LEVELS: Level[] = [
     goal: "Give each instruction a mnemonic and an opcode, all different.",
     layer: 7,
   },
+  controlUnit(BITBOX_INSTRUCTION_SET),
+  executeLevel(BITBOX_INSTRUCTION_SET),
+  cpuLevel(BITBOX_INSTRUCTION_SET),
 ];
+
+// The game's levels as they read a player's instruction set.
+export function withInstructionSet(levels: readonly Level[], set: InstructionSet): Level[] {
+  return levels.map((level) => (level.kind !== "instruction set" && level.reads ? level.reads(set) : level));
+}
+
+function controlUnit(set: InstructionSet): CircuitLevel {
+  const opcodes = new Set(INSTRUCTIONS.flatMap(({ id }) => rowOf(set, id).opcode ?? []));
+  const spare = Array.from({ length: 16 }, (_, n) => n).filter((n) => !opcodes.has(n));
+  const jz = rowOf(set, "jump if zero").opcode ?? 0;
+  return {
+    gate: "CONTROL UNIT",
+    goal: "Turn your opcode into the signals that do its instruction. JUMP is on for jump, and for jump if zero while ZERO is on.",
+    layer: 8,
+    inputs: ["OPCODE", "ZERO"],
+    outputs: ["WRITE", "SRC", "OP", "STORE", "JUMP", "IN", "OUT", "HALT"],
+    widths: { OPCODE: 4, SRC: 2, OP: 3 },
+    // Joins for the zero tests.
+    buses: [8],
+    target: (inputs) => control(set, inputs),
+    // Every instruction in table order, jump if zero both ways, then the
+    // spare opcode. The test run checks the rest out of sight.
+    cases: [
+      ...INSTRUCTIONS.flatMap(({ id }) => {
+        const opcode = rowOf(set, id).opcode ?? 0;
+        return opcode === jz
+          ? [
+              [opcode, 0],
+              [opcode, 1],
+            ]
+          : [[opcode, 0]];
+      }),
+      ...spare.map((opcode) => [opcode, 0]),
+    ],
+    grid: { width: 76, height: 64 },
+    // The decoder lights one line per opcode. A zero test over a join of
+    // lines is on when none of them is: so WRITE is on unless the
+    // instruction is one that writes no register, or the spare opcode, and
+    // each SRC and OP signal is on unless it's one of a few instructions.
+    solution: {
+      nodes: [
+        { name: "decoder", type: "4-TO-16 DECODER", x: 13, y: 19 },
+        { name: "lo", type: "SPLIT", x: 22, y: 4, width: 8 },
+        { name: "hi", type: "SPLIT", x: 22, y: 26, width: 8 },
+        { name: "writers", type: "JOIN", x: 33, y: 2, width: 8 },
+        { name: "write", type: "ZERO TEST", x: 39, y: 8 },
+        { name: "op2", type: "JOIN", x: 33, y: 22, width: 8 },
+        { name: "opHigh", type: "ZERO TEST", x: 39, y: 28 },
+        { name: "op1", type: "JOIN", x: 33, y: 42, width: 8 },
+        { name: "opMid", type: "ZERO TEST", x: 39, y: 48 },
+        { name: "op0", type: "JOIN", x: 48, y: 2, width: 8 },
+        { name: "opLow", type: "ZERO TEST", x: 54, y: 8 },
+        { name: "src1", type: "JOIN", x: 48, y: 22, width: 8 },
+        { name: "srcHigh", type: "ZERO TEST", x: 54, y: 28 },
+        { name: "src0", type: "JOIN", x: 48, y: 42, width: 8 },
+        { name: "srcLow", type: "ZERO TEST", x: 54, y: 48 },
+        { name: "op", type: "JOIN", x: 63, y: 20, width: 3 },
+        { name: "src", type: "JOIN", x: 63, y: 10, width: 2 },
+        { name: "taken", type: "AND", x: 22, y: 50 },
+        { name: "jump", type: "OR", x: 30, y: 58 },
+      ],
+      wires: [
+        ["OPCODE", "decoder"],
+        ["decoder:0", "lo"],
+        ["decoder:1", "hi"],
+        ...into("writers", [
+          lineOf("halt"),
+          lineOf("write"),
+          lineOf("jump"),
+          lineOf("jump if zero"),
+          lineOf("out"),
+          line(SPARE),
+        ]),
+        ["writers", "write"],
+        ...into("op2", [lineOf("add"), lineOf("subtract")]),
+        ["op2", "opHigh"],
+        ...into("op1", [lineOf("add"), lineOf("subtract"), lineOf("and"), lineOf("or")]),
+        ["op1", "opMid"],
+        ...into("op0", [lineOf("add"), lineOf("and"), lineOf("xor")]),
+        ["op0", "opLow"],
+        ...into("src1", [lineOf("copy"), lineOf("set")]),
+        ["src1", "srcHigh"],
+        ...into("src0", [lineOf("copy"), lineOf("read"), lineOf("in")]),
+        ["src0", "srcLow"],
+        ...into("op", ["opHigh", "opMid", "opLow"]),
+        ...into("src", ["srcHigh", "srcLow"]),
+        [lineOf("jump if zero"), "taken:0"],
+        ["ZERO", "taken:1"],
+        [lineOf("jump"), "jump:0"],
+        ["taken", "jump:1"],
+        ["write", "WRITE"],
+        ["src", "SRC"],
+        ["op", "OP"],
+        [lineOf("write"), "STORE"],
+        ["jump", "JUMP"],
+        [lineOf("in"), "IN"],
+        [lineOf("out"), "OUT"],
+        [lineOf("halt"), "HALT"],
+      ],
+    },
+    reads: controlUnit,
+  };
+}
+
+function executeLevel(set: InstructionSet): CircuitLevel {
+  const memory = executeUnit(set);
+  // The expected outputs are the spec's, played from all 0.
+  let state: State = [];
+  const steps = EXECUTE_STEPS.map((instruction): Row => {
+    const [i, n] = encode(set, instruction);
+    const inputs = [0, i, n, instruction.din ?? 0];
+    const din = inputs[3] ?? 0;
+    state = memory.next([0, i, n, din], memory.next([1, i, n, din], state));
+    return { inputs, tick: true, expected: memory.outputs(state, inputs) };
+  });
+  return {
+    gate: "EXECUTE UNIT",
+    goal: "On each tick, do instruction I with number N. ADDR and DEV show N, and DOUT shows register R.",
+    layer: 8,
+    inputs: ["CLK", "I", "N", "DIN"],
+    outputs: ["JUMP", "ADDR", "OUT", "DOUT", "DEV", "IN", "HALT"],
+    widths: { I: 8, N: 8, DIN: 8, ADDR: 8, DOUT: 8, DEV: 8 },
+    // Joins for the opcode, R and S, and the RAM address.
+    buses: [4, 3, 2],
+    memory,
+    steps,
+    grid: { width: 80, height: 64 },
+    // I splits into the opcode, R and S. R and S pick the registers, and
+    // the control unit picks what R takes: S, N, RAM or DIN, or the ALU.
+    // RAM's address is N's low three signals, and it takes R.
+    solution: {
+      nodes: [
+        { name: "i", type: "SPLIT", x: 15, y: 18, width: 8 },
+        { name: "opcode", type: "JOIN", x: 21, y: 8, width: 4 },
+        { name: "r", type: "JOIN", x: 21, y: 22, width: 2 },
+        { name: "s", type: "JOIN", x: 21, y: 28, width: 2 },
+        { name: "n", type: "SPLIT", x: 15, y: 40, width: 8 },
+        { name: "a", type: "JOIN", x: 21, y: 50, width: 3 },
+        { name: "control", type: "CONTROL UNIT", x: 28, y: 2 },
+        { name: "registers", type: "REGISTER FILE", x: 30, y: 22 },
+        { name: "zero", type: "ZERO TEST", x: 40, y: 12 },
+        { name: "alu", type: "ALU", x: 42, y: 26 },
+        { name: "ram", type: "RAM", x: 42, y: 40 },
+        { name: "memory", type: "MUX8", x: 52, y: 44 },
+        { name: "result", type: "4-WAY MUX8", x: 60, y: 28 },
+      ],
+      wires: [
+        ["I", "i"],
+        ...[0, 1, 2, 3].map((pin): [string, string] => [`i:${pin}`, `opcode:${pin}`]),
+        ["i:4", "r:0"],
+        ["i:5", "r:1"],
+        ["i:6", "s:0"],
+        ["i:7", "s:1"],
+        ["N", "n"],
+        ["n:5", "a:0"],
+        ["n:6", "a:1"],
+        ["n:7", "a:2"],
+        ["opcode", "control:0"],
+        ["zero", "control:1"],
+        ["CLK", "registers:0"],
+        ["control:0", "registers:1"],
+        ["r", "registers:2"],
+        ["result", "registers:3"],
+        ["r", "registers:4"],
+        ["s", "registers:5"],
+        ["registers:0", "zero"],
+        ["registers:0", "alu:0"],
+        ["registers:1", "alu:1"],
+        ["control:2", "alu:2"],
+        ["CLK", "ram:0"],
+        ["control:3", "ram:1"],
+        ["a", "ram:2"],
+        ["registers:0", "ram:3"],
+        ["ram", "memory:0"],
+        ["DIN", "memory:1"],
+        ["control:5", "memory:2"],
+        ["registers:1", "result:0"],
+        ["N", "result:1"],
+        ["memory", "result:2"],
+        ["alu", "result:3"],
+        ["control:1", "result:4"],
+        ["control:4", "JUMP"],
+        ["N", "ADDR"],
+        ["control:6", "OUT"],
+        ["registers:0", "DOUT"],
+        ["N", "DEV"],
+        ["control:5", "IN"],
+        ["control:7", "HALT"],
+      ],
+    },
+    reads: executeLevel,
+  };
+}
+
+function cpuLevel(set: InstructionSet): CircuitLevel {
+  return {
+    gate: "CPU",
+    goal: "Fetch on one tick, execute on the next, until HALT. Run each test program and send the right values out.",
+    layer: 8,
+    inputs: ["CLK", "DIN"],
+    outputs: ["OUT", "DOUT", "DEV", "IN", "HALT"],
+    widths: { DIN: 8, DOUT: 8, DEV: 8 },
+    memory: cpu(set),
+    programs: TEST_PROGRAMS.map((test) => Object.assign({ words: assemble(set, test.program) }, test)),
+    programMemory: { x: 30, y: 13 },
+    describe: (i, n) => describeInstruction(set, i, n),
+    grid: { width: 76, height: 62 },
+    // The program counter addresses program memory, and two registers take
+    // its I and N on a fetch tick, while EXEC is off. The execute unit's
+    // clock is EXEC, so it does the instruction as EXEC turns on. On an
+    // execute tick the program counter loads: the jump address, or itself.
+    // Once HALT is on during execute, the sequencer's clock stops.
+    solution: {
+      nodes: [
+        { name: "pc", type: "PROGRAM COUNTER", x: 16, y: 10 },
+        { name: "hold", type: "MUX8", x: 16, y: 26 },
+        { name: "sequencer", type: "SEQUENCER", x: 28, y: 46 },
+        { name: "running", type: "NAND", x: 18, y: 54 },
+        { name: "clock", type: "AND", x: 18, y: 46 },
+        { name: "fetch", type: "NOT", x: 38, y: 40 },
+        { name: "instruction", type: "REGISTER", x: 44, y: 8 },
+        { name: "number", type: "REGISTER", x: 44, y: 20 },
+        { name: "execute", type: "EXECUTE UNIT", x: 58, y: 14 },
+      ],
+      wires: [
+        ["CLK", "clock:0"],
+        ["running", "clock:1"],
+        ["clock", "sequencer"],
+        ["sequencer", "running:0"],
+        ["execute:6", "running:1"],
+        ["CLK", "pc:0"],
+        ["sequencer", "pc:1"],
+        ["hold", "pc:2"],
+        ["pc", "hold:0"],
+        ["execute:1", "hold:1"],
+        ["execute:0", "hold:2"],
+        ["pc", `${PROGRAM_MEMORY}:0`],
+        ["sequencer", "fetch"],
+        ["CLK", "instruction:0"],
+        ["fetch", "instruction:1"],
+        [`${PROGRAM_MEMORY}:0`, "instruction:2"],
+        ["CLK", "number:0"],
+        ["fetch", "number:1"],
+        [`${PROGRAM_MEMORY}:1`, "number:2"],
+        ["sequencer", "execute:0"],
+        ["instruction", "execute:1"],
+        ["number", "execute:2"],
+        ["DIN", "execute:3"],
+        ["execute:2", "OUT"],
+        ["execute:3", "DOUT"],
+        ["execute:4", "DEV"],
+        ["execute:5", "IN"],
+        ["execute:6", "HALT"],
+      ],
+    },
+    reads: cpuLevel,
+  };
+}
 
 // An ALU on buses width signals wide. Subtract is add with B flipped and a
 // carry in, which wraps 1 - 2 round to 3 at 2 bits, or 3 - 5 to 254 at 8.
@@ -1394,7 +1805,8 @@ export function wiring(level: CircuitLevel): { type: NodeType; width: number }[]
 
 // A fresh board with the level's input terminals down the left edge, its
 // output terminals down the right, and the gate wired between them if it's
-// prebuilt. The board can hold the given parts.
+// prebuilt. A program level's board has program memory, holding its first
+// test program. The board can hold the given parts.
 export function loadLevel(level: CircuitLevel, parts = PARTS): Game {
   const grid = level.grid ?? DEFAULT_GRID;
   const game = newGame(parts, grid);
@@ -1408,6 +1820,8 @@ export function loadLevel(level: CircuitLevel, parts = PARTS): Game {
     );
   const inputs = place("INPUT", level.inputs, 4);
   const outputs = place("OUTPUT", level.outputs, grid.width - 4);
+  if (level.programs !== undefined) placed(placeNode(game, PROGRAM_MEMORY, level.programMemory));
+  loadFirstProgram(game, level);
   if (level.prebuilt === true) {
     const gate = placed(placeNode(game, level.gate, { x: grid.width / 2, y: grid.height / 2 }));
     for (const [i, input] of inputs.entries()) {
@@ -1420,6 +1834,14 @@ export function loadLevel(level: CircuitLevel, parts = PARTS): Game {
   return game;
 }
 
+// Fills a program level's program memory with its first test program, so
+// the player can tick through it while building. A saved board's program
+// memory comes back blank, since saves don't keep contents.
+export function loadFirstProgram(game: Game, level: CircuitLevel): void {
+  const memory = programMemoryOf(game.nodes);
+  if (memory && level.programs !== undefined) loadContents(game, memory.id, level.programs[0]?.words ?? []);
+}
+
 // The pins a level's solution wires together, once its nodes are on the
 // board as the given nodes, in the solution's order.
 export function solutionWires(game: Game, level: CircuitLevel, ids: NodeID[]): { from: Pin; to: Pin }[] {
@@ -1427,7 +1849,11 @@ export function solutionWires(game: Game, level: CircuitLevel, ids: NodeID[]): {
   const pin = (end: string, side: Pin["side"]): Pin => {
     const [name = "", index = "0"] = end.split(":");
     const own = nodes.findIndex((n) => n.name === name);
-    const node = own >= 0 ? ids[own] : terminalNamed(game, side === "out" ? "input" : "output", name)?.id;
+    const node =
+      own >= 0
+        ? ids[own]
+        : (terminalNamed(game, side === "out" ? "input" : "output", name)?.id ??
+          [...game.nodes.values()].find((n) => n.type === name)?.id);
     if (node === undefined) throw new Error(`${level.gate}'s solution has no ${end}`);
     return { node, side, index: Number(index) };
   };
@@ -1460,6 +1886,9 @@ export interface Row {
   // Whether a step ticks the clock once its inputs are set. The outputs
   // are read after the tick.
   tick?: boolean;
+  // A test program's row: its name, with the values its device gives as
+  // its inputs and the values it sends out as its outputs.
+  name?: string;
 }
 
 // The input terminal a level with a clock has.
@@ -1517,13 +1946,15 @@ function rowNumber(level: CircuitLevel, inputs: Value[]): number {
 // The rows the level panel shows: the timing table on a memory level, or
 // else the truth table.
 export function testTable(level: CircuitLevel): Row[] {
+  if (level.programs !== undefined)
+    return level.programs.map((test) => ({ name: test.name, inputs: test.device, expected: test.outs }));
   return level.steps ?? truthTable(level);
 }
 
 // The rows of the truth table the level panel shows: the level's cases if it
 // has them, or else every combination of inputs. A memory level has none.
 export function truthTable(level: CircuitLevel): Row[] {
-  if (level.steps !== undefined) return [];
+  if (level.steps !== undefined || level.programs !== undefined) return [];
   if (level.cases !== undefined) return level.cases.map((inputs) => ({ inputs, expected: expectedFor(level, inputs) }));
   return Array.from({ length: rowCount(level) }, (_, n) => rowAt(level, n));
 }
@@ -1563,6 +1994,8 @@ export interface CheckResult {
   forbidden: NodeType[];
   // Whether the board failed to settle on some row, whatever its outputs.
   unstable: boolean;
+  // Whether a test program ran out of ticks before it halted.
+  endless: boolean;
   passed: boolean;
 }
 
@@ -1574,7 +2007,8 @@ export function checkLevel(board: Game, levelIndex: number, levels = LEVELS): Ch
   const level = circuitAt(levelIndex, levels);
   const allowed = new Set<NodeType>([...partsBin(levelIndex, levels), ...wiring(level).map((w) => w.type)]);
   if (level.prebuilt === true) allowed.add(level.gate);
-  const gates = [...board.nodes.values()].filter((node) => nodeKind(board, node).terminal === undefined);
+  // Terminals and program memory come with the level.
+  const gates = [...board.nodes.values()].filter((node) => nodeKind(board, node).removable);
   const forbidden = [...new Set(gates.map((node) => node.type))].filter((type) => !allowed.has(type));
 
   const terminal =
@@ -1591,7 +2025,28 @@ export function checkLevel(board: Game, levelIndex: number, levels = LEVELS): Ch
   };
   let rows: CheckedRow[];
   let hidden: CheckResult["hidden"] = { checked: 0, failed: [] };
-  if (level.steps === undefined) {
+  const ran = { endless: false };
+  if (level.programs !== undefined) {
+    const inputs = level.inputs.map(terminal("input"));
+    const outputs = level.outputs.map(terminal("output"));
+    const memory = programMemoryOf(board.nodes)?.id ?? -1;
+    rows = level.programs.map((test): CheckedRow => {
+      const sim = simulate(board, inputs, outputs, new Map([[memory, test.words]]));
+      const outcome = finish(
+        play(
+          machineOn(level, (values) => {
+            const { outputs: got, stable } = sim(values);
+            if (!stable) settled.always = false;
+            return got;
+          }),
+          test.device,
+          TICK_LIMIT,
+        ),
+      );
+      if (!outcome.halted) ran.endless = true;
+      return { name: test.name, inputs: test.device, expected: test.outs, actual: outcome.outs };
+    });
+  } else if (level.steps === undefined) {
     rows = truthTable(level).map((row): CheckedRow => Object.assign(row, { actual: run(row.inputs) }));
     // An unstable board has already failed, and settling it again on every
     // row out of sight would take a long time.
@@ -1604,9 +2059,24 @@ export function checkLevel(board: Game, levelIndex: number, levels = LEVELS): Ch
   const passed =
     forbidden.length === 0 &&
     !unstable &&
+    !ran.endless &&
     hidden.failed.length === 0 &&
     rows.every((row) => matches(row.actual, row.expected));
-  return { rows, hidden, forbidden, unstable, passed };
+  return { rows, hidden, forbidden, unstable, endless: ran.endless, passed };
+}
+
+// A CPU board as a machine a test program runs on, given a way to set its
+// input terminals and read its outputs: CLK, then DIN.
+export function machineOn(level: CircuitLevel, run: (values: Value[]) => Value[]): Machine {
+  const clock = level.inputs.indexOf(CLOCK);
+  const values = (clk: Value, din: Value): Value[] => level.inputs.map((_, i) => (i === clock ? clk : din));
+  return {
+    tick: (din) => {
+      run(values(1, din));
+      run(values(0, din));
+    },
+    read: (din) => run(values(0, din)),
+  };
 }
 
 // Sets a step's inputs and, if it ticks, turns the clock on and off, giving
