@@ -72,10 +72,22 @@ describe("each level's intended solution", () => {
     expect(unbuilt.filter(({ level }) => level.solution === undefined).map(({ level }) => levelId(level))).toEqual([]);
   });
 
-  // Splits and joins are Wiring, not parts, so they don't count (ADR 10).
-  test.each(unbuilt.map(({ level }) => [levelId(level), level] as const))("%s places 10 parts or fewer", (_, level) => {
-    const parts = (level.solution?.nodes ?? []).filter((node) => node.type !== "SPLIT" && node.type !== "JOIN");
-    expect(parts.length).toBeLessThanOrEqual(10);
+  // Every node the solution places counts, and every wire, terminals' too (ADR 11).
+  // Levels still over the limit while #72 redesigns them; each PR there
+  // removes its level from this list.
+  const overLimit = ["ALU SLICE", "REGISTER FILE", "4-TO-16 DECODER", "CONTROL UNIT", "EXECUTE UNIT", "CPU"];
+  const withinLimit = (level: (typeof unbuilt)[number]["level"]): boolean =>
+    (level.solution?.nodes.length ?? 0) <= 7 && (level.solution?.wires.length ?? 0) <= 20;
+
+  test.each(unbuilt.map(({ level }) => [levelId(level), level] as const))(
+    "%s places 7 nodes or fewer with 20 wires or fewer",
+    (id, level) => {
+      expect(withinLimit(level)).toBe(!overLimit.includes(id));
+    },
+  );
+
+  test("every over-limit level is a level", () => {
+    expect(overLimit.filter((id) => !unbuilt.some(({ level }) => levelId(level) === id))).toEqual([]);
   });
 
   // Passing includes using only the parts bin and the level's Wiring (ADR 5).

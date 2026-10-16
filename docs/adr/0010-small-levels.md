@@ -4,7 +4,7 @@ Date: 2026-10-14
 
 ## Status
 
-Accepted
+Superseded by [ADR 11](0011-levels-of-7-nodes-and-20-wires.md)
 
 ## Context
 
