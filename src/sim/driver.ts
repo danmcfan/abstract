@@ -1,4 +1,5 @@
 import type { Session } from "./session";
+import type { Cue } from "./story";
 
 // Runs a task every so many milliseconds until the returned function cancels
 // it. The game passes setInterval; tests pass one they fire by hand.
@@ -15,6 +16,8 @@ const PROGRAM_STEP_MS = 200;
 // ticks the clock over and over while Run is on. Opening, clearing or
 // swapping the board goes through here too, never straight to the session,
 // so a new board stops whatever was timed on the old one. It calls changed() after every change it makes.
+// On the door program the clock ticks the CPU, and what Bitbox says about
+// how its run ends goes to speak().
 export class Driver {
   private stopClock: (() => void) | null = null;
   private stopTest: (() => void) | null = null;
@@ -22,11 +25,13 @@ export class Driver {
   private readonly session: Session;
   private readonly scheduler: Scheduler;
   private readonly changed: () => void;
+  private readonly speak: (cue: Cue) => void;
 
-  constructor(session: Session, scheduler: Scheduler, changed: () => void) {
+  constructor(session: Session, scheduler: Scheduler, changed: () => void, speak: (cue: Cue) => void = (): void => {}) {
     this.session = session;
     this.scheduler = scheduler;
     this.changed = changed;
+    this.speak = speak;
   }
 
   // Whether Run is ticking the clock.
@@ -78,6 +83,13 @@ export class Driver {
 
   // Ticks the level's clock once, by hand.
   tick(): void {
+    if (this.session.level.kind === "door program") {
+      const { ticked, cue } = this.session.tickDoor();
+      if (cue) this.speak(cue);
+      if (!ticked || this.session.door?.outcome !== "running") this.pause();
+      this.changed();
+      return;
+    }
     if (this.session.tick()) this.changed();
   }
 

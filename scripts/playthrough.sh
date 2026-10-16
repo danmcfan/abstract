@@ -155,11 +155,55 @@ write_table() {
   if [[ -n ${2:-} ]]; then agent-browser screenshot "$2" >/dev/null; fi
 }
 
+# Whether the open level is the door program, which has an editor and a door.
+exit_hall() { [[ $(js "!!document.querySelector('#door-program')") == true ]]; }
+
+# Runs the door program with the name on the keypad, $1, and waits for the
+# door to answer.
+run_door() {
+  ab click "#run-clock"
+  wait_for "!/Testing|^$/.test(document.querySelector('#status')?.textContent ?? '')" "the door answers $1"
+}
+
+# Types the door program as Bitbox would write it, in the player's
+# mnemonics, and tries a wrong name, a single Step, then TURING, which opens
+# the door.
+open_door() {
+  hush
+  local program
+  program=$(js "__abstract.referenceProgram" | python3 -c 'import json, sys; print(json.loads(sys.stdin.read()))')
+  ab fill "#program" "$program"
+  expect "document.querySelector('#program-status').textContent.endsWith('ready')" "level $1: the program assembles"
+  ab eval "(g => { g.value = 6; g.dispatchEvent(new Event('input', { bubbles: true })); })(document.querySelector('#clock-speed'))"
+  ab fill "#keypad" "ENIGMA"
+  ab click "#step"
+  expect "document.querySelector('#cpu-panel').textContent.includes('1 tick ')" "level $1: Step does one tick"
+  run_door ENIGMA
+  expect "document.querySelector('#status').textContent.includes('stays shut')" "level $1: ENIGMA keeps the door shut"
+  expect "!!__abstract.saying?.includes('not its code')" "level $1: Bitbox says the code doesn't match"
+  hush
+  ab fill "#keypad" "TURING"
+  run_door TURING
+  local status; status=$(js "document.querySelector('#status').textContent")
+  echo "level $1: $status"
+  [[ $status == *open* ]] || { echo "level $1: the door stayed shut" >&2; exit 1; }
+  sleep 2
+  if [[ -n ${2:-} ]]; then agent-browser screenshot "$2" >/dev/null; fi
+  # The closing scene: Bitbox's lines, one after another.
+  for _ in 1 2 3; do sleep 1.5; agent-browser eval "document.querySelector('#dialog-next')?.click()" >/dev/null; done
+  sleep 1.5
+}
+
 # Plays level $1 on its own: open it, build its solution and test it.
 play() {
   open_level "$1" "$OUT/level$1.webm"
   if typing_pool; then
     write_table "$1" "$OUT/level$1.png"
+    stop_recording
+    return
+  fi
+  if exit_hall; then
+    open_door "$1" "$OUT/level$1.png"
     stop_recording
     return
   fi
@@ -201,7 +245,13 @@ finish() {
   local count=$1 floor number
   # The last level has no way on until its layer's next level exists.
   open_level "$count" "$OUT/stack-built.webm"
-  if typing_pool; then write_table "$count"; else check 2 "$count"; fi
+  if typing_pool; then
+    write_table "$count"
+  elif exit_hall; then
+    open_door "$count"
+  else
+    check 2 "$count"
+  fi
   expect "!document.querySelector('#up') && !document.querySelector('#next')" "no way on from the last level"
 
   # The menu bar's button opens the stack on the current layer, and each level keeps

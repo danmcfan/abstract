@@ -11,7 +11,8 @@ import type { Label, Node, NodeType, Value } from "./node";
 // flags (such as which robot lines they've already heard); and the clock
 // speed they set, missing from saves written before the gauge; and their
 // instruction set as it stands, with the last one that was good, which
-// everything after L7 reads. Saves from before L7 have neither.
+// everything after L7 reads. Saves from before L7 have neither. Then the
+// door program's text, and whether the door has opened, which ends the game.
 export interface SaveData {
   solved: Solved;
   open: NodeType;
@@ -20,6 +21,8 @@ export interface SaveData {
   clockSpeed?: number;
   instructionSet?: InstructionSet;
   validInstructionSet?: InstructionSet;
+  doorProgram?: string;
+  finished?: boolean;
 }
 
 // Each level's board, by the gate the level builds.
@@ -168,6 +171,8 @@ interface RawSave {
   clockSpeed?: unknown;
   instructionSet?: unknown;
   validInstructionSet?: unknown;
+  doorProgram?: unknown;
+  finished?: unknown;
 }
 
 // Saves from before progress was kept by gate held a count of solved levels
@@ -213,6 +218,8 @@ function parseSave(value: unknown): SaveData | null {
     ...clock,
     ...(table && { instructionSet: table }),
     ...(valid && { validInstructionSet: valid }),
+    ...(typeof v.doorProgram === "string" && { doorProgram: v.doorProgram }),
+    ...(v.finished === true && { finished: true }),
   };
 }
 

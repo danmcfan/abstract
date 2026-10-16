@@ -227,6 +227,36 @@ body {
     transform: translateX(-2px);
   }
 }
+/* The exit door: shut on the dark, and when the door program sends its
+   code it swings back on daylight. The keypad's light says how the last
+   run went. */
+#door .daylight {
+  fill: var(--color-void);
+  transition: fill 1.2s;
+}
+#door[data-outcome="open"] .daylight {
+  fill: var(--color-glow);
+}
+#door .door-leaf {
+  transform-box: fill-box;
+  transform-origin: left center;
+  transition: transform 1.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+#door[data-outcome="open"] .door-leaf {
+  transform: perspective(400px) rotateY(-70deg);
+}
+#door .door-led {
+  fill: var(--color-dead);
+}
+#door[data-outcome="running"] .door-led {
+  fill: var(--color-live);
+}
+#door[data-outcome="open"] .door-led {
+  fill: var(--color-pass);
+}
+#door:is([data-outcome="shut"], [data-outcome="halted"]) .door-led {
+  fill: var(--color-fail);
+}
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

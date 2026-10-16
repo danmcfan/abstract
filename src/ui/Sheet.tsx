@@ -13,6 +13,7 @@ import {
 } from "../sim/level";
 import type { Value } from "../sim/node";
 import { CLOCK_SPEED } from "../sim/session";
+import { CLUES } from "./clues";
 import { say } from "./speech";
 import { GateIcon } from "./GateIcon";
 import { SoundButton } from "./SoundButton";
@@ -57,6 +58,10 @@ function floor(): Layer | null {
 }
 
 function status(): { text: string; tone: string } | null {
+  const { door } = session();
+  if (door?.outcome === "open") return { text: "The door is open. You made it out!", tone: "text-pass" };
+  if (door?.outcome === "shut") return { text: `The door got ${door.sent ?? 0}. It stays shut.`, tone: "text-fail" };
+  if (door?.outcome === "halted") return { text: "HALT, with nothing sent to the door.", tone: "text-fail" };
   if (session().testing) return { text: "Testing…", tone: "text-pencil" };
   const r = session().result;
   if (!r) return null;
@@ -141,10 +146,20 @@ export function Brief(props: { onStack: (arrive?: number) => void }): JSX.Elemen
           <p class="text-note leading-snug">{session().level.goal}</p>
         </div>
 
-        <Show when={!circuit()}>
+        <Show when={session().level.kind === "instruction set"}>
           <p class="mt-3 text-note leading-snug text-pencil">
             The table is checked as you type. Every mnemonic and every opcode must be different.
           </p>
+        </Show>
+
+        <Show when={session().level.kind === "door program"}>
+          <ul class="mt-3 list-disc pl-4 text-note leading-snug text-pencil">
+            <li>One instruction per line: a mnemonic, then its operands, split by commas.</li>
+            <li>Registers are R0 to R3. Devices are DOOR and KEYPAD. Numbers are 0 to 255, or hex as 0x1f.</li>
+            <li>
+              <code>name:</code> at the start of a line is a label a jump can go to. <code>;</code> starts a comment.
+            </li>
+          </ul>
         </Show>
 
         <Show when={circuit() && programmed()}>
@@ -277,6 +292,16 @@ export function Brief(props: { onStack: (arrive?: number) => void }): JSX.Elemen
         </Show>
       </div>
 
+      {/* The last sheet of each of the first six floors has a pencil note in
+          its margin once it's solved. */}
+      <Show when={session().clue}>
+        {(clueLayer) => (
+          <p id="clue" class="mb-3 shrink-0 -rotate-2 font-hand text-copy leading-snug text-pencil">
+            {CLUES[clueLayer()]}
+          </p>
+        )}
+      </Show>
+
       <div class="shrink-0 border-t-2 border-ink pt-3">
         <Show when={circuit()}>
           <div class="flex flex-wrap items-center gap-3">
@@ -311,25 +336,7 @@ export function Brief(props: { onStack: (arrive?: number) => void }): JSX.Elemen
               >
                 {running() ? "Pause" : "Run"}
               </button>
-              {/* The gauge steps through doublings, 1 to 64 ticks a second. */}
-              <label class="flex items-center gap-1.5 text-xs text-pencil">
-                Clock speed
-                <input
-                  id="clock-speed"
-                  type="range"
-                  min={Math.log2(CLOCK_SPEED.min)}
-                  max={Math.log2(CLOCK_SPEED.max)}
-                  step={1}
-                  value={Math.log2(session().clockSpeed)}
-                  class="w-20 accent-ink"
-                  onInput={(event) => {
-                    driver.setClockSpeed(2 ** Number(event.currentTarget.value));
-                  }}
-                />
-                <output for="clock-speed" class="w-8 font-bold text-ink">
-                  {session().clockSpeed}/s
-                </output>
-              </label>
+              <ClockSpeed />
             </Show>
             <button
               id="clear"
@@ -411,6 +418,31 @@ export function Brief(props: { onStack: (arrive?: number) => void }): JSX.Elemen
       </div>
       <RoughInk />
     </section>
+  );
+}
+
+// The clock speed gauge, on every level with a clock and in the door
+// program. It steps through doublings, 1 to 64 ticks a second.
+export function ClockSpeed(): JSX.Element {
+  return (
+    <label class="flex items-center gap-1.5 text-xs text-pencil">
+      Clock speed
+      <input
+        id="clock-speed"
+        type="range"
+        min={Math.log2(CLOCK_SPEED.min)}
+        max={Math.log2(CLOCK_SPEED.max)}
+        step={1}
+        value={Math.log2(session().clockSpeed)}
+        class="w-20 accent-ink"
+        onInput={(event) => {
+          driver.setClockSpeed(2 ** Number(event.currentTarget.value));
+        }}
+      />
+      <output for="clock-speed" class="w-8 font-bold text-ink">
+        {session().clockSpeed}/s
+      </output>
+    </label>
   );
 }
 
