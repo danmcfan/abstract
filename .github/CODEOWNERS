@@ -5,7 +5,6 @@
 /.prettierrc.json @danmcfan
 /.prettierignore @danmcfan
 /knip.json @danmcfan
-/lefthook.yml @danmcfan
 /package.json @danmcfan
 /scripts/check-escapes.ts @danmcfan
 /scripts/check-bundle.ts @danmcfan
