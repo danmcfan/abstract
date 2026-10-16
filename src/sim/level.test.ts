@@ -5,6 +5,7 @@ import {
   checkLevel,
   floorAbove,
   hasClock,
+  circuits,
   LAYERS,
   layerLevels,
   levelAt,
@@ -636,4 +637,11 @@ describe("the instruction set level", () => {
     const solved = Object.fromEntries(LEVELS.slice(0, index + 1).map((level) => [levelId(level), revisionOf(level)]));
     expect(solvedCount(solved)).toBe(index + 1);
   });
+});
+
+test("the adders and ADD/SUB name their outputs SUM and COUT", () => {
+  for (const name of ["HALF ADDER", "FULL ADDER", "2-BIT ADDER", "ADD/SUB"]) {
+    const level = circuits(LEVELS).find((l) => l.gate === name);
+    expect(level?.outputs).toEqual(["SUM", "COUT"]);
+  }
 });

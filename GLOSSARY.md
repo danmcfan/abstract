@@ -16,7 +16,7 @@ _Avoid_: level select, map, menu
 The place in the factory where a layer happens, such as "adder assembly" for L3. It's the story's name for a layer, never a separate unit of progress.
 
 **Level**:
-One puzzle: build a single part to match its truth table. Defined in `LEVELS` in `src/sim/level.ts`.
+One puzzle: build a single part to match its truth table, or its timing table for a memory part. Two levels have no circuit: in the instruction set the player writes a table, and in the door program a program. Defined in `LEVELS` in `src/sim/level.ts`.
 _Avoid_: puzzle, challenge, stage
 
 **Prebuilt level**:
