@@ -8,6 +8,7 @@ import {
   partGiven,
   partsBin,
   terminalWidth,
+  TICK_LIMIT,
   wiring,
 } from "../sim/level";
 import type { Value } from "../sim/node";
@@ -45,6 +46,9 @@ const clocked = (): boolean => {
   return level !== null && hasClock(level);
 };
 const timed = (): boolean => circuit()?.steps !== undefined;
+// The CPU's level is tested by programs, one row each.
+const programmed = (): boolean => circuit()?.programs !== undefined;
+const list = (values: Value[]): string => (values.length > 0 ? values.join(", ") : "–");
 const layer = (): Layer => layerOf(session().levelIndex);
 // The floor a passed level leads up to, if it's the last of its layer.
 function floor(): Layer | null {
@@ -59,6 +63,7 @@ function status(): { text: string; tone: string } | null {
   if (r.forbidden.length > 0)
     return { text: `${r.forbidden.join(", ")} isn't in this level's parts bin.`, tone: "text-fail" };
   if (r.unstable) return { text: "Unstable: a loop on the board never settles.", tone: "text-fail" };
+  if (r.endless) return { text: `A test program never stopped at HALT in ${TICK_LIMIT} ticks.`, tone: "text-fail" };
   if (!r.passed) return { text: "Not quite. Some rows don't match.", tone: "text-fail" };
   const given = partGiven(session().level);
   return {
@@ -142,7 +147,71 @@ export function Brief(props: { onStack: (arrive?: number) => void }): JSX.Elemen
           </p>
         </Show>
 
-        <Show when={circuit()}>
+        <Show when={circuit() && programmed()}>
+          <div class="mt-3">
+            <div class="relative w-full">
+              <table id="programs" class="w-full border-collapse text-center text-note tabular-nums">
+                <thead>
+                  <tr class="text-ink">
+                    <th class="border-hair border-ink px-2 py-0.5">test program</th>
+                    <th class="border-hair border-ink px-2 py-0.5">DIN</th>
+                    <th class="border-hair border-ink px-2 py-0.5">out</th>
+                    <th class="w-12 border-hair border-ink px-1 py-0.5 text-xs font-normal text-pencil">test</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <For each={session().rows}>
+                    {(row, i) => (
+                      <tr class={session().currentRow === i() ? "bg-wash font-bold" : ""}>
+                        <td class="border-hair border-ink px-2 py-0.5 text-left">{row.name}</td>
+                        <td class="border-hair border-ink px-2 py-0.5">{list(row.inputs)}</td>
+                        <td class="border-hair border-ink px-2 py-0.5">{list(row.expected)}</td>
+                        <td class="border-hair border-ink px-1 py-0.5">
+                          <Show when={row.actual} fallback={<span class="text-pencil/50">·</span>}>
+                            {(values) => (
+                              <span class={row.status === "passed" ? "text-pass" : "text-fail"}>
+                                {row.status === "passed" ? "✓" : `✗${list(values())}`}
+                              </span>
+                            )}
+                          </Show>
+                        </td>
+                      </tr>
+                    )}
+                  </For>
+                </tbody>
+              </table>
+              <Show when={session().stamped}>
+                <span id="stamp" class="stamp">
+                  PASSED
+                </span>
+              </Show>
+            </div>
+            {/* While a program runs, the instruction the execute unit is
+                doing, and its registers. */}
+            <Show when={session().now}>
+              {(now) => (
+                <div id="doing" class="mt-3 text-note">
+                  <p>
+                    <span class="text-pencil">Doing </span>
+                    <span class="font-bold text-ink">{now().instruction}</span>
+                  </p>
+                  <p class="mt-1 flex gap-3 tabular-nums">
+                    <For each={now().registers}>
+                      {(value, r) => (
+                        <span>
+                          <span class="text-pencil">R{r()} </span>
+                          {value}
+                        </span>
+                      )}
+                    </For>
+                  </p>
+                </div>
+              )}
+            </Show>
+          </div>
+        </Show>
+
+        <Show when={circuit() && !programmed()}>
           <div class="mt-3">
             <div class="relative w-full">
               <table class="w-full border-collapse text-center text-note tabular-nums">

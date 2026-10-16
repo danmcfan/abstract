@@ -490,6 +490,69 @@ const LEVELS: Partial<Record<string, LevelScript>> = {
       { face: "happy", text: "You can come back and rename things any time. The CPU will read whatever's on file." },
     ],
   },
+  "CONTROL UNIT": {
+    intro: [
+      { face: "idle", text: "Up here we teach the CPU your instruction set. It starts with the opcode." },
+      { face: "idle", text: "The control unit turns an opcode into the signals that do its instruction." },
+      {
+        face: "thinking",
+        text: "WRITE lets a register change. SRC and OP pick what it takes. The rest say jump, in, out or halt.",
+      },
+    ],
+    hint: [
+      { face: "thinking", text: "A 4-to-16 decoder lights one signal per opcode. Split LO and HI to get them all." },
+      { face: "thinking", text: "Your opcodes say which signal is which instruction. Check your table." },
+      {
+        face: "thinking",
+        text: "A zero test over a join is on when none of its signals are. Each OP signal is on unless it's one of a few.",
+      },
+      { face: "thinking", text: "WRITE is on unless it's halt, write, jump, jump if zero, out, or the spare opcode." },
+      CONTROLS,
+    ],
+    solved: [
+      { face: "happy", text: "Control unit, done! Your opcodes, wired in by hand." },
+      { face: "idle", text: "Change your instruction set later, and the part in the bin keeps up. This board won't." },
+    ],
+  },
+  "EXECUTE UNIT": {
+    intro: [
+      { face: "idle", text: "Now the execute unit: everything that does an instruction, given as I and N." },
+      { face: "idle", text: "Registers, the ALU, RAM and your control unit, all on one board." },
+      { face: "thinking", text: "Each step in the table is one instruction, written in your opcodes." },
+    ],
+    hint: [
+      { face: "thinking", text: "Split I. The top four signals are the opcode, then R, then S." },
+      { face: "thinking", text: "R and S pick registers in the register file. R is the one that changes." },
+      { face: "thinking", text: "A 4-way MUX8 on SRC picks what R takes: S, N, memory or the ALU." },
+      { face: "thinking", text: "RAM's address is N's bottom three signals. A MUX8 on IN swaps RAM for DIN." },
+      CONTROLS,
+    ],
+    solved: [
+      { face: "happy", text: "Execute unit, done! Give it an instruction and it does it." },
+      { face: "thinking", text: "It just needs something to feed it instructions, one after another." },
+    ],
+  },
+  CPU: {
+    intro: [
+      { face: "amazed", text: "This is it. The CPU." },
+      { face: "idle", text: "Program memory holds a program. The program counter says where we are in it." },
+      { face: "idle", text: "Fetch takes the next instruction into two registers. Execute does it." },
+      { face: "thinking", text: "Run test loads each test program and ticks until HALT." },
+    ],
+    hint: [
+      { face: "thinking", text: "The program counter points into program memory. Its I and N go into two registers." },
+      { face: "thinking", text: "Those registers load while EXEC is off. That's the fetch tick." },
+      { face: "thinking", text: "Wire EXEC to the execute unit's CLK, so it acts as EXEC turns on." },
+      { face: "thinking", text: "On execute, the program counter loads: the jump address, or its own count." },
+      { face: "thinking", text: "Once HALT is on during execute, stop the sequencer's clock." },
+      CONTROLS,
+    ],
+    solved: [
+      { face: "amazed", text: "It runs! A real CPU, speaking your instruction set." },
+      { face: "happy", text: "That's the control room done. Every part we built, all working together." },
+      { face: "thinking", text: "Now for the door. It wants a program, and we can finally write one." },
+    ],
+  },
 };
 
 // The first time the elevator reaches each floor, by layer number.
