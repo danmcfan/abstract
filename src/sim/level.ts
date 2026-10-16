@@ -18,6 +18,8 @@ import {
 import {
   assemble,
   control,
+  opEncoder,
+  writeEncoder,
   cpu,
   describeInstruction,
   DOOR,
@@ -223,17 +225,39 @@ function places(count: number, outputs: Memory["outputs"]): Memory {
   };
 }
 
-// The control unit's 16 instruction lines, as its intended board splits
+// The control levels' 16 instruction lines, as their intended boards split
 // the decoder's LO and HI: the instruction with opcode n is on pin 7 - n of
-// one or the other. The board is wired for Bitbox's opcodes.
+// one or the other. Each board is wired for the set its level reads.
 const line = (n: number): string => `${n < 8 ? "lo" : "hi"}:${7 - (n % 8)}`;
-const lineOf = (id: (typeof INSTRUCTIONS)[number]["id"]): string => line(rowOf(BITBOX_INSTRUCTION_SET, id).opcode ?? 0);
-// The opcode no instruction has in Bitbox's set.
-const SPARE = 15;
+const linesOf = (set: InstructionSet) => (id: (typeof INSTRUCTIONS)[number]["id"]): string =>
+  line(rowOf(set, id).opcode ?? 0);
+// The opcode no instruction has in the set.
+const spareOf = (set: InstructionSet): number => {
+  const opcodes = new Set(INSTRUCTIONS.flatMap(({ id }) => rowOf(set, id).opcode ?? []));
+  return Array.from({ length: 16 }, (_, n) => n).find((n) => !opcodes.has(n)) ?? 0;
+};
 
-// Wires each line into its own pin of a join, from the top.
-const into = (join: string, lines: string[]): [string, string][] =>
-  lines.map((from, pin): [string, string] => [from, `${join}:${pin}`]);
+// Wires each line into its own pin of a part, from the top.
+const into = (part: string, lines: string[]): [string, string][] =>
+  lines.map((from, pin): [string, string] => [from, `${part}:${pin}`]);
+
+// The decoder and the splits every control level starts from.
+const DECODER_NODES: Solution["nodes"] = [
+  { name: "dec", type: "4-TO-16 DECODER", x: 10, y: 22 },
+  { name: "lo", type: "SPLIT", x: 20, y: 6, width: 8 },
+  { name: "hi", type: "SPLIT", x: 20, y: 30, width: 8 },
+];
+const DECODER_WIRES: [string, string][] = [
+  ["OPCODE", "dec"],
+  ["dec:0", "lo"],
+  ["dec:1", "hi"],
+];
+
+// Every instruction in table order, then the spare opcode.
+const opcodeCases = (set: InstructionSet): Value[][] => [
+  ...INSTRUCTIONS.map(({ id }) => [rowOf(set, id).opcode ?? 0]),
+  [spareOf(set)],
+];
 
 // The execute unit's timing table, written as instructions: every
 // instruction once, with jump if zero both ways. Each step ticks, then
@@ -1437,6 +1461,8 @@ export const LEVELS: Level[] = [
     goal: "Give each instruction a mnemonic and an opcode, all different.",
     layer: 7,
   },
+  opEncoderLevel(BITBOX_INSTRUCTION_SET),
+  writeEncoderLevel(BITBOX_INSTRUCTION_SET),
   controlUnit(BITBOX_INSTRUCTION_SET),
   executeLevel(BITBOX_INSTRUCTION_SET),
   cpuLevel(BITBOX_INSTRUCTION_SET),
@@ -1453,22 +1479,101 @@ export function withInstructionSet(levels: readonly Level[], set: InstructionSet
   return levels.map((level) => (isCircuit(level) && level.reads ? level.reads(set) : level));
 }
 
+function opEncoderLevel(set: InstructionSet): CircuitLevel {
+  const lineOf = linesOf(set);
+  return {
+    gate: "OP ENCODER",
+    goal: "OP is the ALU job for your opcode's instruction: add 0, subtract 1, and 4, or 5, xor 6, and 7 for every other instruction.",
+    layer: 8,
+    inputs: ["OPCODE"],
+    outputs: ["OP"],
+    widths: { OPCODE: 4, OP: 3 },
+    buses: [8],
+    target: (inputs) => opEncoder(set, inputs),
+    cases: opcodeCases(set),
+    grid: { width: 60, height: 56 },
+    // The decoder lights one line per opcode. Each OP signal is on unless
+    // the line of one of a few instructions is, which is NONE of them.
+    solution: {
+      nodes: [
+        ...DECODER_NODES,
+        { name: "op2", type: "NONE", x: 32, y: 2 },
+        { name: "op1", type: "NONE", x: 32, y: 20 },
+        { name: "op0", type: "NONE", x: 32, y: 38 },
+        { name: "op", type: "JOIN", x: 46, y: 22, width: 3 },
+      ],
+      wires: [
+        ...DECODER_WIRES,
+        ...into("op2", [lineOf("add"), lineOf("subtract")]),
+        ...into("op1", [lineOf("add"), lineOf("subtract"), lineOf("and"), lineOf("or")]),
+        ...into("op0", [lineOf("add"), lineOf("and"), lineOf("xor")]),
+        ...into("op", ["op2", "op1", "op0"]),
+        ["op", "OP"],
+      ],
+    },
+    reads: opEncoderLevel,
+  };
+}
+
+function writeEncoderLevel(set: InstructionSet): CircuitLevel {
+  const lineOf = linesOf(set);
+  return {
+    gate: "WRITE ENCODER",
+    goal: "WRITE is on when your opcode's instruction writes register R. SRC picks what R takes: 0 S, 1 N, 2 RAM or DIN, 3 the ALU.",
+    layer: 8,
+    inputs: ["OPCODE"],
+    outputs: ["WRITE", "SRC"],
+    widths: { OPCODE: 4, SRC: 2 },
+    buses: [8],
+    target: (inputs) => writeEncoder(set, inputs),
+    cases: opcodeCases(set),
+    grid: { width: 60, height: 56 },
+    // WRITE is on unless the instruction writes no register, or the opcode
+    // is spare. Each SRC signal is on unless it's one of a few instructions.
+    solution: {
+      nodes: [
+        ...DECODER_NODES,
+        { name: "w", type: "NONE", x: 32, y: 2 },
+        { name: "src1", type: "NONE", x: 32, y: 20 },
+        { name: "src0", type: "NONE", x: 32, y: 38 },
+        { name: "src", type: "JOIN", x: 46, y: 30, width: 2 },
+      ],
+      wires: [
+        ...DECODER_WIRES,
+        ...into("w", [
+          lineOf("halt"),
+          lineOf("write"),
+          lineOf("jump"),
+          lineOf("jump if zero"),
+          lineOf("out"),
+          line(spareOf(set)),
+        ]),
+        ...into("src1", [lineOf("copy"), lineOf("set")]),
+        ...into("src0", [lineOf("copy"), lineOf("read"), lineOf("in")]),
+        ["w", "WRITE"],
+        ...into("src", ["src1", "src0"]),
+        ["src", "SRC"],
+      ],
+    },
+    reads: writeEncoderLevel,
+  };
+}
+
 function controlUnit(set: InstructionSet): CircuitLevel {
-  const opcodes = new Set(INSTRUCTIONS.flatMap(({ id }) => rowOf(set, id).opcode ?? []));
-  const spare = Array.from({ length: 16 }, (_, n) => n).filter((n) => !opcodes.has(n));
+  const lineOf = linesOf(set);
   const jz = rowOf(set, "jump if zero").opcode ?? 0;
   return {
+    revision: 2,
     gate: "CONTROL UNIT",
-    goal: "Turn your opcode into the signals that do its instruction. JUMP is on for jump, and for jump if zero while ZERO is on.",
+    goal: "JUMP is on for jump, and for jump if zero while A is 0. STORE, IN, OUT and HALT are on for their instructions.",
     layer: 8,
-    inputs: ["OPCODE", "ZERO"],
-    outputs: ["WRITE", "SRC", "OP", "STORE", "JUMP", "IN", "OUT", "HALT"],
-    widths: { OPCODE: 4, SRC: 2, OP: 3 },
-    // Joins for the zero tests.
+    inputs: ["OPCODE", "A"],
+    outputs: ["STORE", "JUMP", "IN", "OUT", "HALT"],
+    widths: { OPCODE: 4, A: 8 },
     buses: [8],
     target: (inputs) => control(set, inputs),
-    // Every instruction in table order, jump if zero both ways, then the
-    // spare opcode. The test run checks the rest out of sight.
+    // Every instruction in table order with A at 1, jump if zero both ways,
+    // then the spare opcode. The test run checks the rest out of sight.
     cases: [
       ...INSTRUCTIONS.flatMap(({ id }) => {
         const opcode = rowOf(set, id).opcode ?? 0;
@@ -1477,71 +1582,29 @@ function controlUnit(set: InstructionSet): CircuitLevel {
               [opcode, 0],
               [opcode, 1],
             ]
-          : [[opcode, 0]];
+          : [[opcode, 1]];
       }),
-      ...spare.map((opcode) => [opcode, 0]),
+      [spareOf(set), 1],
     ],
-    grid: { width: 76, height: 64 },
-    // The decoder lights one line per opcode. A zero test over a join of
-    // lines is on when none of them is: so WRITE is on unless the
-    // instruction is one that writes no register, or the spare opcode, and
-    // each SRC and OP signal is on unless it's one of a few instructions.
+    grid: { width: 60, height: 50 },
+    // Jump if zero is taken while a zero test says A is 0. The other
+    // outputs are their instructions' lines.
     solution: {
       nodes: [
-        { name: "decoder", type: "4-TO-16 DECODER", x: 13, y: 19 },
-        { name: "lo", type: "SPLIT", x: 22, y: 4, width: 8 },
-        { name: "hi", type: "SPLIT", x: 22, y: 26, width: 8 },
-        { name: "writers", type: "JOIN", x: 33, y: 2, width: 8 },
-        { name: "write", type: "ZERO TEST", x: 39, y: 8 },
-        { name: "op2", type: "JOIN", x: 33, y: 22, width: 8 },
-        { name: "opHigh", type: "ZERO TEST", x: 39, y: 28 },
-        { name: "op1", type: "JOIN", x: 33, y: 42, width: 8 },
-        { name: "opMid", type: "ZERO TEST", x: 39, y: 48 },
-        { name: "op0", type: "JOIN", x: 48, y: 2, width: 8 },
-        { name: "opLow", type: "ZERO TEST", x: 54, y: 8 },
-        { name: "src1", type: "JOIN", x: 48, y: 22, width: 8 },
-        { name: "srcHigh", type: "ZERO TEST", x: 54, y: 28 },
-        { name: "src0", type: "JOIN", x: 48, y: 42, width: 8 },
-        { name: "srcLow", type: "ZERO TEST", x: 54, y: 48 },
-        { name: "op", type: "JOIN", x: 63, y: 20, width: 3 },
-        { name: "src", type: "JOIN", x: 63, y: 10, width: 2 },
-        { name: "taken", type: "AND", x: 22, y: 50 },
-        { name: "jump", type: "OR", x: 30, y: 58 },
+        ...DECODER_NODES,
+        { name: "zero", type: "ZERO TEST", x: 20, y: 44 },
+        { name: "taken", type: "AND", x: 32, y: 40 },
+        { name: "jump", type: "OR", x: 42, y: 30 },
       ],
       wires: [
-        ["OPCODE", "decoder"],
-        ["decoder:0", "lo"],
-        ["decoder:1", "hi"],
-        ...into("writers", [
-          lineOf("halt"),
-          lineOf("write"),
-          lineOf("jump"),
-          lineOf("jump if zero"),
-          lineOf("out"),
-          line(SPARE),
-        ]),
-        ["writers", "write"],
-        ...into("op2", [lineOf("add"), lineOf("subtract")]),
-        ["op2", "opHigh"],
-        ...into("op1", [lineOf("add"), lineOf("subtract"), lineOf("and"), lineOf("or")]),
-        ["op1", "opMid"],
-        ...into("op0", [lineOf("add"), lineOf("and"), lineOf("xor")]),
-        ["op0", "opLow"],
-        ...into("src1", [lineOf("copy"), lineOf("set")]),
-        ["src1", "srcHigh"],
-        ...into("src0", [lineOf("copy"), lineOf("read"), lineOf("in")]),
-        ["src0", "srcLow"],
-        ...into("op", ["opHigh", "opMid", "opLow"]),
-        ...into("src", ["srcHigh", "srcLow"]),
+        ...DECODER_WIRES,
+        ["A", "zero"],
         [lineOf("jump if zero"), "taken:0"],
-        ["ZERO", "taken:1"],
+        ["zero", "taken:1"],
         [lineOf("jump"), "jump:0"],
         ["taken", "jump:1"],
-        ["write", "WRITE"],
-        ["src", "SRC"],
-        ["op", "OP"],
-        [lineOf("write"), "STORE"],
         ["jump", "JUMP"],
+        [lineOf("write"), "STORE"],
         [lineOf("in"), "IN"],
         [lineOf("out"), "OUT"],
         [lineOf("halt"), "HALT"],
@@ -1575,7 +1638,7 @@ function executeLevel(set: InstructionSet): CircuitLevel {
     steps,
     grid: { width: 80, height: 64 },
     // I splits into the opcode, R and S. R and S pick the registers, and
-    // the control unit picks what R takes: S, N, RAM or DIN, or the ALU.
+    // the write encoder picks what R takes: S, N, RAM or DIN, or the ALU.
     // RAM's address is N, and it takes R.
     solution: {
       nodes: [
@@ -1583,9 +1646,10 @@ function executeLevel(set: InstructionSet): CircuitLevel {
         { name: "opcode", type: "JOIN", x: 21, y: 8, width: 4 },
         { name: "r", type: "JOIN", x: 21, y: 22, width: 2 },
         { name: "s", type: "JOIN", x: 21, y: 28, width: 2 },
-        { name: "control", type: "CONTROL UNIT", x: 28, y: 2 },
+        { name: "ops", type: "OP ENCODER", x: 28, y: 2 },
+        { name: "writes", type: "WRITE ENCODER", x: 36, y: 2 },
+        { name: "control", type: "CONTROL UNIT", x: 44, y: 2 },
         { name: "registers", type: "REGISTER FILE", x: 30, y: 22 },
-        { name: "zero", type: "ZERO TEST", x: 40, y: 12 },
         { name: "alu", type: "ALU", x: 42, y: 26 },
         { name: "ram", type: "RAM", x: 42, y: 40 },
         { name: "memory", type: "MUX8", x: 52, y: 44 },
@@ -1598,37 +1662,38 @@ function executeLevel(set: InstructionSet): CircuitLevel {
         ["i:5", "r:1"],
         ["i:6", "s:0"],
         ["i:7", "s:1"],
+        ["opcode", "ops"],
+        ["opcode", "writes"],
         ["opcode", "control:0"],
-        ["zero", "control:1"],
+        ["registers:0", "control:1"],
         ["CLK", "registers:0"],
-        ["control:0", "registers:1"],
+        ["writes:0", "registers:1"],
         ["r", "registers:2"],
         ["result", "registers:3"],
         ["r", "registers:4"],
         ["s", "registers:5"],
-        ["registers:0", "zero"],
         ["registers:0", "alu:0"],
         ["registers:1", "alu:1"],
-        ["control:2", "alu:2"],
+        ["ops", "alu:2"],
         ["CLK", "ram:0"],
-        ["control:3", "ram:1"],
+        ["control:0", "ram:1"],
         ["N", "ram:2"],
         ["registers:0", "ram:3"],
         ["ram", "memory:0"],
         ["DIN", "memory:1"],
-        ["control:5", "memory:2"],
+        ["control:2", "memory:2"],
         ["registers:1", "result:0"],
         ["N", "result:1"],
         ["memory", "result:2"],
         ["alu", "result:3"],
-        ["control:1", "result:4"],
-        ["control:4", "JUMP"],
+        ["writes:1", "result:4"],
+        ["control:1", "JUMP"],
         ["N", "ADDR"],
-        ["control:6", "OUT"],
+        ["control:3", "OUT"],
         ["registers:0", "DOUT"],
         ["N", "DEV"],
-        ["control:5", "IN"],
-        ["control:7", "HALT"],
+        ["control:2", "IN"],
+        ["control:4", "HALT"],
       ],
     },
     reads: executeLevel,

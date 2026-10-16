@@ -68,21 +68,23 @@ const SRC_OFF: readonly (readonly InstructionID[])[] = [
 const bits = (off: readonly (readonly InstructionID[])[], id: InstructionID | null): Value =>
   off.reduce((value, ids, bit) => value | (id !== null && ids.includes(id) ? 0 : 1 << bit), 0);
 
-// The control unit's outputs for an opcode, and whether R is zero:
-// WRITE, SRC, OP, STORE, JUMP, IN, OUT and HALT.
-export function control(set: InstructionSet, [opcode = 0, zero = 0]: Value[]): Value[] {
+// The op encoder's output for an opcode: the ALU's OP.
+export function opEncoder(set: InstructionSet, [opcode = 0]: Value[]): Value[] {
+  return [bits(OP_OFF, decode(set, opcode))];
+}
+
+// The write encoder's outputs for an opcode: WRITE, and SRC.
+export function writeEncoder(set: InstructionSet, [opcode = 0]: Value[]): Value[] {
+  const id = decode(set, opcode);
+  return [id !== null && WRITES.has(id) ? 1 : 0, bits(SRC_OFF, id)];
+}
+
+// The control unit's outputs for an opcode and the value of register R:
+// STORE, JUMP, IN, OUT and HALT.
+export function control(set: InstructionSet, [opcode = 0, a = 0]: Value[]): Value[] {
   const id = decode(set, opcode);
   const is = (op: InstructionID): Value => (id === op ? 1 : 0);
-  return [
-    id !== null && WRITES.has(id) ? 1 : 0,
-    bits(SRC_OFF, id),
-    bits(OP_OFF, id),
-    is("write"),
-    is("jump") | (is("jump if zero") & zero),
-    is("in"),
-    is("out"),
-    is("halt"),
-  ];
+  return [is("write"), is("jump") | (is("jump if zero") & (a === 0 ? 1 : 0)), is("in"), is("out"), is("halt")];
 }
 
 // The ALU's operations, by OP (ADR 9).
@@ -104,7 +106,9 @@ function step(set: InstructionSet, places: Places, i: Value, n: Value, din: Valu
   const { opcode, r, s } = fields(i);
   const reg = (k: number): Value => places[k] ?? 0;
   const ram = (a: Value): Value => places[REGISTER_COUNT + (a % RAM_PLACES)] ?? 0;
-  const [write = 0, src = 0, op = 0, store = 0, , input = 0] = control(set, [opcode, reg(r) === 0 ? 1 : 0]);
+  const [write = 0, src = 0] = writeEncoder(set, [opcode]);
+  const [op = 0] = opEncoder(set, [opcode]);
+  const [store = 0, , input = 0] = control(set, [opcode, reg(r)]);
   const sources = [reg(s), n, input ? din : ram(n), alu(op, reg(r), reg(s))];
   return Array.from({ length: REGISTER_COUNT + RAM_PLACES }, (_, k) => {
     if (k === r && write) return sources[src] ?? 0;
@@ -129,7 +133,7 @@ const [OUT, DOUT, , IN, HALT] = [0, 1, 2, 3, 4];
 function executeOutputs(set: InstructionSet, places: Places, i: Value, n: Value): Value[] {
   const { opcode, r } = fields(i);
   const value = places[r] ?? 0;
-  const [, , , , jump = 0, input = 0, out = 0, halt = 0] = control(set, [opcode, value === 0 ? 1 : 0]);
+  const [, jump = 0, input = 0, out = 0, halt = 0] = control(set, [opcode, value]);
   return [jump, n, out, value, n, input, halt];
 }
 

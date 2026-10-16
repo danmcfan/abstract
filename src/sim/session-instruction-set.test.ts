@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { BITBOX_INSTRUCTION_SET } from "./instruction";
-import { buildSolution, LEVELS, levelId, revisionOf } from "./level";
+import { buildSolution, circuitAt, LEVELS, levelId, revisionOf } from "./level";
 import { memorySave, type SaveStore } from "./save";
 import { Session } from "./session";
 
@@ -123,10 +123,9 @@ function changed(): Session {
 // Builds a level's intended board, wired for Bitbox's opcodes, and runs
 // its test.
 function passes(session: Session, gate: string): boolean {
-  session.start(LEVELS.findIndex((level) => levelId(level) === gate));
-  session.edit((game) => {
-    if (session.circuit) buildSolution(game, session.circuit);
-  });
+  const index = LEVELS.findIndex((level) => levelId(level) === gate);
+  session.start(index);
+  session.edit((game) => buildSolution(game, circuitAt(index)));
   session.beginTest();
   while (session.step());
   return session.result?.passed === true;
@@ -137,8 +136,8 @@ describe("after the instruction set changes", () => {
     expect(passes(changed(), "CPU")).toBe(true);
   });
 
-  test("a control unit wired for the old opcodes fails", () => {
-    expect(passes(changed(), "CONTROL UNIT")).toBe(false);
+  test("an op encoder wired for the old opcodes fails", () => {
+    expect(passes(changed(), "OP ENCODER")).toBe(false);
   });
 });
 
