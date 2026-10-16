@@ -208,13 +208,16 @@ const register: Memory = {
   outputs: ([, q = 0]) => [q],
 };
 
+// NONE's eight inputs.
+const NONE_INPUTS = ["A", "B", "C", "D", "E", "F", "G", "H"];
+
 // A register file or RAM: CLK, WRITE, an address and DIN in, then whatever
 // picks the places shown. On a tick with WRITE on, the place at the address
 // takes DIN; the rest keep their values.
 function places(count: number, outputs: Memory["outputs"]): Memory {
   return {
     next: onTick(([, write = 0, address = 0, din = 0], kept) =>
-      Array.from({ length: count }, (_, i) => (write && i === (address & 7) ? din : (kept[i] ?? 0))),
+      Array.from({ length: count }, (_, i) => (write && i === address % count ? din : (kept[i] ?? 0))),
     ),
     outputs,
   };
@@ -1155,7 +1158,7 @@ export const LEVELS: Level[] = [
     widths: { ADDR: 8, DIN: 8, DOUT: 8 },
     // A join for the register files' WSEL and ASEL.
     buses: [2],
-    memory: places(8, ([, ...kept], [, , addr = 0]) => [kept[addr & 7] ?? 0]),
+    memory: places(8, ([, ...kept], [, , addr = 0]) => [kept[addr % 8] ?? 0]),
     // Every place gets a different value, then each is read back. Last,
     // address 13 writes place 5, as its low 3 signals number it.
     steps: [
@@ -1246,7 +1249,7 @@ export const LEVELS: Level[] = [
   },
   {
     gate: "3-TO-8 DECODER",
-    goal: "Only the signal S numbers is on: number n is D's signal n.",
+    goal: "Only the signal S numbers is on: number n is D's signal n. The join takes its high signal first, so number n goes into join pin 7−n.",
     layer: 6,
     inputs: ["S"],
     outputs: ["D"],
@@ -1333,7 +1336,7 @@ export const LEVELS: Level[] = [
     gate: "NONE",
     goal: "OUT is on only when every input is off.",
     layer: 6,
-    inputs: ["A", "B", "C", "D", "E", "F", "G", "H"],
+    inputs: NONE_INPUTS,
     outputs: ["OUT"],
     // A join for the zero test.
     buses: [8],
@@ -1352,7 +1355,7 @@ export const LEVELS: Level[] = [
         { name: "zero", type: "ZERO TEST", x: 26, y: 22 },
       ],
       wires: [
-        ...["A", "B", "C", "D", "E", "F", "G", "H"].map((label, pin): [string, string] => [label, `join:${pin}`]),
+        ...NONE_INPUTS.map((label, pin): [string, string] => [label, `join:${pin}`]),
         ["join", "zero"],
         ["zero", "OUT"],
       ],

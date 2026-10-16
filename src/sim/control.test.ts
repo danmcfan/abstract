@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { kindOf } from "./kind";
+import { memorySave } from "./save";
 import { placeNode, restart, setInputs, terminalNamed, tick, wire } from "./circuit";
 import {
   buildSolution,
@@ -154,6 +155,11 @@ describe("the 3-to-8 decoder", () => {
 
 test("the 2-to-4 decoder is no longer a level", () => {
   expect(levelIndex("2-TO-4 DECODER")).toBe(-1);
+});
+
+test("a save with the 2-to-4 decoder solved loads without it", () => {
+  const save = memorySave({ solved: { "2-TO-4 DECODER": 1 }, open: "2-TO-4 DECODER" });
+  expect(() => save.load()).not.toThrow();
 });
 
 describe("none", () => {
