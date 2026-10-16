@@ -832,7 +832,7 @@ describe("a test run with every switch left on", () => {
     while (session.step()) {
       const row = session.rows[session.currentRow ?? -1];
       if (row?.tick !== undefined || level.programs !== undefined) continue;
-      expect(lamps.map((id) => edgeInto(session.game, id, 0)?.value ?? 0)).toEqual(row?.actual ?? []);
+      expect(lamps.map((lamp) => edgeInto(session.game, lamp, 0)?.value ?? 0)).toEqual(row?.actual ?? []);
     }
     expect(session.rows.map((row) => row.status)).not.toContain("failed");
   });
