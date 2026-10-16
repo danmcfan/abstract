@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { control, opEncoder, writeEncoder } from "./cpu";
-import { BITBOX_INSTRUCTION_SET, INSTRUCTIONS, rowOf, type InstructionID, type InstructionSet } from "./instruction";
+import { randomSet } from "./fixtures";
+import { BITBOX_INSTRUCTION_SET, INSTRUCTIONS, rowOf, type InstructionID } from "./instruction";
 import {
   buildSolution,
   checkLevel,
@@ -23,22 +24,6 @@ const opcodeOf = (id: InstructionID): number => rowOf(BITBOX_INSTRUCTION_SET, id
 const op = (id: InstructionID): number => opEncoder(BITBOX_INSTRUCTION_SET, [opcodeOf(id)])[0]!;
 const write = (id: InstructionID): number[] => writeEncoder(BITBOX_INSTRUCTION_SET, [opcodeOf(id)]);
 const at = (id: InstructionID, a = 0): number[] => control(BITBOX_INSTRUCTION_SET, [opcodeOf(id), a]);
-
-// A valid instruction set from a seed: the 16 opcodes shuffled, with the
-// last one left spare.
-function randomSet(seed: number): InstructionSet {
-  let state = seed;
-  const next = (): number => {
-    state = (state * 1103515245 + 12345) % 2 ** 31;
-    return state / 2 ** 31;
-  };
-  const opcodes = Array.from({ length: 16 }, (_, n) => n);
-  for (let i = opcodes.length - 1; i > 0; i--) {
-    const j = Math.floor(next() * (i + 1));
-    [opcodes[i], opcodes[j]] = [opcodes[j]!, opcodes[i]!];
-  }
-  return Object.fromEntries(INSTRUCTIONS.map(({ id }, i) => [id, { mnemonic: `M${i}`, opcode: opcodes[i]! }]));
-}
 
 describe("the L8 control levels", () => {
   test("follow the instruction set, encoders first", () => {
