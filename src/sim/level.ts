@@ -1493,16 +1493,16 @@ function opEncoderLevel(set: InstructionSet): CircuitLevel {
     buses: [8],
     target: (inputs) => opEncoder(set, inputs),
     cases: opcodeCases(set),
-    grid: { width: 60, height: 56 },
+    grid: { width: 72, height: 50 },
     // The decoder lights one line per opcode. Each OP signal is on unless
     // the line of one of a few instructions is, which is NONE of them.
     solution: {
       nodes: [
         ...DECODER_NODES,
-        { name: "op2", type: "NONE", x: 32, y: 2 },
-        { name: "op1", type: "NONE", x: 32, y: 20 },
-        { name: "op0", type: "NONE", x: 32, y: 38 },
-        { name: "op", type: "JOIN", x: 46, y: 22, width: 3 },
+        { name: "op2", type: "NONE", x: 32, y: 12 },
+        { name: "op1", type: "NONE", x: 42, y: 12 },
+        { name: "op0", type: "NONE", x: 52, y: 12 },
+        { name: "op", type: "JOIN", x: 62, y: 30, width: 3 },
       ],
       wires: [
         ...DECODER_WIRES,
@@ -1529,16 +1529,16 @@ function writeEncoderLevel(set: InstructionSet): CircuitLevel {
     buses: [8],
     target: (inputs) => writeEncoder(set, inputs),
     cases: opcodeCases(set),
-    grid: { width: 60, height: 56 },
+    grid: { width: 72, height: 50 },
     // WRITE is on unless the instruction writes no register, or the opcode
     // is spare. Each SRC signal is on unless it's one of a few instructions.
     solution: {
       nodes: [
         ...DECODER_NODES,
-        { name: "w", type: "NONE", x: 32, y: 2 },
-        { name: "src1", type: "NONE", x: 32, y: 20 },
-        { name: "src0", type: "NONE", x: 32, y: 38 },
-        { name: "src", type: "JOIN", x: 46, y: 30, width: 2 },
+        { name: "w", type: "NONE", x: 32, y: 12 },
+        { name: "src1", type: "NONE", x: 42, y: 12 },
+        { name: "src0", type: "NONE", x: 52, y: 12 },
+        { name: "src", type: "JOIN", x: 62, y: 32, width: 2 },
       ],
       wires: [
         ...DECODER_WIRES,
