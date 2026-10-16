@@ -5,7 +5,7 @@ import {
   checkLevel,
   floorAbove,
   hasClock,
-  isCircuit,
+  circuits,
   LAYERS,
   layerLevels,
   levelAt,
@@ -625,9 +625,8 @@ describe("the instruction set level", () => {
 });
 
 test("the adders and ADD/SUB name their outputs SUM and COUT", () => {
-  const adders = LEVELS.filter((level) => isCircuit(level)).filter(
-    (level) => level.outputs.includes("COUT") && level.layer <= 4 && level.gate !== "ALU SLICE",
-  );
-  expect(adders.map((level) => level.gate)).toContain("ADD/SUB");
-  for (const level of adders) expect(level.outputs).toEqual(["SUM", "COUT"]);
+  for (const name of ["HALF ADDER", "FULL ADDER", "2-BIT ADDER", "ADD/SUB"]) {
+    const level = circuits(LEVELS).find((l) => l.gate === name);
+    expect(level?.outputs).toEqual(["SUM", "COUT"]);
+  }
 });

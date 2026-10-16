@@ -114,6 +114,16 @@ function upgradeNode(node: OldNode, parts: Parts): Node {
   return { ...node, label, signals, width: node.width ?? 1, rect: { ...node.rect }, state: [] };
 }
 
+// ADD/SUB's output used to be labelled OUT, before the adders named theirs
+// SUM and COUT. A board saved then still has the old label, which the test
+// run would never find.
+function relabelAddSub(board: SavedBoard): SavedBoard {
+  const nodes = board.nodes.map((node) =>
+    node.type === "OUTPUT" && node.label === "OUT" ? { ...node, label: "SUM" } : node,
+  );
+  return { ...board, nodes };
+}
+
 function upgradeEdge(edge: OldEdge): Edge {
   const { isHigh, ...rest } = edge;
   return { ...rest, value: edge.value ?? Number(isHigh ?? false) };
@@ -204,7 +214,8 @@ function parseSave(value: unknown): SaveData | null {
   const boards: Boards = {};
   if (typeof v.boards === "object" && v.boards !== null) {
     for (const [gate, board] of Object.entries(v.boards))
-      if (circuits(LEVELS).some((level) => level.gate === gate) && isBoard(board)) boards[gate] = board;
+      if (circuits(LEVELS).some((level) => level.gate === gate) && isBoard(board))
+        boards[gate] = gate === "ADD/SUB" ? relabelAddSub(board) : board;
   }
   if (isBoard(v.board)) boards[saved.open] = v.board;
   const flags = Array.isArray(v.flags) ? v.flags.filter((f) => typeof f === "string") : [];
