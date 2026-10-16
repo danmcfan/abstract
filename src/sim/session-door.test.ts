@@ -204,7 +204,7 @@ describe("the clues", () => {
     ["2-BIT ADDER", 3],
     ["2-BIT ALU", 4],
     ["RAM", 5],
-    ["SEQUENCER", 6],
+    ["STEPPER", 6],
   ])("the last sheet of a layer, %s, shows layer %i's clue once it's solved", (gate, layer) => {
     expect(on(gate, false).clue).toBeNull();
     expect(on(gate, true).clue).toBe(layer);

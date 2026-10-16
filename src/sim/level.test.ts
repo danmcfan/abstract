@@ -76,7 +76,7 @@ describe("each level's intended solution", () => {
   // Every node the solution places counts, and every wire, terminals' too (ADR 11).
   // Levels still over the limit while #72 redesigns them; each PR there
   // removes its level from this list.
-  const overLimit = ["4-TO-16 DECODER", "CONTROL UNIT", "EXECUTE UNIT", "CPU"];
+  const overLimit = ["CONTROL UNIT", "EXECUTE UNIT", "CPU"];
   test.each(unbuilt.map(({ level }) => [levelId(level), level] as const))(
     "%s keeps within 7 nodes and 20 wires unless listed over the limit",
     (id, level) => {
@@ -634,9 +634,9 @@ describe("an unstable board", () => {
 describe("the instruction set level", () => {
   const index = LEVELS.findIndex((level) => level.kind === "instruction set");
 
-  test("is the first level of L7, straight after the sequencer", () => {
+  test("is the first level of L7, straight after the stepper", () => {
     expect(layerLevels(7)).toEqual([index]);
-    expect(levelId(LEVELS[index - 1]!)).toBe("SEQUENCER");
+    expect(levelId(LEVELS[index - 1]!)).toBe("STEPPER");
     expect(floorAbove(index - 1)?.number).toBe(7);
   });
 

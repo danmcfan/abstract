@@ -262,16 +262,9 @@ const EXPECTED: Record<NodeType, Expected[]> = {
       ],
     },
   ],
-  RAM: [{ ins: [1, 1, 3, 8], outs: [8], size: [6, 8], cases: [[[1, 1, 7, 200], [0]]] }],
+  RAM: [{ ins: [1, 1, 8, 8], outs: [8], size: [6, 8], cases: [[[1, 1, 7, 200], [0]]] }],
   "PROGRAM COUNTER": [{ ins: [1, 1, 8], outs: [8], size: [6, 6], cases: [[[1, 1, 200], [0]]] }],
-  "2-TO-4 DECODER": [
-    {
-      ins: [2],
-      outs: [1, 1, 1, 1],
-      size: [6, 8],
-      cases: [[[2], [0, 0, 1, 0]]],
-    },
-  ],
+  "3-TO-8 DECODER": [{ ins: [3], outs: [8], size: [6, 4], cases: [[[5], [32]]] }],
   "4-BIT ZERO TEST": [
     {
       ins: [4],
@@ -280,6 +273,17 @@ const EXPECTED: Record<NodeType, Expected[]> = {
       cases: [
         [[0], [1]],
         [[8], [0]],
+      ],
+    },
+  ],
+  NONE: [
+    {
+      ins: [1, 1, 1, 1, 1, 1, 1, 1],
+      outs: [1],
+      size: [6, 16],
+      cases: [
+        [[0, 0, 0, 0, 0, 0, 0, 0], [1]],
+        [[0, 0, 0, 1, 0, 0, 0, 0], [0]],
       ],
     },
   ],
@@ -306,6 +310,7 @@ const EXPECTED: Record<NodeType, Expected[]> = {
     },
   ],
   SEQUENCER: [{ ins: [1], outs: [1], size: [6, 4], cases: [[[1], [0]]] }],
+  STEPPER: [{ ins: [1, 1], outs: [1], size: [6, 4], cases: [[[1, 1], [0]]] }],
   "PROGRAM MEMORY": [{ ins: [8], outs: [8, 8], size: [8, 6], cases: [[[3], [0, 0]]] }],
   // Bitbox's set: opcode 3 is add, and 1 is set.
   "CONTROL UNIT": [
