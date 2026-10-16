@@ -93,7 +93,7 @@ function alu(op: Value, a: Value, b: Value): Value {
 
 // The execute unit's registers and RAM: R0 to R3, then RAM's 8 places.
 type Places = readonly Value[];
-const REGISTERS = 4;
+const REGISTER_COUNT = 4;
 const RAM_PLACES = 8;
 
 const fields = (i: Value): { opcode: Value; r: number; s: number } => ({ opcode: i >> 4, r: (i >> 2) & 3, s: i & 3 });
@@ -103,15 +103,25 @@ const fields = (i: Value): { opcode: Value; r: number; s: number } => ({ opcode:
 function step(set: InstructionSet, places: Places, i: Value, n: Value, din: Value): Places {
   const { opcode, r, s } = fields(i);
   const reg = (k: number): Value => places[k] ?? 0;
-  const ram = (a: Value): Value => places[REGISTERS + (a % RAM_PLACES)] ?? 0;
+  const ram = (a: Value): Value => places[REGISTER_COUNT + (a % RAM_PLACES)] ?? 0;
   const [write = 0, src = 0, op = 0, store = 0, , input = 0] = control(set, [opcode, reg(r) === 0 ? 1 : 0]);
   const sources = [reg(s), n, input ? din : ram(n), alu(op, reg(r), reg(s))];
-  return Array.from({ length: REGISTERS + RAM_PLACES }, (_, k) => {
+  return Array.from({ length: REGISTER_COUNT + RAM_PLACES }, (_, k) => {
     if (k === r && write) return sources[src] ?? 0;
-    if (k === REGISTERS + (n % RAM_PLACES) && store) return reg(r);
+    if (k === REGISTER_COUNT + (n % RAM_PLACES) && store) return reg(r);
     return places[k] ?? 0;
   });
 }
+
+// The registers in an execute unit's state: after the clock it last saw.
+export function registersOf(state: State): Value[] {
+  return state.slice(1, 1 + REGISTER_COUNT);
+}
+
+const JUMP = 0;
+const ADDR = 1;
+// Where the machine's outputs sit in what it reads: OUT, DOUT, DEV, IN, HALT.
+const [OUT, DOUT, , IN, HALT] = [0, 1, 2, 3, 4];
 
 // The execute unit's outputs: JUMP, ADDR, OUT, DOUT, DEV, IN and HALT.
 // ADDR and DEV are always N, and DOUT always R: they only matter while JUMP
@@ -151,7 +161,7 @@ const PC = 1;
 const EXEC = 2;
 const FETCHED = 3;
 const PLACES = 5;
-const PROGRAM = PLACES + REGISTERS + RAM_PLACES;
+const PROGRAM = PLACES + REGISTER_COUNT + RAM_PLACES;
 
 // A CPU that holds a program, with everything else at 0.
 function loaded(words: readonly Value[]): Value[] {
@@ -178,8 +188,8 @@ export function cpu(set: InstructionSet): Memory {
         const [i, n] = [word >> 8, word & 0xff];
         next.splice(PC, PROGRAM - PC, (pc + 1) & 0xff, 1, i, n, ...step(set, places, i, n, din));
       } else {
-        const [jump = 0, addr = 0] = executeOutputs(set, places, state[FETCHED] ?? 0, state[FETCHED + 1] ?? 0);
-        next[PC] = jump ? addr : pc;
+        const outputs = executeOutputs(set, places, state[FETCHED] ?? 0, state[FETCHED + 1] ?? 0);
+        next[PC] = outputs[JUMP] === 1 ? (outputs[ADDR] ?? 0) : pc;
         next[EXEC] = 0;
       }
       return next;
@@ -219,16 +229,16 @@ export function* play(machine: Machine, device: readonly Value[], limit: number)
   for (;;) {
     if (ticks >= limit) return { outs, halted: false };
     yield;
-    const [out = 0, dout = 0, , input = 0, halt = 0] = machine.read(din());
-    if (halt) {
+    const read = machine.read(din());
+    if (read[HALT] === 1) {
       tick();
       tick();
-      if (machine.read(din())[4] === 1) return { outs, halted: true };
+      if (machine.read(din())[HALT] === 1) return { outs, halted: true };
       continue;
     }
-    if (out) outs.push(dout);
+    if (read[OUT] === 1) outs.push(read[DOUT] ?? 0);
     tick();
-    if (input) at++;
+    if (read[IN] === 1) at++;
     tick();
   }
 }

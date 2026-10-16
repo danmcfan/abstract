@@ -3,6 +3,7 @@ import {
   newGame,
   nodeKind,
   placeNode,
+  programMemoryOf,
   setInputs,
   simulate,
   terminalNamed,
@@ -241,7 +242,7 @@ const EXECUTE_STEPS: (Instruction & { din?: Value })[] = [
 
 // The CPU's test programs. The last has instructions after its HALT, which
 // a CPU that doesn't stop there would run.
-const TEST_PROGRAMS: Omit<TestProgram, "words">[] = [
+export const TEST_PROGRAMS: Omit<TestProgram, "words">[] = [
   {
     name: "count down from 3",
     program: [
@@ -1507,7 +1508,8 @@ function executeLevel(set: InstructionSet): CircuitLevel {
   const steps = EXECUTE_STEPS.map((instruction): Row => {
     const [i, n] = encode(set, instruction);
     const inputs = [0, i, n, instruction.din ?? 0];
-    state = memory.next([0, i, n, inputs[3] ?? 0], memory.next([1, i, n, inputs[3] ?? 0], state));
+    const din = inputs[3] ?? 0;
+    state = memory.next([0, i, n, din], memory.next([1, i, n, din], state));
     return { inputs, tick: true, expected: memory.outputs(state, inputs) };
   });
   return {
@@ -1836,7 +1838,7 @@ export function loadLevel(level: CircuitLevel, parts = PARTS): Game {
 // the player can tick through it while building. A saved board's program
 // memory comes back blank, since saves don't keep contents.
 export function loadFirstProgram(game: Game, level: CircuitLevel): void {
-  const memory = [...game.nodes.values()].find((node) => node.type === PROGRAM_MEMORY);
+  const memory = programMemoryOf(game.nodes);
   if (memory && level.programs !== undefined) loadContents(game, memory.id, level.programs[0]?.words ?? []);
 }
 
@@ -2027,7 +2029,7 @@ export function checkLevel(board: Game, levelIndex: number, levels = LEVELS): Ch
   if (level.programs !== undefined) {
     const inputs = level.inputs.map(terminal("input"));
     const outputs = level.outputs.map(terminal("output"));
-    const memory = [...board.nodes.values()].find((node) => node.type === PROGRAM_MEMORY)?.id ?? -1;
+    const memory = programMemoryOf(board.nodes)?.id ?? -1;
     rows = level.programs.map((test): CheckedRow => {
       const sim = simulate(board, inputs, outputs, new Map([[memory, test.words]]));
       const outcome = finish(

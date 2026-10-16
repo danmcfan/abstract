@@ -1,6 +1,5 @@
-import { edgeInto, loadContents, restart, type Game } from "./circuit";
-import { play, type Outcome } from "./cpu";
-import { PROGRAM_MEMORY } from "./kind";
+import { edgeInto, loadContents, programMemoryOf, restart, type Game } from "./circuit";
+import { play, registersOf, type Outcome } from "./cpu";
 import { applyInputs, machineOn, TICK_LIMIT, type CheckResult, type CircuitLevel, type ProgramLevel } from "./level";
 import type { Value } from "./node";
 import { tableRow, TestRun, type Doing, type Run, type Shown, type TableRow } from "./testrun";
@@ -12,7 +11,6 @@ export function testRun(level: CircuitLevel, result: CheckResult): Run {
 }
 
 // The registers' place in the execute unit's state, after the clock.
-const REGISTERS = { from: 1, to: 5 };
 
 // A test run of the CPU level, shown on the board an instruction at a time.
 // Each test program is loaded into program memory on a restarted board and
@@ -48,7 +46,7 @@ class ProgramRun implements Run {
     }
     if (!this.playing) {
       restart(game);
-      const memory = [...game.nodes.values()].find((node) => node.type === PROGRAM_MEMORY);
+      const memory = programMemoryOf(game.nodes);
       if (memory) loadContents(game, memory.id, test.words);
       this.current = index;
       this.playing = play(
@@ -84,9 +82,5 @@ function doing(game: Game, level: ProgramLevel): Doing | null {
   const unit = [...game.nodes.values()].find((node) => node.type === "EXECUTE UNIT");
   if (!unit) return null;
   const input = (pin: number): Value => edgeInto(game, unit.id, pin)?.value ?? 0;
-  const registers = Array.from(
-    { length: REGISTERS.to - REGISTERS.from },
-    (_, r) => unit.state[REGISTERS.from + r] ?? 0,
-  );
-  return { instruction: level.describe(input(1), input(2)), registers };
+  return { instruction: level.describe(input(1), input(2)), registers: registersOf(unit.state) };
 }

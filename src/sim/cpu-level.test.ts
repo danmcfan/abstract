@@ -1,16 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { unwire, type Game } from "./circuit";
-import { INSTRUCTIONS, type InstructionSet } from "./instruction";
+import { REVERSED } from "./fixtures";
+import type { InstructionSet } from "./instruction";
 import { buildSolution, checkLevel, circuitAt, LEVELS, levelId, loadLevel, partsOf, withInstructionSet } from "./level";
 import type { NodeType } from "./node";
 
 const index = (gate: NodeType): number => LEVELS.findIndex((level) => levelId(level) === gate);
 const CPU = index("CPU");
-
-// Another player's numbers: every opcode reversed, so 0 is spare.
-const REVERSED: InstructionSet = Object.fromEntries(
-  INSTRUCTIONS.map(({ id }, i) => [id, { mnemonic: `X${"ABCDEFGHIJKLMNOP"[i]}`, opcode: 15 - i }]),
-);
 
 // A level's intended board, with the game's levels read with a set.
 function solved(gate: NodeType, set?: InstructionSet): { game: Game; levels: typeof LEVELS } {

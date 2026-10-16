@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { BITBOX_INSTRUCTION_SET, INSTRUCTIONS, type InstructionSet } from "./instruction";
+import { REVERSED } from "./fixtures";
+import { BITBOX_INSTRUCTION_SET, type InstructionSet } from "./instruction";
 import { describeInstruction, encode, executeUnit, runOnSpec, type Instruction } from "./cpu";
+import { TEST_PROGRAMS } from "./level";
 import type { State, Value } from "./node";
 
 describe("the encoder", () => {
@@ -11,11 +13,6 @@ describe("the encoder", () => {
     expect(encode(BITBOX_INSTRUCTION_SET, { op: "halt" })).toEqual([0, 0]);
   });
 });
-
-// Another player's numbers: every opcode reversed, so 0 is spare.
-const REVERSED: InstructionSet = Object.fromEntries(
-  INSTRUCTIONS.map(({ id }, i) => [id, { mnemonic: `X${"ABCDEFGHIJKLMNOP"[i]}`, opcode: 15 - i }]),
-);
 
 // Runs instructions on the execute unit's spec, one tick each, from all 0,
 // giving its outputs after each: JUMP, ADDR, OUT, DOUT, DEV, IN, HALT.
@@ -81,17 +78,6 @@ describe.each([
   });
 });
 
-// Counts down from 3, sending each value to the door.
-const COUNTDOWN: Instruction[] = [
-  { op: "set", r: 0, n: 3 },
-  { op: "set", r: 1, n: 1 },
-  { op: "out", r: 0, n: 1 },
-  { op: "subtract", r: 0, s: 1 },
-  { op: "jump if zero", r: 0, n: 6 },
-  { op: "jump", n: 2 },
-  { op: "halt" },
-];
-
 describe.each([
   ["Bitbox's", BITBOX_INSTRUCTION_SET],
   ["a reversed", REVERSED],
@@ -100,7 +86,7 @@ describe.each([
     runOnSpec(set, program, device, limit);
 
   test("runs a countdown loop and stops at HALT", () => {
-    expect(run(COUNTDOWN)).toEqual({ outs: [3, 2, 1], halted: true });
+    expect(run(TEST_PROGRAMS[0]?.program ?? [])).toEqual({ outs: [3, 2, 1], halted: true });
   });
 
   test("reads the device until it gives 0", () => {
@@ -132,9 +118,10 @@ describe.each([
   });
 });
 
+const words = (instruction: Instruction): string => describeInstruction(REVERSED, ...encode(REVERSED, instruction));
+
 describe("an instruction written out", () => {
   test("names it with the player's mnemonic, then its operands", () => {
-    const words = (instruction: Instruction): string => describeInstruction(REVERSED, ...encode(REVERSED, instruction));
     expect(words({ op: "set", r: 1, n: 5 })).toBe("XB R1, 5");
     expect(words({ op: "copy", r: 0, s: 3 })).toBe("XC R0, R3");
     expect(words({ op: "not", r: 2 })).toBe("XI R2");

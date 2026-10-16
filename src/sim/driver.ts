@@ -6,9 +6,9 @@ export interface Scheduler {
   every(ms: number, task: () => void): () => void;
 }
 
-// How long a test run waits between rows, or, running a test program,
-// between instructions.
+// How long a test run waits between rows.
 export const TEST_STEP_MS = 600;
+// Instructions come faster than rows, so a program doesn't drag.
 const PROGRAM_STEP_MS = 200;
 
 // Moves a session along in time: steps a test run through its rows, and

@@ -1,5 +1,5 @@
 import { DEFAULT_GRID, overlaps, snap, type Rect, type Size } from "./grid";
-import { kindOf, pinOffset, type NodeKind, type Parts } from "./kind";
+import { kindOf, pinOffset, PROGRAM_MEMORY, type NodeKind, type Parts } from "./kind";
 import { mask, MAX_WIDTH, type Label, type Node, type NodeID, type NodeType, type State, type Value } from "./node";
 
 // The board: nodes, the wires between them, and the signals on both. Every
@@ -163,9 +163,14 @@ export function loadContents(game: Game, id: NodeID, contents: State): void {
   settle(game);
 }
 
-// Puts every node but the input terminals back to off and every memory
-// part's state back to all 0, keeping loaded contents, then settles, so what happens next doesn't hang
-// on what happened before. simulate starts from the same place.
+// The board's program memory, if it has one.
+export function programMemoryOf(nodes: ReadonlyMap<NodeID, Node>): Node | undefined {
+  return [...nodes.values()].find((node) => node.type === PROGRAM_MEMORY);
+}
+
+// Puts the board back to off, so what happens next doesn't hang on what
+// happened before. Memory parts go back to all 0 but keep loaded contents,
+// and input terminals keep their values. simulate starts from the same place.
 export function restart(game: Game): void {
   for (const node of game.nodes.values()) {
     if (nodeKind(game, node).keeps !== true) node.state = [];
