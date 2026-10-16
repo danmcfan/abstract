@@ -1,10 +1,14 @@
 import {
+  dropUnfitWires,
   loadContents,
   newGame,
   nodeKind,
   placeNode,
   programMemoryOf,
+  removeNode,
+  restart,
   setInputs,
+  setWidth,
   simulate,
   terminalNamed,
   wire,
@@ -1858,6 +1862,32 @@ export function loadLevel(level: CircuitLevel, parts = PARTS): Game {
     }
   }
   return game;
+}
+
+const terminalsOf = (game: Game): Node[] =>
+  [...game.nodes.values()].filter((node) => nodeKind(game, node).terminal !== undefined);
+const sameTerminal = (a: Node, b: Node): boolean => a.type === b.type && a.label === b.label;
+
+// Rebuilds a saved board's terminals from the level as it is now, since the
+// board may be from an older revision of it. A terminal the level still has
+// keeps its place and wires, at the level's width; one it no longer has
+// goes; one it gained is placed where a fresh board has it. Then every wire
+// whose pins no longer exist, or no longer match, goes too.
+export function fitTerminals(game: Game, level: CircuitLevel): void {
+  const wanted = terminalsOf(loadLevel(level, game.parts));
+  const saved = terminalsOf(game);
+  for (const node of saved) {
+    const match = wanted.find((other) => sameTerminal(node, other));
+    if (match) setWidth(game, node.id, match.width);
+    else removeNode(game, node.id);
+  }
+  for (const node of wanted) {
+    if (saved.some((other) => sameTerminal(node, other))) continue;
+    const { x, y, width, height } = node.rect;
+    placed(placeNode(game, node.type, { x: x + width / 2, y: y + height / 2 }, node.label, node.width));
+  }
+  dropUnfitWires(game);
+  restart(game);
 }
 
 // Fills a program level's program memory with its first test program, so
