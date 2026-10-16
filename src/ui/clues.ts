@@ -7,5 +7,5 @@ export const CLUES: Record<number, string> = {
   3: "He ran marathons. In 1947 he finished one in 2 hours 46 minutes, close to Olympic standard.",
   4: "Manchester, 1948 on: he wrote programs for one of the first computers that kept its program in memory.",
   5: "1950: “Can machines think?” He proposed the imitation game to find out.",
-  6: "Since 2021 his face has been on the Bank of England's £50 note, and computing's top prize carries his name.",
+  6: "Since 2021 his face has been on the Bank of England's £50 note and a biopic about him won an Oscar.",
 };

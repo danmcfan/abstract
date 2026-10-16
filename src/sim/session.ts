@@ -32,6 +32,7 @@ import {
   type Layer,
   type Level,
   type Solved,
+  isCircuit,
   withInstructionSet,
 } from "./level";
 import type { NodeType } from "./node";
@@ -46,7 +47,7 @@ import { table, type Doing, type Run, type TableRow } from "./testrun";
 export const CLOCK_SPEED = { min: 1, max: 64, start: 4 };
 
 // The keypad takes letters, as many as fit on its display.
-const KEYPAD_LETTERS = 12;
+export const KEYPAD_LETTERS = 12;
 
 const clockSpeedFrom = (speed: number): number =>
   2 ** Math.round(Math.log2(Math.min(CLOCK_SPEED.max, Math.max(CLOCK_SPEED.min, speed))));
@@ -229,8 +230,10 @@ export class Session {
     return assembleProgram(this.validInstructionSet ?? BITBOX_INSTRUCTION_SET, this.doorProgram);
   }
 
-  // Changes the door program and saves it. A run of the old text is over.
+  // Changes the door program and saves it. The text is read as the run goes,
+  // so it can't change during one.
   editDoorProgram(text: string): void {
+    if (this.door?.outcome === "running") return;
     this.doorProgram = text;
     this.door = null;
     this.save();
@@ -269,6 +272,7 @@ export class Session {
   // Returns whether it ticked, and what Bitbox says if the run ended. The
   // door opening solves the level and finishes the game.
   tickDoor(): { ticked: boolean; cue: Cue | null } {
+    if (this.finished) return { ticked: false, cue: null };
     if (this.door?.outcome !== "running") {
       const refused = this.beginDoorRun();
       if (refused) return { ticked: false, cue: refused };
@@ -310,7 +314,7 @@ export class Session {
   // The open level, if it has a circuit: the instruction set level doesn't.
   get circuit(): CircuitLevel | null {
     const { level } = this;
-    return level.kind === undefined ? level : null;
+    return isCircuit(level) ? level : null;
   }
 
   // The rows the level panel shows, checked as far as the test run has
@@ -348,10 +352,10 @@ export class Session {
   // they've never been, aborting any test run without recording a result.
   start(index: number): void {
     const level = levelAt(index, this.levels);
-    const board = level.kind === undefined ? this.boards[level.gate] : undefined;
+    const board = isCircuit(level) ? this.boards[level.gate] : undefined;
     this.levelIndex = index;
     const game = board ? loadBoard(board, this.parts) : this.boardFor(level);
-    if (level.kind === undefined) loadFirstProgram(game, level);
+    if (isCircuit(level)) loadFirstProgram(game, level);
     this.load(game);
   }
 
@@ -364,7 +368,7 @@ export class Session {
   // A fresh board for a level. The instruction set and the door program have
   // no circuit, so their boards stay empty.
   private boardFor(level: Level): Game {
-    return level.kind === undefined ? loadLevel(level, this.parts) : newGame(this.parts, DEFAULT_GRID);
+    return isCircuit(level) ? loadLevel(level, this.parts) : newGame(this.parts, DEFAULT_GRID);
   }
 
   private load(game: Game): void {
@@ -402,7 +406,7 @@ export class Session {
   // board restarts first, so the rows it shows are the ones checked.
   beginTest(): boolean {
     const { level } = this;
-    if (this.testing || level.kind !== undefined) return false;
+    if (this.testing || !isCircuit(level)) return false;
     this.sound.play("carriage");
     restart(this.game);
     this.testRun = testRun(level, checkLevel(this.game, this.levelIndex, this.levels));

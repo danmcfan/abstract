@@ -1414,7 +1414,7 @@ export const LEVELS: Level[] = [
 
 // The game's levels as they read a player's instruction set.
 export function withInstructionSet(levels: readonly Level[], set: InstructionSet): Level[] {
-  return levels.map((level) => (level.kind === undefined && level.reads ? level.reads(set) : level));
+  return levels.map((level) => (isCircuit(level) && level.reads ? level.reads(set) : level));
 }
 
 function controlUnit(set: InstructionSet): CircuitLevel {
@@ -1694,20 +1694,24 @@ function operate(op: Value, a: Value, b: Value, cin: Value, width: number): Valu
   return results[op] ?? [0, 0];
 }
 
+// Whether a level has a circuit and a board: the instruction set and the
+// door program don't.
+export const isCircuit = (level: Level): level is CircuitLevel => level.kind === undefined;
+
 // The part a solved level adds to the bin: the gate it builds, unless it
 // gives another.
 export function partGiven(level: Level): Part | null {
-  if (level.kind !== undefined) return null;
+  if (!isCircuit(level)) return null;
   return level.gives ?? level;
 }
 
 // What saves, story flags and solved progress know a level by: the gate it
 // builds, or the own identifier of a level with no circuit.
-export const levelId = (level: Level): string => (level.kind === undefined ? level.gate : level.id);
+export const levelId = (level: Level): string => (isCircuit(level) ? level.gate : level.id);
 
 // The game's circuit levels, the ones with a board.
 export const circuits = (levels: readonly Level[]): CircuitLevel[] =>
-  levels.flatMap((level) => (level.kind === undefined ? [level] : []));
+  levels.flatMap((level) => (isCircuit(level) ? [level] : []));
 
 // The parts the game's boards can hold: each level's gate, computing what
 // its level asks for, and each part a level gives instead. A level's own
@@ -1778,7 +1782,7 @@ export function levelAt(levelIndex: number, levels = LEVELS): Level {
 // The level at an index, which must be a circuit level.
 export function circuitAt(levelIndex: number, levels = LEVELS): CircuitLevel {
   const level = levelAt(levelIndex, levels);
-  if (level.kind !== undefined) throw new Error(`Level ${levelIndex} isn't a circuit`);
+  if (!isCircuit(level)) throw new Error(`Level ${levelIndex} isn't a circuit`);
   return level;
 }
 

@@ -1,6 +1,7 @@
 import { For, Show, type JSX } from "solid-js";
 import type { LineError } from "../sim/assembler";
 import type { DoorRun } from "../sim/door";
+import { KEYPAD_LETTERS } from "../sim/session";
 import { ClockSpeed } from "./Sheet";
 import { driver, editDoorProgram, running, session, typeName } from "./state";
 
@@ -92,7 +93,7 @@ export function DoorScreen(): JSX.Element {
             id="keypad"
             class="w-40 border-2 border-ink bg-void px-2 py-1 font-bold tracking-label text-glow uppercase outline-none"
             aria-label="Keypad"
-            maxLength={12}
+            maxLength={KEYPAD_LETTERS}
             spellcheck={false}
             autocomplete="off"
             disabled={locked()}

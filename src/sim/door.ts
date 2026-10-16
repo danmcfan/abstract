@@ -8,6 +8,10 @@ import type { Value } from "./node";
 // The letters of TURING in ASCII add up to 473, which 8 signals keep as 217.
 const DOOR_CODE = 217;
 
+// A program that never sends the door anything is stopped after this many
+// ticks, as if it had halted.
+const MAX_TICKS = 1000;
+
 // Running, or how the run ended: the door opened, a wrong code shut the
 // program down, or it halted without sending the door anything.
 export type DoorOutcome = "running" | "open" | "shut" | "halted";
@@ -40,7 +44,7 @@ export class DoorRun {
       },
     });
     this.ticks++;
-    if (this.sent === null && this.computer.halted) this.outcome = "halted";
+    if (this.sent === null && (this.computer.halted || this.ticks >= MAX_TICKS)) this.outcome = "halted";
   }
 
   get programCounter(): number {

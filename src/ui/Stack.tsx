@@ -3,6 +3,7 @@ import {
   LAYERS,
   LEVELS,
   layerLevels,
+  isCircuit,
   levelId,
   layerOf,
   layerState,
@@ -174,7 +175,7 @@ export function Stack(props: {
                               >
                                 <span class="text-fine text-pencil">SH {pad(i + 1)}</span>
                                 <span class="flex items-center gap-1.5 text-note font-bold">
-                                  <Show when={level.kind === undefined && level}>
+                                  <Show when={isCircuit(level) && level}>
                                     {(circuit) => <GateIcon type={circuit().gate} class="h-5 w-7" />}
                                   </Show>
                                   {levelId(level)}

@@ -207,3 +207,27 @@ describe("the clues", () => {
     expect(on("NOT", true).clue).toBeNull();
   });
 });
+
+describe("a run that goes wrong", () => {
+  test("a program that loops forever is stopped, as halted", () => {
+    const session = atTheDoor();
+    session.editDoorProgram("top: JMP top");
+    expect(runToEnd(session)).toEqual({ say: "door halted" });
+  });
+
+  test("once the door has opened, another tick does nothing", () => {
+    const session = atTheDoor();
+    session.editDoorProgram(PROGRAM);
+    session.typeName("TURING");
+    runToEnd(session);
+    expect(session.tickDoor()).toEqual({ ticked: false, cue: null });
+  });
+
+  test("the program can't be edited during a run", () => {
+    const session = atTheDoor();
+    session.editDoorProgram(PROGRAM);
+    session.tickDoor();
+    session.editDoorProgram("HALT");
+    expect(session.doorProgram).toBe(PROGRAM);
+  });
+});
