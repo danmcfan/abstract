@@ -233,12 +233,29 @@ describe("the RAM", () => {
   test("its timing table writes a different value to every place, then reads them all back", () => {
     const writes = RAM.steps!.filter((step) => step.tick === true && step.inputs[1] === 1);
     const reads = RAM.steps!.filter((step) => step.tick !== true);
-    expect(writes.map((step) => step.inputs[2])).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
-    expect(new Set(writes.map((step) => step.inputs[3])).size).toBe(8);
-    expect(reads.map((step) => step.inputs[2])).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+    expect(writes.slice(0, 8).map((step) => step.inputs[2])).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+    expect(new Set(writes.map((step) => step.inputs[3])).size).toBe(writes.length);
+    expect(reads.slice(0, 8).map((step) => step.inputs[2])).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
   });
 
-  test("ignoring ADDR's top signal, it fails at the first read", () => {
-    expect(firstFailure(RAM, (wires) => wires.filter(([from]) => from !== "addr:0"))).toBe(8);
+  test("takes an 8-signal ADDR and uses only its low 3 signals", () => {
+    const steps: Row[] = [
+      { inputs: [0, 1, 13, 77], tick: true, expected: [] },
+      { inputs: [0, 0, 5, 0], expected: [] },
+      { inputs: [0, 1, 2, 9], tick: true, expected: [] },
+      { inputs: [0, 0, 250, 0], expected: [] },
+    ];
+    expect(RAM.widths?.["ADDR"]).toBe(8);
+    expect(partPlays(RAM, steps)).toEqual([[77], [77], [9], [9]]);
+  });
+
+  test("its timing table writes to an address of 8 or more", () => {
+    expect(RAM.steps!.some((step) => step.tick === true && step.inputs[1] === 1 && (step.inputs[2] ?? 0) >= 8)).toBe(
+      true,
+    );
+  });
+
+  test("ignoring the top of ADDR's low 3 signals, it fails at the first read", () => {
+    expect(firstFailure(RAM, (wires) => wires.filter(([from]) => from !== "addr:5"))).toBe(8);
   });
 });

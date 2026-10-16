@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { kindOf } from "./kind";
+import { memorySave } from "./save";
 import { placeNode, restart, setInputs, terminalNamed, tick, wire } from "./circuit";
 import {
   buildSolution,
@@ -23,7 +24,7 @@ const levelOf = (type: NodeType): CircuitLevel => circuitAt(levelIndex(type));
 
 const wiringOf = (gate: NodeType): NodeType[] => wiring(levelOf(gate)).map((w) => w.type);
 
-const L6 = ["PROGRAM COUNTER", "2-TO-4 DECODER", "4-TO-16 DECODER", "4-BIT ZERO TEST", "SEQUENCER"];
+const L6 = ["PROGRAM COUNTER", "3-TO-8 DECODER", "4-BIT ZERO TEST", "NONE", "SEQUENCER", "STEPPER"];
 
 // The level's own part, wired straight between its terminals, ticked with
 // the given inputs (CLK left off) and read after each tick.
@@ -41,14 +42,14 @@ function ticks(gate: NodeType, inputs: Value[][]): Value[][] {
 }
 
 describe("the L6 levels", () => {
-  test("follow RAM, in order, with the sequencer last", () => {
+  test("follow RAM, in order, with the stepper last", () => {
     const first = levelIndex("RAM") + 1;
     expect(layerLevels(6).map((i) => levelId(LEVELS[i]!))).toEqual(L6);
     expect(layerLevels(6)[0]).toBe(first);
     expect(floorAbove(levelIndex("RAM"))?.floor).toBe("the clock tower");
   });
 
-  test.each(L6.filter((gate) => gate !== "4-BIT ZERO TEST"))(
+  test.each(L6.filter((gate) => gate !== "4-BIT ZERO TEST" && gate !== "3-TO-8 DECODER"))(
     "%s puts its part in the parts bin once solved",
     (gate) => {
       expect(partsBin(levelIndex(gate) + 1)).toContain(gate);
@@ -56,8 +57,8 @@ describe("the L6 levels", () => {
     },
   );
 
-  test("the program counter and the sequencer have timing tables, and the decoders truth tables", () => {
-    expect(L6.filter((gate) => levelOf(gate).steps !== undefined)).toEqual(["PROGRAM COUNTER", "SEQUENCER"]);
+  test("the program counter, the sequencer and the stepper have timing tables, and the rest truth tables", () => {
+    expect(L6.filter((gate) => levelOf(gate).steps !== undefined)).toEqual(["PROGRAM COUNTER", "SEQUENCER", "STEPPER"]);
   });
 });
 
@@ -123,25 +124,62 @@ describe("the program counter", () => {
   });
 });
 
-describe("the 2-to-4 decoder", () => {
-  test("turns on only the output S numbers", () => {
-    expect(truthTable(levelOf("2-TO-4 DECODER")).map((row) => row.expected)).toEqual([
-      [1, 0, 0, 0],
-      [0, 1, 0, 0],
-      [0, 0, 1, 0],
-      [0, 0, 0, 1],
+describe("the 3-to-8 decoder", () => {
+  test("turns on only D's signal S numbers", () => {
+    expect(truthTable(levelOf("3-TO-8 DECODER")).map((row) => row.expected)).toEqual([
+      [0b00000001],
+      [0b00000010],
+      [0b00000100],
+      [0b00001000],
+      [0b00010000],
+      [0b00100000],
+      [0b01000000],
+      [0b10000000],
     ]);
+  });
+
+  test("gives the 4-to-16 decoder, not its own 3-to-8 one", () => {
+    const index = levelIndex("3-TO-8 DECODER");
+    expect(partsBin(index + 1)).toContain("4-TO-16 DECODER");
+    expect(partsBin(index + 1)).not.toContain("3-TO-8 DECODER");
+  });
+
+  test("the part it gives has exactly one of its 16 signals on, the one S numbers", () => {
+    const decoder = kindOf(PARTS, "4-TO-16 DECODER");
+    for (let s = 0; s < 16; s++) {
+      const [lo = 0, hi = 0] = decoder.evaluate([s], 1);
+      expect(lo | (hi << 8)).toBe(2 ** s);
+    }
   });
 });
 
-describe("the 4-to-16 decoder", () => {
-  test("has exactly one of its 16 signals on for each S, the one S numbers", () => {
-    const rows = truthTable(levelOf("4-TO-16 DECODER"));
-    expect(rows).toHaveLength(16);
-    for (const [s, { expected }] of rows.entries()) {
-      const [lo = 0, hi = 0] = expected;
-      expect(lo | (hi << 8)).toBe(1 << s);
-    }
+test("the 2-to-4 decoder is no longer a level", () => {
+  expect(levelIndex("2-TO-4 DECODER")).toBe(-1);
+});
+
+test("a save with the 2-to-4 decoder solved loads without it", () => {
+  const save = memorySave({ solved: { "2-TO-4 DECODER": 1 }, open: "2-TO-4 DECODER" });
+  expect(() => save.load()).not.toThrow();
+});
+
+describe("none", () => {
+  test("turns OUT on only when all of A to H are off", () => {
+    const none = kindOf(PARTS, "NONE");
+    expect(levelOf("NONE").inputs).toEqual(["A", "B", "C", "D", "E", "F", "G", "H"]);
+    const on = Array.from({ length: 256 }, (_, n) => Array.from({ length: 8 }, (__, i) => (n >> i) & 1)).filter(
+      (inputs) => none.evaluate(inputs, 1)[0] === 1,
+    );
+    expect(on).toEqual([[0, 0, 0, 0, 0, 0, 0, 0]]);
+  });
+
+  test("shows all off, each input on alone, and all on", () => {
+    const shown = truthTable(levelOf("NONE"));
+    expect(shown).toHaveLength(10);
+    expect(shown.map((row) => row.expected[0])).toEqual([1, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+  });
+
+  test("comes straight after the 4-bit zero test", () => {
+    expect(levelIndex("NONE")).toBe(levelIndex("4-BIT ZERO TEST") + 1);
   });
 });
 
@@ -186,6 +224,46 @@ describe("the sequencer", () => {
     const index = levelIndex("SEQUENCER");
     expect(checkLevel(game, index).passed).toBe(true);
     expect(checkLevel(game, index).rows[0]!.actual).toEqual([0]);
+  });
+});
+
+describe("the stepper", () => {
+  test("comes straight after the sequencer", () => {
+    expect(levelIndex("STEPPER")).toBe(levelIndex("SEQUENCER") + 1);
+  });
+
+  test("toggles like the sequencer while HALT is off", () => {
+    expect(
+      ticks("STEPPER", [
+        [0, 0],
+        [0, 0],
+        [0, 0],
+      ]),
+    ).toEqual([[1], [0], [1]]);
+  });
+
+  test("still toggles when HALT is on during fetch, then holds on execute", () => {
+    expect(
+      ticks("STEPPER", [
+        [0, 1],
+        [0, 1],
+        [0, 1],
+      ]),
+    ).toEqual([[1], [1], [1]]);
+    expect(
+      ticks("STEPPER", [
+        [0, 0],
+        [0, 1],
+        [0, 1],
+        [0, 1],
+      ]),
+    ).toEqual([[1], [1], [1], [1]]);
+  });
+
+  test("its timing table toggles, then holds once HALT is on while EXEC is on", () => {
+    const steps = levelOf("STEPPER").steps!;
+    expect(steps.map((step) => step.expected[0])).toEqual([0, 1, 0, 1, 1, 1]);
+    expect(steps.map((step) => step.inputs[1])).toEqual([0, 0, 0, 1, 1, 1]);
   });
 });
 

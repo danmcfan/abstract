@@ -165,8 +165,14 @@ _Avoid_: PC (in player-facing text), instruction pointer
 **Decoder**:
 A part that turns a number into one signal: the output with the input's number is on and the rest are off. The CPU's 4-in, 16-out decoder turns an opcode into the instruction it means.
 
+**None**:
+The L6 part whose output is on only when every one of its eight inputs is off.
+
 **Sequencer**:
 The part that says whether the CPU is on its fetch tick or its execute tick.
+
+**Stepper**:
+A sequencer whose clock stops once HALT is on during execute, so the CPU holds still after it halts.
 
 **Control unit**:
 The part, built first in L8, that turns an opcode into the signals that do its instruction: which register writes, what it takes, the ALU's OP, and whether to store, jump, read a device, send to one or halt. Its board is wired for the player's opcodes; the part in the bin reads the instruction set.

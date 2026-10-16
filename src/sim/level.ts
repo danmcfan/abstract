@@ -180,7 +180,7 @@ export const LAYERS: Layer[] = [
     number: 6,
     name: "Control",
     floor: "the clock tower",
-    parts: "Constants, program counter, decoder, zero test, sequencer, clock speed",
+    parts: "Program counter, decoder, zero test, none, sequencer, stepper",
   },
   { number: 7, name: "Assembly", floor: "the typing pool", parts: "Name and number your own instruction set" },
   { number: 8, name: "CPU", floor: "the control room", parts: "Fetch, decode, execute, in your instruction set" },
@@ -208,13 +208,16 @@ const register: Memory = {
   outputs: ([, q = 0]) => [q],
 };
 
+// NONE's eight inputs.
+const NONE_INPUTS = ["A", "B", "C", "D", "E", "F", "G", "H"];
+
 // A register file or RAM: CLK, WRITE, an address and DIN in, then whatever
 // picks the places shown. On a tick with WRITE on, the place at the address
 // takes DIN; the rest keep their values.
 function places(count: number, outputs: Memory["outputs"]): Memory {
   return {
     next: onTick(([, write = 0, address = 0, din = 0], kept) =>
-      Array.from({ length: count }, (_, i) => (write && i === address ? din : (kept[i] ?? 0))),
+      Array.from({ length: count }, (_, i) => (write && i === address % count ? din : (kept[i] ?? 0))),
     ),
     outputs,
   };
@@ -1147,27 +1150,32 @@ export const LEVELS: Level[] = [
   },
   {
     gate: "RAM",
-    goal: "On a tick with WRITE on, place ADDR takes DIN. DOUT always shows place ADDR.",
+    revision: 2,
+    goal: "On a tick with WRITE on, place ADDR takes DIN. DOUT always shows place ADDR. Only ADDR's low 3 signals count.",
     layer: 5,
     inputs: ["CLK", "WRITE", "ADDR", "DIN"],
     outputs: ["DOUT"],
-    widths: { ADDR: 3, DIN: 8, DOUT: 8 },
+    widths: { ADDR: 8, DIN: 8, DOUT: 8 },
     // A join for the register files' WSEL and ASEL.
     buses: [2],
-    memory: places(8, ([, ...kept], [, , addr = 0]) => [kept[addr] ?? 0]),
-    // Every place gets a different value, then each is read back.
+    memory: places(8, ([, ...kept], [, , addr = 0]) => [kept[addr % 8] ?? 0]),
+    // Every place gets a different value, then each is read back. Last,
+    // address 13 writes place 5, as its low 3 signals number it.
     steps: [
       ...RAM_VALUES.map((value, addr) => ({ inputs: [0, 1, addr, value], tick: true, expected: [value] })),
       ...RAM_VALUES.map((value, addr) => ({ inputs: [0, 0, addr, 0], expected: [value] })),
+      { inputs: [0, 1, 13, 77], tick: true, expected: [77] },
+      { inputs: [0, 0, 5, 0], expected: [77] },
     ],
     grid: { width: 60, height: 50 },
     // Two register files of four places each. ADDR's low two signals pick
-    // the register in both, and its top signal steers WRITE to one of them
-    // and picks which one DOUT shows. Their B outputs go unused.
+    // the register in both, and the one above them steers WRITE to one of
+    // them and picks which one DOUT shows. The split gives the high signal
+    // first, so those are pins 5, 6 and 7. Their B outputs go unused.
     solution: {
       nodes: [
-        { name: "addr", type: "SPLIT", x: 15, y: 30, width: 3 },
-        { name: "low", type: "JOIN", x: 21, y: 30, width: 2 },
+        { name: "addr", type: "SPLIT", x: 12, y: 24, width: 8 },
+        { name: "low", type: "JOIN", x: 20, y: 38, width: 2 },
         { name: "write", type: "DEMUX", x: 22, y: 14 },
         { name: "lower", type: "REGISTER FILE", x: 34, y: 13 },
         { name: "upper", type: "REGISTER FILE", x: 34, y: 35 },
@@ -1175,10 +1183,10 @@ export const LEVELS: Level[] = [
       ],
       wires: [
         ["ADDR", "addr"],
-        ["addr:1", "low:0"],
-        ["addr:2", "low:1"],
+        ["addr:6", "low:0"],
+        ["addr:7", "low:1"],
         ["WRITE", "write:0"],
-        ["addr:0", "write:1"],
+        ["addr:5", "write:1"],
         ...(["lower", "upper"] as const).flatMap((file, i): [string, string][] => [
           ["CLK", `${file}:0`],
           [`write:${i}`, `${file}:1`],
@@ -1187,7 +1195,7 @@ export const LEVELS: Level[] = [
           ["low", `${file}:4`],
           [file, `read:${i}`],
         ]),
-        ["addr:0", "read:2"],
+        ["addr:5", "read:2"],
         ["read", "DOUT"],
       ],
     },
@@ -1240,88 +1248,47 @@ export const LEVELS: Level[] = [
     },
   },
   {
-    gate: "2-TO-4 DECODER",
-    goal: "Only the output S numbers is on, D0 to D3.",
+    gate: "3-TO-8 DECODER",
+    goal: "Only the signal S numbers is on: number n is D's signal n. The join takes its high signal first, so number n goes into join pin 7−n.",
     layer: 6,
     inputs: ["S"],
-    outputs: ["D0", "D1", "D2", "D3"],
-    widths: { S: 2 },
-    target: ([s = 0]) => [0, 1, 2, 3].map((i) => (i === s ? 1 : 0)),
-    // An AND for each output, fed each signal of S or its NOT.
-    solution: {
-      nodes: [
-        { name: "s", type: "SPLIT", x: 11, y: 22, width: 2 },
-        { name: "notHigh", type: "NOT", x: 18, y: 12 },
-        { name: "notLow", type: "NOT", x: 18, y: 32 },
-        { name: "d0", type: "AND", x: 31, y: 9 },
-        { name: "d1", type: "AND", x: 31, y: 18 },
-        { name: "d2", type: "AND", x: 31, y: 27 },
-        { name: "d3", type: "AND", x: 31, y: 36 },
-      ],
-      wires: [
-        ["S", "s"],
-        ["s:0", "notHigh"],
-        ["s:1", "notLow"],
-        ["notHigh", "d0:0"],
-        ["notLow", "d0:1"],
-        ["notHigh", "d1:0"],
-        ["s:1", "d1:1"],
-        ["s:0", "d2:0"],
-        ["notLow", "d2:1"],
-        ["s:0", "d3:0"],
-        ["s:1", "d3:1"],
-        ["d0", "D0"],
-        ["d1", "D1"],
-        ["d2", "D2"],
-        ["d3", "D3"],
-      ],
-    },
-  },
-  {
-    gate: "4-TO-16 DECODER",
-    goal: "Only the signal S numbers is on: LO holds numbers 0 to 7, and HI numbers 8 to 15.",
-    layer: 6,
-    inputs: ["S"],
-    outputs: ["LO", "HI"],
-    widths: { S: 4, LO: 8, HI: 8 },
-    // Joins for S's top and bottom two signals.
+    outputs: ["D"],
+    widths: { S: 3, D: 8 },
+    // A join for S's low two signals.
     buses: [2],
-    target: ([s = 0]) => [s < 8 ? 1 << s : 0, s < 8 ? 0 : 1 << (s - 8)],
-    grid: { width: 60, height: 48 },
-    // A 2-to-4 decoder on S's top two signals picks a group of four, and a
-    // DEMUX4 per group sends it to the number S's bottom two signals pick.
-    // Sixteen ANDs would do it too, but go over ten parts (ADR 10).
+    target: ([s = 0]) => [2 ** s],
+    // Like the adder: 16 signals is the same again with twice the groups, so
+    // Bitbox hands over the 4-to-16 decoder for the control unit.
+    gives: {
+      gate: "4-TO-16 DECODER",
+      inputs: ["S"],
+      outputs: ["LO", "HI"],
+      widths: { S: 4, LO: 8, HI: 8 },
+      target: ([s = 0]) => [s < 8 ? 2 ** s : 0, s < 8 ? 0 : 2 ** (s - 8)],
+    },
+    // S's high signal picks a group of four, one DEMUX4 each, and its low
+    // two signals pick the number in the group. A join takes its high
+    // signal first, so number n goes into pin 7 - n.
     solution: {
       nodes: [
-        { name: "s", type: "SPLIT", x: 13, y: 24, width: 4 },
-        { name: "high", type: "JOIN", x: 19, y: 12, width: 2 },
-        { name: "low", type: "JOIN", x: 19, y: 38, width: 2 },
-        { name: "group", type: "2-TO-4 DECODER", x: 26, y: 12 },
-        { name: "g0", type: "DEMUX4", x: 35, y: 7 },
-        { name: "g1", type: "DEMUX4", x: 35, y: 17 },
-        { name: "g2", type: "DEMUX4", x: 35, y: 27 },
-        { name: "g3", type: "DEMUX4", x: 35, y: 37 },
-        { name: "lo", type: "JOIN", x: 43, y: 14, width: 8 },
-        { name: "hi", type: "JOIN", x: 43, y: 34, width: 8 },
+        { name: "s", type: "SPLIT", x: 11, y: 22, width: 3 },
+        { name: "low", type: "JOIN", x: 18, y: 32, width: 2 },
+        { name: "not", type: "NOT", x: 18, y: 12 },
+        { name: "g0", type: "DEMUX4", x: 27, y: 10 },
+        { name: "g1", type: "DEMUX4", x: 27, y: 28 },
+        { name: "d", type: "JOIN", x: 37, y: 20, width: 8 },
       ],
       wires: [
         ["S", "s"],
-        ["s:0", "high:0"],
-        ["s:1", "high:1"],
-        ["s:2", "low:0"],
-        ["s:3", "low:1"],
-        ["high", "group"],
-        ...[0, 1, 2, 3].flatMap((g): [string, string][] => [
-          [`group:${g}`, `g${g}:0`],
-          ["low", `g${g}:1`],
-        ]),
-        // A join takes its high bit first, so number n goes in pin 7 - n.
-        ...Array.from({ length: 16 }, (_, n): [string, string] => [
-          `g${Math.floor(n / 4)}:${n % 4}`,
-          n < 8 ? `lo:${7 - n}` : `hi:${15 - n}`,
-        ]),
-        ["lo", "LO"],
-        ["hi", "HI"],
+        ["s:1", "low:0"],
+        ["s:2", "low:1"],
+        ["s:0", "not"],
+        ["not", "g0:0"],
+        ["s:0", "g1:0"],
+        ["low", "g0:1"],
+        ["low", "g1:1"],
+        ...Array.from({ length: 8 }, (_, n): [string, string] => [`g${Math.floor(n / 4)}:${n % 4}`, `d:${7 - n}`]),
+        ["d", "D"],
       ],
     },
   },
@@ -1366,6 +1333,35 @@ export const LEVELS: Level[] = [
     },
   },
   {
+    gate: "NONE",
+    goal: "OUT is on only when every input is off.",
+    layer: 6,
+    inputs: NONE_INPUTS,
+    outputs: ["OUT"],
+    // A join for the zero test.
+    buses: [8],
+    target: (inputs) => [inputs.every((a) => a === 0) ? 1 : 0],
+    // All off, each input on alone, then all on. The test run checks the
+    // rest out of sight.
+    cases: [
+      [0, 0, 0, 0, 0, 0, 0, 0],
+      ...Array.from({ length: 8 }, (_, on) => Array.from({ length: 8 }, (__, i) => (i === on ? 1 : 0))),
+      [1, 1, 1, 1, 1, 1, 1, 1],
+    ],
+    // Join the inputs into one bus and zero test it.
+    solution: {
+      nodes: [
+        { name: "join", type: "JOIN", x: 16, y: 20, width: 8 },
+        { name: "zero", type: "ZERO TEST", x: 26, y: 22 },
+      ],
+      wires: [
+        ...NONE_INPUTS.map((label, pin): [string, string] => [label, `join:${pin}`]),
+        ["join", "zero"],
+        ["zero", "OUT"],
+      ],
+    },
+  },
+  {
     gate: "SEQUENCER",
     goal: "EXEC starts off and changes on every tick: off for fetch, on for execute.",
     layer: 6,
@@ -1393,6 +1389,45 @@ export const LEVELS: Level[] = [
         ["CLK", "ff:1"],
         ["ff", "not"],
         ["ff", "EXEC"],
+      ],
+    },
+  },
+  {
+    gate: "STEPPER",
+    goal: "Like the sequencer, but its clock stops once HALT is on during execute.",
+    layer: 6,
+    inputs: ["CLK", "HALT"],
+    outputs: ["EXEC"],
+    // The CPU's clock gating: a tick changes nothing while EXEC and HALT
+    // are both on.
+    memory: {
+      next: onTick(([, halt = 0], [exec = 0]) => [exec && halt ? exec : 1 - exec]),
+      outputs: ([, exec = 0]) => [exec],
+    },
+    // It toggles, still toggles with HALT on during fetch, then holds.
+    steps: [
+      { inputs: [0, 0], expected: [0] },
+      { inputs: [0, 0], tick: true, expected: [1] },
+      { inputs: [0, 0], tick: true, expected: [0] },
+      { inputs: [0, 1], tick: true, expected: [1] },
+      { inputs: [0, 1], tick: true, expected: [1] },
+      { inputs: [0, 1], tick: true, expected: [1] },
+    ],
+    // An AND passes CLK to a sequencer unless a NAND of EXEC and HALT
+    // turns it off.
+    solution: {
+      nodes: [
+        { name: "clock", type: "AND", x: 16, y: 14 },
+        { name: "running", type: "NAND", x: 16, y: 30 },
+        { name: "seq", type: "SEQUENCER", x: 27, y: 20 },
+      ],
+      wires: [
+        ["CLK", "clock:0"],
+        ["running", "clock:1"],
+        ["clock", "seq"],
+        ["seq", "running:0"],
+        ["HALT", "running:1"],
+        ["seq", "EXEC"],
       ],
     },
   },
@@ -1534,22 +1569,20 @@ function executeLevel(set: InstructionSet): CircuitLevel {
     inputs: ["CLK", "I", "N", "DIN"],
     outputs: ["JUMP", "ADDR", "OUT", "DOUT", "DEV", "IN", "HALT"],
     widths: { I: 8, N: 8, DIN: 8, ADDR: 8, DOUT: 8, DEV: 8 },
-    // Joins for the opcode, R and S, and the RAM address.
-    buses: [4, 3, 2],
+    // Joins for the opcode, and R and S.
+    buses: [4, 2],
     memory,
     steps,
     grid: { width: 80, height: 64 },
     // I splits into the opcode, R and S. R and S pick the registers, and
     // the control unit picks what R takes: S, N, RAM or DIN, or the ALU.
-    // RAM's address is N's low three signals, and it takes R.
+    // RAM's address is N, and it takes R.
     solution: {
       nodes: [
         { name: "i", type: "SPLIT", x: 15, y: 18, width: 8 },
         { name: "opcode", type: "JOIN", x: 21, y: 8, width: 4 },
         { name: "r", type: "JOIN", x: 21, y: 22, width: 2 },
         { name: "s", type: "JOIN", x: 21, y: 28, width: 2 },
-        { name: "n", type: "SPLIT", x: 15, y: 40, width: 8 },
-        { name: "a", type: "JOIN", x: 21, y: 50, width: 3 },
         { name: "control", type: "CONTROL UNIT", x: 28, y: 2 },
         { name: "registers", type: "REGISTER FILE", x: 30, y: 22 },
         { name: "zero", type: "ZERO TEST", x: 40, y: 12 },
@@ -1565,10 +1598,6 @@ function executeLevel(set: InstructionSet): CircuitLevel {
         ["i:5", "r:1"],
         ["i:6", "s:0"],
         ["i:7", "s:1"],
-        ["N", "n"],
-        ["n:5", "a:0"],
-        ["n:6", "a:1"],
-        ["n:7", "a:2"],
         ["opcode", "control:0"],
         ["zero", "control:1"],
         ["CLK", "registers:0"],
@@ -1583,7 +1612,7 @@ function executeLevel(set: InstructionSet): CircuitLevel {
         ["control:2", "alu:2"],
         ["CLK", "ram:0"],
         ["control:3", "ram:1"],
-        ["a", "ram:2"],
+        ["N", "ram:2"],
         ["registers:0", "ram:3"],
         ["ram", "memory:0"],
         ["DIN", "memory:1"],
