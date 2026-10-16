@@ -76,13 +76,14 @@ describe("each level's intended solution", () => {
   // Levels still over the limit while #72 redesigns them; each PR there
   // removes its level from this list.
   const overLimit = ["ALU SLICE", "REGISTER FILE", "4-TO-16 DECODER", "CONTROL UNIT", "EXECUTE UNIT", "CPU"];
-  const withinLimit = (level: (typeof unbuilt)[number]["level"]): boolean =>
-    (level.solution?.nodes.length ?? 0) <= 7 && (level.solution?.wires.length ?? 0) <= 20;
-
   test.each(unbuilt.map(({ level }) => [levelId(level), level] as const))(
-    "%s places 7 nodes or fewer with 20 wires or fewer",
+    "%s keeps within 7 nodes and 20 wires unless listed over the limit",
     (id, level) => {
-      expect(withinLimit(level)).toBe(!overLimit.includes(id));
+      const nodes = level.solution?.nodes.length ?? 0;
+      const wires = level.solution?.wires.length ?? 0;
+      expect({ nodes, wires, within: nodes <= 7 && wires <= 20 }).toMatchObject({
+        within: !overLimit.includes(id),
+      });
     },
   );
 
