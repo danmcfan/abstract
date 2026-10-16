@@ -1,6 +1,7 @@
 import { Show, createEffect, createSignal, on, onCleanup, type JSX } from "solid-js";
 import { typeLetter } from "../sim/sound";
 import { sound } from "./sound";
+import { isTyping } from "./keys";
 import { advance, hush, reaction, speech } from "./speech";
 import { RobotScreen } from "./RobotScreen";
 import type { Expression } from "../robot/expression";
@@ -68,7 +69,7 @@ export function Dialogue(props: { docked?: boolean }): JSX.Element {
   };
 
   const onKey = (event: KeyboardEvent): void => {
-    if (!speech()) return;
+    if (!speech() || isTyping(event.target)) return;
     if (event.key === "Escape") hush();
     else if (event.key === "Enter" && !(event.target instanceof HTMLButtonElement)) next();
   };
