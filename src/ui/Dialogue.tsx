@@ -12,6 +12,7 @@ const TYPE_MS = 24;
 // out. During play it's docked in Bitbox's desk, where he sits idle between
 // lines. Over the stack it pops up instead, and a reaction with no line
 // shows just the video window, for a moment.
+export const DIALOGUE_ID = "dialogue";
 const text = (): string => speech()?.line.text ?? "";
 const face = (): Expression => reaction() ?? speech()?.line.face ?? "idle";
 
@@ -80,56 +81,62 @@ export function Dialogue(props: { docked?: boolean }): JSX.Element {
   });
 
   return (
-    <Show when={props.docked === true || speech() !== null || reaction() !== null}>
-      <section id="dialogue" aria-label="Bitbox" class={look().section}>
-        <header class="flex items-center justify-between bg-ink py-1 pr-1 pl-3 text-label tracking-stamp text-paper uppercase">
-          <span>
-            <span class="mr-1.5 inline-block size-2 rounded-full bg-glow align-middle shadow-glow" />
-            Bitbox
-          </span>
-          <Show when={speech()}>
-            <button
-              id="dialog-close"
-              class="px-2 text-sm leading-none hover:text-glow"
-              aria-label="Close"
-              onClick={hush}
-            >
-              ✕
-            </button>
-          </Show>
-        </header>
-        <div class={look().body}>
-          <div class={`relative shrink-0 border-2 border-ink bg-paper grid-paper ${look().camera}`}>
-            <RobotScreen expression={face()} talking={typing()} shot="close" class="size-full" />
-            <span class="pointer-events-none absolute top-0.5 left-1.5 text-tag tracking-widest text-pencil">
-              CAM 01
+    <>
+      {/* Announced once, whole, rather than letter by letter as it types. Always mounted, so even the first line is a change to a live region that already exists. */}
+      <p class="sr-only" aria-live="polite">
+        {text()}
+      </p>
+      <Show when={props.docked === true || speech() !== null || reaction() !== null}>
+        <section id={DIALOGUE_ID} aria-label="Bitbox" class={look().section}>
+          <header class="flex items-center justify-between bg-ink py-1 pr-1 pl-3 text-label tracking-stamp text-paper uppercase">
+            <span>
+              <span class="mr-1.5 inline-block size-2 rounded-full bg-glow align-middle shadow-glow" />
+              Bitbox
             </span>
+            <Show when={speech()}>
+              <button
+                id="dialog-close"
+                class="px-2 text-sm leading-none hover:text-glow"
+                aria-label="Close"
+                onClick={hush}
+              >
+                ✕
+              </button>
+            </Show>
+          </header>
+          <div class={look().body}>
+            <div class={`relative shrink-0 border-2 border-ink bg-paper grid-paper ${look().camera}`}>
+              <RobotScreen expression={face()} talking={typing()} shot="close" class="size-full" />
+              <span class="pointer-events-none absolute top-0.5 left-1.5 text-tag tracking-widest text-pencil">
+                CAM 01
+              </span>
+            </div>
+            <Show when={speech()}>
+              {(s) => (
+                <div class="flex min-w-0 flex-1 flex-col">
+                  {/* A mouse shortcut for Next; the keyboard has Enter and the Next button. */}
+                  <div role="presentation" class="min-h-0 overflow-y-auto" onClick={next}>
+                    <p class={`cursor-pointer leading-snug ${look().text}`} aria-hidden="true">
+                      {text().slice(0, shown())}
+                      <Show when={!typing()}>
+                        <span class="caret" />
+                      </Show>
+                    </p>
+                  </div>
+                  <div class="mt-auto flex items-center justify-between pt-2">
+                    <span class="text-xs text-pencil">
+                      {s().index + 1} / {s().count}
+                    </span>
+                    <button id="dialog-next" class="btn btn-sm" onClick={next}>
+                      {s().index + 1 < s().count ? "Next ▸" : "Got it"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </Show>
           </div>
-          <Show when={speech()}>
-            {(s) => (
-              <div class="flex min-w-0 flex-1 flex-col">
-                {/* A mouse shortcut for Next; the keyboard has Enter and the Next button. */}
-                <div role="presentation" class="min-h-0 overflow-y-auto" onClick={next}>
-                  <p class={`cursor-pointer leading-snug ${look().text}`} aria-live="polite">
-                    {text().slice(0, shown())}
-                    <Show when={!typing()}>
-                      <span class="caret" />
-                    </Show>
-                  </p>
-                </div>
-                <div class="mt-auto flex items-center justify-between pt-2">
-                  <span class="text-xs text-pencil">
-                    {s().index + 1} / {s().count}
-                  </span>
-                  <button id="dialog-next" class="btn btn-sm" onClick={next}>
-                    {s().index + 1 < s().count ? "Next ▸" : "Got it"}
-                  </button>
-                </div>
-              </div>
-            )}
-          </Show>
-        </div>
-      </section>
-    </Show>
+        </section>
+      </Show>
+    </>
   );
 }
