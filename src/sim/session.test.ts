@@ -758,6 +758,21 @@ describe("driving a session", () => {
     expect(driver.running).toBe(false);
     expect(scheduler.tasks).toHaveLength(0);
   });
+
+  test("stop halts the clock and a test run, and leaves the board as it was", () => {
+    const { session } = clocked();
+    const scheduler = fakeScheduler();
+    const driver = new Driver(session, scheduler, () => {});
+    driver.toggleClock();
+    driver.stop();
+    expect(driver.running).toBe(false);
+    expect(scheduler.tasks).toHaveLength(0);
+    driver.test();
+    const row = session.currentRow;
+    driver.stop();
+    expect(scheduler.tasks).toHaveLength(0);
+    expect(session.currentRow).toBe(row);
+  });
 });
 
 describe("the clock speed", () => {
