@@ -35,10 +35,16 @@ describe("the instruction set level", () => {
     expect(session.validInstructionSet?.add).toEqual({ mnemonic: "PLUS", opcode: 3 });
   });
 
-  test("keeps typed names in capitals", () => {
+  test("keeps the name as typed while it's being typed", () => {
     const session = atTypingPool();
-    session.editInstructions({ add: { mnemonic: "plus", opcode: 3 } });
-    expect(session.instructionSet.add).toEqual({ mnemonic: "PLUS", opcode: 3 });
+    session.editInstructions({ add: { mnemonic: " pl", opcode: 3 } });
+    expect(session.instructionSet.add).toEqual({ mnemonic: " pl", opcode: 3 });
+  });
+
+  test("keeps a good table's names in capitals", () => {
+    const session = atTypingPool();
+    session.editInstructions({ ...BITBOX_INSTRUCTION_SET, add: { mnemonic: "plus ", opcode: 3 } });
+    expect(session.validInstructionSet?.add).toEqual({ mnemonic: "PLUS", opcode: 3 });
   });
 
   test("warns once, the first time a row goes bad", () => {
