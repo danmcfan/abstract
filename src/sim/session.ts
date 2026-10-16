@@ -19,8 +19,8 @@ import {
   levelAt,
   levelId,
   LEVELS,
-  loadFirstProgram,
   fitTerminals,
+  loadFirstProgram,
   loadLevel,
   PARTS,
   partsOf,
@@ -356,8 +356,10 @@ export class Session {
     const board = isCircuit(level) ? this.boards[level.gate] : undefined;
     this.levelIndex = index;
     const game = board ? loadBoard(board, this.parts) : this.boardFor(level);
-    if (board && isCircuit(level)) fitTerminals(game, level);
-    if (isCircuit(level)) loadFirstProgram(game, level);
+    if (isCircuit(level)) {
+      if (board) fitTerminals(game, level);
+      loadFirstProgram(game, level);
+    }
     this.load(game);
   }
 

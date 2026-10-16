@@ -125,6 +125,32 @@ export function wire(game: Game, a: Pin, b: Pin): Edge | null {
   return edge;
 }
 
+// Sets a node's width, leaving any wire that no longer fits for
+// dropUnfitWires. Refuses a width out of range.
+export function setWidth(game: Game, id: NodeID, width: number): void {
+  const node = game.nodes.get(id);
+  if (!node || !Number.isInteger(width) || width < 1 || width > MAX_WIDTH) return;
+  node.width = width;
+}
+
+// Removes every wire whose pins don't exist or don't match widths, which
+// is what wire() refuses to make.
+export function dropUnfitWires(game: Game): void {
+  for (const edge of game.edges.values()) {
+    const from = game.nodes.get(edge.from);
+    const to = game.nodes.get(edge.to);
+    const fits =
+      from !== undefined &&
+      to !== undefined &&
+      edge.fromIndex < nodeKind(game, from).outputCount(from.width) &&
+      edge.toIndex < nodeKind(game, to).inputCount(to.width) &&
+      widthOf(game, from, { side: "out", index: edge.fromIndex }) ===
+        widthOf(game, to, { side: "in", index: edge.toIndex });
+    if (!fits) game.edges.delete(edge.id);
+  }
+  settle(game);
+}
+
 // Removes the wire into an input pin, if any.
 export function unwire(game: Game, pin: Pin): void {
   const edge = edgeInto(game, pin.node, pin.index);
