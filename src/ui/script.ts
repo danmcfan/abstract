@@ -243,17 +243,14 @@ const LEVELS: Partial<Record<string, LevelScript>> = {
     intro: [
       { face: "amazed", text: "This is the big one. One part that does six jobs." },
       { face: "idle", text: "OP is a 3-signal bus. Its top signal says arithmetic or logic." },
-      { face: "idle", text: "0 adds and 1 subtracts. 4 is AND, 5 is OR, 6 is XOR, 7 is NOT A." },
-      { face: "thinking", text: "OP 2 and 3 do nothing at all. OUT and COUT stay off." },
+      { face: "idle", text: "0 adds A, B and CIN; 1 adds NOT B instead. 4 is AND, 5 is OR, 6 is XOR, 7 is NOT A." },
+      { face: "thinking", text: "OP 2 adds and 3 subtracts, just like 0 and 1." },
     ],
     hint: [
       { face: "thinking", text: "Split OP. Its ones place goes to ADD/SUB's SUB." },
       { face: "thinking", text: "Join OP's low two signals into the logic unit's SEL." },
       { face: "thinking", text: "A MUX on OP's top signal picks arithmetic or logic." },
-      {
-        face: "thinking",
-        text: "Arithmetic only counts while OP's top two signals are off. Keep OUT and COUT off for 2 and 3.",
-      },
+      { face: "thinking", text: "COUT is ADD/SUB's carry, whatever OP says." },
       CONTROLS,
     ],
     solved: [{ face: "happy", text: "ALU slice, done! Eight of these in a chain make the real thing." }],

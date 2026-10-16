@@ -4,7 +4,7 @@ Date: 2026-10-14
 
 ## Status
 
-Accepted
+Superseded by [ADR 12](0012-op-2-and-3-do-arithmetic.md)
 
 ## Context
 

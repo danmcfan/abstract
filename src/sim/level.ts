@@ -704,8 +704,8 @@ export const LEVELS: Level[] = [
   },
   {
     gate: "ALU SLICE",
-    revision: 2,
-    goal: "Do OP to A and B: 0 add, 1 subtract, 4 and, 5 or, 6 xor, 7 not A. OP 2 and 3 give nothing.",
+    revision: 3,
+    goal: "Do OP to A and B. Arithmetic adds A, B (or NOT B for OP 1 and 3) and CIN; 4 and, 5 or, 6 xor, 7 not A. COUT is the carry for every OP.",
     layer: 4,
     inputs: ["A", "B", "CIN", "OP"],
     outputs: ["OUT", "COUT"],
@@ -718,7 +718,7 @@ export const LEVELS: Level[] = [
       [1, 0, 1, 0],
       [0, 1, 1, 1],
       [1, 1, 1, 1],
-      [1, 1, 1, 2],
+      [1, 1, 0, 2],
       [1, 0, 1, 3],
       [1, 1, 0, 4],
       [1, 0, 0, 5],
@@ -726,20 +726,15 @@ export const LEVELS: Level[] = [
       [0, 1, 0, 7],
     ],
     // ADD/SUB and the logic unit side by side, with OP's ones place on SUB
-    // and its low two signals on SEL. OP's top signal picks between them.
-    // Arithmetic is on only while the top two signals are off, so OP 2 and 3
-    // give nothing, and COUT is the carry only then.
+    // and its low two signals on SEL. OP's top signal picks between them,
+    // and COUT is ADD/SUB's carry whatever the job (ADR 12).
     solution: {
       nodes: [
         { name: "op", type: "SPLIT", x: 10, y: 34, width: 3 },
         { name: "sel", type: "JOIN", x: 17, y: 26, width: 2 },
         { name: "addsub", type: "ADD/SUB", x: 22, y: 6 },
         { name: "logic", type: "LOGIC UNIT", x: 25, y: 20 },
-        { name: "either", type: "OR", x: 17, y: 38 },
-        { name: "arith", type: "NOT", x: 25, y: 38 },
-        { name: "sum", type: "AND", x: 32, y: 8 },
-        { name: "carry", type: "AND", x: 38, y: 32 },
-        { name: "result", type: "MUX", x: 38, y: 14 },
+        { name: "result", type: "MUX", x: 36, y: 14 },
       ],
       wires: [
         ["OP", "op"],
@@ -752,24 +747,17 @@ export const LEVELS: Level[] = [
         ["A", "logic:0"],
         ["B", "logic:1"],
         ["sel", "logic:2"],
-        ["op:0", "either:0"],
-        ["op:1", "either:1"],
-        ["either", "arith"],
-        ["addsub", "sum:0"],
-        ["arith", "sum:1"],
-        ["sum", "result:0"],
+        ["addsub", "result:0"],
         ["logic", "result:1"],
         ["op:0", "result:2"],
-        ["addsub:1", "carry:0"],
-        ["arith", "carry:1"],
         ["result", "OUT"],
-        ["carry", "COUT"],
+        ["addsub:1", "COUT"],
       ],
     },
   },
   {
     gate: "2-BIT ALU",
-    revision: 2,
+    revision: 3,
     goal: "OUT is OP's operation on A and B, as on the slice.",
     layer: 4,
     inputs: ["A", "B", "OP"],
@@ -1675,27 +1663,20 @@ function cpuLevel(set: InstructionSet): CircuitLevel {
 }
 
 // An ALU on buses width signals wide. Subtract is add with B flipped and a
-// carry in, which wraps 1 - 2 round to 3 at 2 bits, or 3 - 5 to 254 at 8.
+// carry in from OP's ones place, which wraps 1 - 2 round to 3 at 2 bits, or
+// 3 - 5 to 254 at 8.
 function aluTarget(width: number): Combinational["target"] {
-  return ([a = 0, b = 0, op = 0]) => operate(op, a, b, op === 1 ? 1 : 0, width).slice(0, 1);
+  return ([a = 0, b = 0, op = 0]) => operate(op, a, b, op & 1, width).slice(0, 1);
 }
 
-// The ALU's operations on buses width signals wide, by OP (ADR 9): the result
-// and the carry out. Only add and subtract carry; OP 2 and 3 give nothing.
+// The ALU's operations on buses width signals wide, by OP (ADR 12): the result
+// and the carry out. Only OP's top signal (logic) and ones place (subtract)
+// matter to arithmetic, and COUT is the add or subtract's carry for every OP.
 function operate(op: Value, a: Value, b: Value, cin: Value, width: number): Value[] {
   const all = 2 ** width - 1;
-  const sum = (x: Value): Value[] => [x & all, x > all ? 1 : 0];
-  const results: Value[][] = [
-    sum(a + b + cin),
-    sum(a + (~b & all) + cin),
-    [0, 0],
-    [0, 0],
-    [a & b, 0],
-    [a | b, 0],
-    [a ^ b, 0],
-    [~a & all, 0],
-  ];
-  return results[op] ?? [0, 0];
+  const total = a + (op & 1 ? ~b & all : b) + cin;
+  const logic = [a & b, a | b, a ^ b, ~a & all];
+  return [op & 4 ? (logic[op & 3] ?? 0) : total & all, total > all ? 1 : 0];
 }
 
 // Whether a level has a circuit and a board: the instruction set and the

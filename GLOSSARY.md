@@ -104,7 +104,7 @@ The parts available on a level: NAND plus every part from an earlier solved leve
 _Avoid_: toolbox, inventory, palette
 
 **OP**:
-The 3-signal input that tells an ALU which job to do. Its top signal picks arithmetic (off) or logic (on). In arithmetic, the ones place means subtract: 0 add, 1 subtract. In logic, the low two signals pick the job: 4 and, 5 or, 6 xor, 7 not A. OP 2 and 3 do nothing.
+The 3-signal input that tells an ALU which job to do. Its top signal picks arithmetic (off) or logic (on). In arithmetic, only the ones place matters, and it means subtract: 0 and 2 add, 1 and 3 subtract. In logic, the low two signals pick the job: 4 and, 5 or, 6 xor, 7 not A.
 _Avoid_: opcode (an instruction's number, which the player chooses)
 
 **Schematic**:
