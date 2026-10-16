@@ -13,6 +13,7 @@
     "oxlint-tsgolint": "7.0.2004",
     "prettier": "3.9.10",
     "prettier-plugin-tailwindcss": "0.8.1",
+    "sandworm": "github:danmcfan/sandworm#v0.1.0",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
     "vite": "^8.3.4",
@@ -32,7 +33,8 @@
     "format": "prettier --write .",
     "check:static": "tsc --noEmit && oxlint && prettier --check . && knip && bun scripts/check-escapes.ts",
     "prepare": "lefthook install",
-    "sandcastle": "bun .sandcastle/main.ts"
+    "sandcastle": "bun .sandcastle/main.ts",
+    "sandcastle:batch": "bun .sandcastle/batch.ts"
   },
   "type": "module",
   "dependencies": {
