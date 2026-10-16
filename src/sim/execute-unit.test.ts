@@ -66,13 +66,13 @@ describe("the instruction register", () => {
   });
 });
 
+// CLK, OPCODE, R, S, N, RAM, DIN and IN for an instruction.
+const inputs = ({ op, r = 0, s = 0, n = 0 }: Instruction, ram = 0, din = 0): Value[] => {
+  const [i] = encode(BITBOX_INSTRUCTION_SET, { op, r, s, n });
+  return [0, i >> 4, r, s, n, ram, din, op === "in" ? 1 : 0];
+};
 describe("the register unit", () => {
   const unit = registerUnit(BITBOX_INSTRUCTION_SET);
-  // CLK, OPCODE, R, S, N, RAM, DIN and IN for an instruction.
-  const inputs = ({ op, r = 0, s = 0, n = 0 }: Instruction, ram = 0, din = 0): Value[] => {
-    const [i] = encode(BITBOX_INSTRUCTION_SET, { op, r, s, n });
-    return [0, i >> 4, r, s, n, ram, din, op === "in" ? 1 : 0];
-  };
   const run = (steps: Value[][]): State => steps.reduce((state, step) => tick(unit, step, state), [] as State);
   const a = (state: State, r: number): Value => unit.outputs(state, [0, 0, r])[0] ?? 0;
 

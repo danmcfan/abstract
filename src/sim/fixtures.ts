@@ -16,7 +16,7 @@ export function randomSet(seed: number): InstructionSet {
   const opcodes = Array.from({ length: 16 }, (_, n) => n);
   for (let i = opcodes.length - 1; i > 0; i--) {
     const j = Math.floor(next() * (i + 1));
-    [opcodes[i], opcodes[j]] = [opcodes[j]!, opcodes[i]!];
+    [opcodes[i], opcodes[j]] = [opcodes[j] ?? 0, opcodes[i] ?? 0];
   }
-  return Object.fromEntries(INSTRUCTIONS.map(({ id }, i) => [id, { mnemonic: `M${i}`, opcode: opcodes[i]! }]));
+  return Object.fromEntries(INSTRUCTIONS.map(({ id }, i) => [id, { mnemonic: `M${i}`, opcode: opcodes[i] ?? 0 }]));
 }

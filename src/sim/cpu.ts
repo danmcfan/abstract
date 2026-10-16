@@ -98,11 +98,14 @@ type Places = readonly Value[];
 const REGISTER_COUNT = 4;
 const RAM_PLACES = 8;
 
+// I from its fields, as the instruction register splits it.
+const joinFields = (opcode: Value, r: Value, s: Value): Value => (opcode << 4) | (r << 2) | s;
+
 const fields = (i: Value): { opcode: Value; r: number; s: number } => ({ opcode: i >> 4, r: (i >> 2) & 3, s: i & 3 });
 
 // The registers after one instruction: R takes S, N, RAM or DIN, or the
 // ALU's result, as the write encoder says. IN picks DIN over RAM.
-function written(
+function afterWrite(
   set: InstructionSet,
   registers: Places,
   [opcode = 0, r = 0, s = 0, n = 0, ram = 0, din = 0, input = 0]: Value[],
@@ -120,7 +123,7 @@ export function registerUnit(set: InstructionSet): Memory {
   return {
     next: ([clk = 0, ...inputs], [seen = 0, ...registers]) => [
       clk,
-      ...(clk && !seen ? written(set, registers, inputs) : registers),
+      ...(clk && !seen ? afterWrite(set, registers, inputs) : registers),
     ],
     outputs: ([, ...registers], [, , r = 0]) => [registers[r] ?? 0],
   };
@@ -133,7 +136,7 @@ function step(set: InstructionSet, places: Places, i: Value, n: Value, din: Valu
   const value = places[r] ?? 0;
   const [store = 0, , input = 0] = control(set, [opcode, value]);
   const ram = places.slice(REGISTER_COUNT, REGISTER_COUNT + RAM_PLACES);
-  const registers = written(set, places.slice(0, REGISTER_COUNT), [
+  const registers = afterWrite(set, places.slice(0, REGISTER_COUNT), [
     opcode,
     r,
     s,
@@ -169,13 +172,12 @@ function executeOutputs(set: InstructionSet, places: Places, i: Value): Value[] 
 // the instruction with number N. Its state is the clock it last saw, then
 // its places.
 export function executeUnit(set: InstructionSet): Memory {
-  const instruction = (opcode: Value, r: Value, s: Value): Value => (opcode << 4) | (r << 2) | s;
   return {
     next: ([clk = 0, opcode = 0, r = 0, s = 0, n = 0, din = 0], [seen = 0, ...places]) => [
       clk,
-      ...(clk && !seen ? step(set, places, instruction(opcode, r, s), n, din) : places),
+      ...(clk && !seen ? step(set, places, joinFields(opcode, r, s), n, din) : places),
     ],
-    outputs: ([, ...places], [, opcode = 0, r = 0, s = 0]) => executeOutputs(set, places, instruction(opcode, r, s)),
+    outputs: ([, ...places], [, opcode = 0, r = 0, s = 0]) => executeOutputs(set, places, joinFields(opcode, r, s)),
   };
 }
 
