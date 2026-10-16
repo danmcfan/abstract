@@ -135,19 +135,22 @@ export function loadBoard(board: SavedBoard, parts: Parts): Game {
   return game;
 }
 
-// Only the arrays and the node kinds are checked; the rest of a board is
-// trusted as saved. A node of a kind the game no longer has would make the
+// Only the arrays, the node kinds and the nodes each wire names are
+// checked; the rest of a board is trusted as saved. A node of a kind the
+// game no longer has, or a wire to a node that isn't there, would make the
 // board unloadable.
 function isBoard(board: unknown): board is SavedBoard {
-  return (
-    typeof board === "object" &&
-    board !== null &&
-    "nodes" in board &&
-    Array.isArray(board.nodes) &&
-    board.nodes.every((node: unknown) => isKnownNode(node)) &&
-    "edges" in board &&
-    Array.isArray(board.edges)
-  );
+  if (typeof board !== "object" || board === null || !("nodes" in board) || !("edges" in board)) return false;
+  const { nodes, edges } = board;
+  if (!Array.isArray(nodes) || !nodes.every((node: unknown) => isKnownNode(node))) return false;
+  const ids = new Set(nodes.map((node: { id?: unknown }) => node.id));
+  return Array.isArray(edges) && edges.every((edge: unknown) => wiresNodesIn(edge, ids));
+}
+
+function wiresNodesIn(edge: unknown, ids: Set<unknown>): boolean {
+  if (typeof edge !== "object" || edge === null) return false;
+  const ends: { from?: unknown; to?: unknown } = edge;
+  return ids.has(ends.from) && ids.has(ends.to);
 }
 
 function isKnownNode(node: unknown): boolean {

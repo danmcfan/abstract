@@ -4,9 +4,11 @@ import {
   nodeKind,
   placeNode,
   programMemoryOf,
+  restart,
   setInputs,
   simulate,
   terminalNamed,
+  widthOf,
   wire,
   type Game,
   type Pin,
@@ -1858,6 +1860,42 @@ export function loadLevel(level: CircuitLevel, parts = PARTS): Game {
     }
   }
   return game;
+}
+
+const terminals = (game: Game): Node[] =>
+  [...game.nodes.values()].filter((node) => nodeKind(game, node).terminal !== undefined);
+const same = (a: Node, b: Node): boolean => a.type === b.type && a.label === b.label;
+
+// Rebuilds a saved board's terminals from the level as it is now, since the
+// board may be from an older revision of it. A terminal the level still has
+// keeps its place and wires, at the level's width; one it no longer has
+// goes; one it gained is placed where a fresh board has it. Then every wire
+// whose pins no longer exist, or no longer match, goes too.
+export function fitTerminals(game: Game, level: CircuitLevel): void {
+  const fresh = loadLevel(level, game.parts);
+  for (const node of terminals(game)) {
+    const match = terminals(fresh).find((other) => same(node, other));
+    if (match) node.width = match.width;
+    else game.nodes.delete(node.id);
+  }
+  for (const node of terminals(fresh)) {
+    if (terminals(game).some((other) => same(node, other))) continue;
+    const { x, y, width, height } = node.rect;
+    placed(placeNode(game, node.type, { x: x + width / 2, y: y + height / 2 }, node.label, node.width));
+  }
+  for (const edge of game.edges.values()) {
+    const from = game.nodes.get(edge.from);
+    const to = game.nodes.get(edge.to);
+    const fits =
+      from !== undefined &&
+      to !== undefined &&
+      edge.fromIndex < nodeKind(game, from).outputCount(from.width) &&
+      edge.toIndex < nodeKind(game, to).inputCount(to.width) &&
+      widthOf(game, from, { side: "out", index: edge.fromIndex }) ===
+        widthOf(game, to, { side: "in", index: edge.toIndex });
+    if (!fits) game.edges.delete(edge.id);
+  }
+  restart(game);
 }
 
 // Fills a program level's program memory with its first test program, so

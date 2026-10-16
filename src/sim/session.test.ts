@@ -840,3 +840,79 @@ describe("a test run with every switch left on", () => {
     },
   );
 });
+
+describe("loading a board saved at an older revision", () => {
+  test("a 2-bit ALU board saved with a ZERO output keeps its parts and loses only ZERO and its wire", () => {
+    const index = LEVELS.findIndex((level) => levelId(level) === "2-BIT ALU");
+    const store = memorySave(saved(index, index));
+    const session = new Session(store);
+    session.resume();
+    buildSolution(session.game, circuitAt(index));
+    session.save();
+    const data = store.load()!;
+    const board = data.boards["2-BIT ALU"]!;
+    const from = board.edges[0]!;
+    const zero: Node = {
+      ...board.nodes.find((n) => n.label === "OUT")!,
+      id: board.nextNodeID,
+      label: "ZERO",
+      width: 1,
+    };
+    zero.rect = { ...zero.rect, y: 0 };
+    const old = {
+      ...board,
+      nodes: [...board.nodes, zero],
+      edges: [...board.edges, { ...from, id: board.nextEdgeID, to: zero.id, toIndex: 0 }],
+      nextNodeID: board.nextNodeID + 1,
+      nextEdgeID: board.nextEdgeID + 1,
+    };
+
+    const later = new Session(
+      memorySave({ ...data, solved: { ...data.solved, "2-BIT ALU": 1 }, boards: { "2-BIT ALU": old } }),
+    );
+    later.resume();
+    expect(levelId(later.level)).toBe("2-BIT ALU");
+    const { game } = later;
+    expect([...game.nodes.values()].some((n) => n.label === "ZERO")).toBe(false);
+    expect(game.nodes.size).toBe(board.nodes.length);
+    expect(game.edges.size).toBe(board.edges.length);
+    for (const edge of game.edges.values()) {
+      expect(game.nodes.has(edge.from)).toBe(true);
+      expect(game.nodes.has(edge.to)).toBe(true);
+    }
+    runAll(later);
+    expect(later.result?.passed).toBe(true);
+  });
+
+  test("a board missing one of its level's terminals gets it back", () => {
+    const { session, store } = fresh();
+    buildNot(session.game);
+    session.save();
+    const data = store.load()!;
+    const board = data.boards["NOT"]!;
+    const output = board.nodes.find((n) => n.label === "OUT")!;
+    const old = {
+      ...board,
+      nodes: board.nodes.filter((n) => n !== output),
+      edges: board.edges.filter((e) => e.to !== output.id),
+    };
+    const later = new Session(memorySave({ ...data, boards: { NOT: old } }));
+    later.start(NOT_LEVEL);
+    expect([...later.game.nodes.values()].filter((n) => n.label === "OUT")).toHaveLength(1);
+    expect(later.game.edges.size).toBe(2);
+  });
+
+  test("a board with a wire to a node it doesn't have is dropped, and the rest of the save loads", () => {
+    const { session, store } = fresh();
+    buildNot(session.game);
+    session.save();
+    const data = store.load()!;
+    const board = data.boards["NOT"]!;
+    const broken = { ...board, edges: [...board.edges, { ...board.edges[0]!, id: 99, to: 999 }] };
+    const later = new Session(memorySave({ ...data, boards: { NOT: board, AND: broken } }));
+    later.start(NOT_LEVEL);
+    expect(later.game.edges.size).toBe(3);
+    later.start(LEVELS.findIndex((level) => levelId(level) === "AND"));
+    expect(later.game.edges.size).toBe(0);
+  });
+});
