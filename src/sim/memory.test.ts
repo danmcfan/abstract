@@ -64,8 +64,7 @@ describe("the L5 levels", () => {
   });
 
   test.each(L5)("%s puts its part in the parts bin once solved", (gate) => {
-    const part =
-      ({ "2-BIT REGISTER": "REGISTER", "2-REGISTER FILE": "REGISTER FILE" } as Record<string, string>)[gate] ?? gate;
+    const part = levelOf(gate).gives?.gate ?? gate;
     expect(partsBin(levelIndex(gate) + 1)).toContain(part);
     expect(partsBin(levelIndex(gate))).not.toContain(part);
   });

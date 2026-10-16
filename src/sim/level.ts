@@ -193,6 +193,10 @@ function onTick(take: (inputs: Value[], kept: State) => Value[], clock = 0): Mem
   };
 }
 
+// A register file's read side: A and B show the registers ASEL and BSEL pick.
+const registerFile = (n: number): Memory =>
+  places(n, ([, ...registers], [, , , , asel = 0, bsel = 0]) => [registers[asel] ?? 0, registers[bsel] ?? 0]);
+
 // A bit or register: CLK, LOAD and D in, Q out. On a tick Q takes D if
 // LOAD is on.
 const register: Memory = {
@@ -1087,9 +1091,9 @@ export const LEVELS: Level[] = [
     inputs: ["CLK", "WRITE", "WSEL", "DIN", "ASEL", "BSEL"],
     outputs: ["A", "B"],
     widths: { DIN: 8, A: 8, B: 8 },
-    memory: places(2, ([, ...registers], [, , , , asel = 0, bsel = 0]) => [registers[asel] ?? 0, registers[bsel] ?? 0]),
+    memory: registerFile(2),
     // Each register gets its own value, then A and B show two different
-    // registers, and the same one twice. Step 6 sets up a write but doesn't
+    // registers, and the same one twice. Step 5 sets up a write but doesn't
     // tick, so A still shows the old value.
     steps: [
       { inputs: [0, 1, 0, 11, 0, 0], expected: [0, 0] },
@@ -1107,10 +1111,7 @@ export const LEVELS: Level[] = [
       inputs: ["CLK", "WRITE", "WSEL", "DIN", "ASEL", "BSEL"],
       outputs: ["A", "B"],
       widths: { WSEL: 2, DIN: 8, ASEL: 2, BSEL: 2, A: 8, B: 8 },
-      memory: places(4, ([, ...registers], [, , , , asel = 0, bsel = 0]) => [
-        registers[asel] ?? 0,
-        registers[bsel] ?? 0,
-      ]),
+      memory: registerFile(4),
     },
     grid: { width: 56, height: 40 },
     // A DEMUX sends WRITE to the LOAD of register WSEL, and a MUX8 for each
