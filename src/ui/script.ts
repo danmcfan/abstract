@@ -565,7 +565,7 @@ const FLOORS: Record<number, Line[]> = {
   7: [
     {
       face: "amazed",
-      text: "Typewriters! Rows and rows of them. This must be where the programs got written.",
+      text: "Typewriters! Rows and rows of them. This must be the typing pool, where the programs got written.",
     },
     { face: "thinking", text: "Before we build a CPU, it needs a language. We get to invent it." },
   ],
