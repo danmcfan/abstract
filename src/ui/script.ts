@@ -518,29 +518,53 @@ const LEVELS: Partial<Record<string, LevelScript>> = {
       { face: "happy", text: "You can come back and rename things any time. The CPU will read whatever's on file." },
     ],
   },
-  "CONTROL UNIT": {
+  "OP ENCODER": {
     intro: [
       { face: "idle", text: "Up here we teach the CPU your instruction set. It starts with the opcode." },
-      { face: "idle", text: "The control unit turns an opcode into the signals that do its instruction." },
-      {
-        face: "thinking",
-        text: "WRITE lets a register change. SRC and OP pick what it takes. The rest say jump, in, out or halt.",
-      },
+      { face: "idle", text: "The op encoder tells the ALU its job. Add is OP 0, subtract 1." },
+      { face: "idle", text: "And is 4, or 5, xor 6. Every other instruction gets 7." },
     ],
     hint: [
       { face: "thinking", text: "A 4-to-16 decoder lights one signal per opcode. Split LO and HI to get them all." },
       { face: "thinking", text: "Your opcodes say which signal is which instruction. Check your table." },
+      { face: "thinking", text: "Each OP signal is on unless it's one of a few instructions. That's NONE of them." },
       {
         face: "thinking",
-        text: "A zero test over a join is on when none of its signals are. Each OP signal is on unless it's one of a few.",
+        text: "OP's top signal is off for add and subtract. Its ones place is off for add, and, xor.",
       },
-      { face: "thinking", text: "WRITE is on unless it's halt, write, jump, jump if zero, out, or the spare opcode." },
       CONTROLS,
     ],
     solved: [
-      { face: "happy", text: "Control unit, done! Your opcodes, wired in by hand." },
+      { face: "happy", text: "Op encoder, done! Your opcodes, wired in by hand." },
       { face: "idle", text: "Change your instruction set later, and the part in the bin keeps up. This board won't." },
     ],
+  },
+  "WRITE ENCODER": {
+    intro: [
+      { face: "idle", text: "The write encoder says if register R changes, and what it takes." },
+      { face: "idle", text: "WRITE is on when the instruction writes R." },
+      { face: "idle", text: "SRC picks what R takes. 0 is S, 1 is N, 2 is RAM or DIN, 3 is the ALU." },
+    ],
+    hint: [
+      { face: "thinking", text: "Same decoder and splits as the op encoder." },
+      { face: "thinking", text: "WRITE is on unless it's halt, write, jump, jump if zero, out, or the spare opcode." },
+      { face: "thinking", text: "SRC's top signal is off for copy and set. Its ones place for copy, read and in." },
+      CONTROLS,
+    ],
+    solved: [{ face: "happy", text: "Write encoder, done! Every register knows when to listen." }],
+  },
+  "CONTROL UNIT": {
+    intro: [
+      { face: "idle", text: "The control unit does the rest: store, jump, in, out and halt." },
+      { face: "idle", text: "A is register R. Jump if zero only jumps while A is 0." },
+    ],
+    hint: [
+      { face: "thinking", text: "Same decoder and splits again. Most outputs are just one instruction's signal." },
+      { face: "thinking", text: "A zero test on A, ANDed with jump if zero's signal, says the jump is taken." },
+      { face: "thinking", text: "JUMP is on for jump, or for a jump if zero that's taken." },
+      CONTROLS,
+    ],
+    solved: [{ face: "happy", text: "Control unit, done! That's the whole instruction set, wired in." }],
   },
   "EXECUTE UNIT": {
     intro: [

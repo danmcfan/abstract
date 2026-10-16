@@ -174,11 +174,17 @@ The part that says whether the CPU is on its fetch tick or its execute tick.
 **Stepper**:
 A sequencer whose clock stops once HALT is on during execute, so the CPU holds still after it halts.
 
+**Op encoder**:
+The first L8 part: it turns an opcode into the ALU's OP for its instruction. Its board is wired for the player's opcodes; the part in the bin reads the instruction set.
+
+**Write encoder**:
+The L8 part that turns an opcode into WRITE, on when the instruction writes register R, and SRC, which picks what R takes. Wired and read like the op encoder.
+
 **Control unit**:
-The part, built first in L8, that turns an opcode into the signals that do its instruction: which register writes, what it takes, the ALU's OP, and whether to store, jump, read a device, send to one or halt. Its board is wired for the player's opcodes; the part in the bin reads the instruction set.
+The L8 part that turns an opcode and the value of register R into the signals that store, jump, read a device, send to one or halt. Wired and read like the op encoder.
 
 **Execute unit**:
-The CPU without fetch: the control unit, the register file, the ALU, RAM and the wiring that does one instruction given as inputs. The second L8 level.
+The CPU without fetch: the two encoders, the control unit, the register file, the ALU, RAM and the wiring that does one instruction given as inputs.
 
 **Instruction**:
 One thing the CPU can do, such as add two registers or jump. The game fixes what each instruction does; the player names it and numbers it.

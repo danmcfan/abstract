@@ -125,7 +125,9 @@ function changed(): Session {
 function passes(session: Session, gate: string): boolean {
   const index = LEVELS.findIndex((level) => levelId(level) === gate);
   session.start(index);
-  session.edit((game) => buildSolution(game, circuitAt(index)));
+  session.edit((game) => {
+    buildSolution(game, circuitAt(index));
+  });
   session.beginTest();
   while (session.step());
   return session.result?.passed === true;

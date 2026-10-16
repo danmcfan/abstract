@@ -20,6 +20,11 @@ const opcodeOf = (id: InstructionID): number => rowOf(BITBOX_INSTRUCTION_SET, id
 const spare = (set: InstructionSet): number =>
   Array.from({ length: 16 }, (_, n) => n).find((n) => !INSTRUCTIONS.some(({ id }) => rowOf(set, id).opcode === n))!;
 
+// Each spec's outputs for an instruction in Bitbox's set.
+const op = (id: InstructionID): number => opEncoder(BITBOX_INSTRUCTION_SET, [opcodeOf(id)])[0]!;
+const write = (id: InstructionID): number[] => writeEncoder(BITBOX_INSTRUCTION_SET, [opcodeOf(id)]);
+const at = (id: InstructionID, a = 0): number[] => control(BITBOX_INSTRUCTION_SET, [opcodeOf(id), a]);
+
 // A valid instruction set from a seed: the 16 opcodes shuffled, with the
 // last one left spare.
 function randomSet(seed: number): InstructionSet {
@@ -39,7 +44,7 @@ function randomSet(seed: number): InstructionSet {
 describe("the L8 control levels", () => {
   test("follow the instruction set, encoders first", () => {
     const first = index("OP ENCODER");
-    expect(LEVELS.slice(first, first + 4).map(levelId)).toEqual([...L8_CONTROL, "EXECUTE UNIT"]);
+    expect(LEVELS.slice(first, first + 4).map((level) => levelId(level))).toEqual([...L8_CONTROL, "EXECUTE UNIT"]);
     expect(LEVELS[first - 1]?.kind).toBe("instruction set");
   });
 
@@ -75,7 +80,6 @@ describe("the L8 control levels", () => {
 
 describe("the op encoder", () => {
   test("gives each instruction its OP, 7 for those that don't use the ALU", () => {
-    const op = (id: InstructionID): number => opEncoder(BITBOX_INSTRUCTION_SET, [opcodeOf(id)])[0]!;
     expect(INSTRUCTIONS.map(({ id }) => [id, op(id)])).toEqual(
       INSTRUCTIONS.map(({ id }) => [id, { add: 0, subtract: 1, and: 4, or: 5, xor: 6 }[id as string] ?? 7]),
     );
@@ -85,7 +89,6 @@ describe("the op encoder", () => {
 
 describe("the write encoder", () => {
   test("turns WRITE on for the instructions that write R, and picks its SRC", () => {
-    const write = (id: InstructionID): number[] => writeEncoder(BITBOX_INSTRUCTION_SET, [opcodeOf(id)]);
     expect(write("copy")).toEqual([1, 0]);
     expect(write("set")).toEqual([1, 1]);
     expect(write("read")).toEqual([1, 2]);
@@ -99,7 +102,6 @@ describe("the write encoder", () => {
 
 describe("the control unit", () => {
   test("gives STORE, JUMP, IN, OUT and HALT, jumping if zero only while A is 0", () => {
-    const at = (id: InstructionID, a = 0): number[] => control(BITBOX_INSTRUCTION_SET, [opcodeOf(id), a]);
     expect(at("write", 5)).toEqual([1, 0, 0, 0, 0]);
     expect(at("jump", 5)).toEqual([0, 1, 0, 0, 0]);
     expect(at("jump if zero", 0)).toEqual([0, 1, 0, 0, 0]);

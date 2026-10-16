@@ -315,7 +315,19 @@ const EXPECTED: Record<NodeType, Expected[]> = {
   // Bitbox's set: opcode 3 is add, 1 is set and 11 is jump.
   "OP ENCODER": [{ ins: [4], outs: [3], size: [6, 4], cases: [[[3], [0]]] }],
   "WRITE ENCODER": [{ ins: [4], outs: [1, 2], size: [6, 4], cases: [[[1], [1, 1]]] }],
-  "CONTROL UNIT": [{ ins: [4, 8], outs: [1, 1, 1, 1, 1], size: [6, 10], cases: [[[11, 5], [0, 1, 0, 0, 0]]] }],
+  "CONTROL UNIT": [
+    {
+      ins: [4, 8],
+      outs: [1, 1, 1, 1, 1],
+      size: [6, 10],
+      cases: [
+        [
+          [11, 5],
+          [0, 1, 0, 0, 0],
+        ],
+      ],
+    },
+  ],
   "EXECUTE UNIT": [
     {
       ins: [1, 8, 8, 8],

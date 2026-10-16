@@ -229,8 +229,10 @@ function places(count: number, outputs: Memory["outputs"]): Memory {
 // the decoder's LO and HI: the instruction with opcode n is on pin 7 - n of
 // one or the other. Each board is wired for the set its level reads.
 const line = (n: number): string => `${n < 8 ? "lo" : "hi"}:${7 - (n % 8)}`;
-const linesOf = (set: InstructionSet) => (id: (typeof INSTRUCTIONS)[number]["id"]): string =>
-  line(rowOf(set, id).opcode ?? 0);
+const linesOf =
+  (set: InstructionSet) =>
+  (id: (typeof INSTRUCTIONS)[number]["id"]): string =>
+    line(rowOf(set, id).opcode ?? 0);
 // The opcode no instruction has in the set.
 const spareOf = (set: InstructionSet): number => {
   const opcodes = new Set(INSTRUCTIONS.flatMap(({ id }) => rowOf(set, id).opcode ?? []));
