@@ -41,10 +41,12 @@ function App(): JSX.Element {
     setScreen("play");
   };
   const menu = (): void => {
+    driver.stop();
     hush();
     setScreen("title");
   };
   const openStack = (arrive?: number): void => {
+    driver.stop();
     hush();
     setStack({ arrive });
     if (arrive !== undefined) speak(session().arrive(arrive));

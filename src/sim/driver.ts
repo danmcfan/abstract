@@ -122,10 +122,16 @@ export class Driver {
     });
   }
 
-  // A new board stops whatever was timed on the old one.
-  private change(apply: () => void): void {
+  // Stops the clock and any test run, leaving the board as it is, for
+  // leaving the board for the title or the stack.
+  stop(): void {
     this.pause();
     this.stopTesting();
+  }
+
+  // A new board stops whatever was timed on the old one.
+  private change(apply: () => void): void {
+    this.stop();
     apply();
     this.changed();
   }
