@@ -1599,9 +1599,9 @@ function cpuLevel(set: InstructionSet): CircuitLevel {
     widths: { DIN: 8, DOUT: 8, DEV: 8 },
     memory: cpu(set),
     programs: TEST_PROGRAMS.map((test) => Object.assign({ words: assemble(set, test.program) }, test)),
-    programMemory: { x: 30, y: 12 },
+    programMemory: { x: 30, y: 13 },
     describe: (i, n) => describeInstruction(set, i, n),
-    grid: { width: 72, height: 56 },
+    grid: { width: 76, height: 62 },
     // The program counter addresses program memory, and two registers take
     // its I and N on a fetch tick, while EXEC is off. The execute unit's
     // clock is EXEC, so it does the instruction as EXEC turns on. On an
@@ -1609,15 +1609,15 @@ function cpuLevel(set: InstructionSet): CircuitLevel {
     // Once HALT is on during execute, the sequencer's clock stops.
     solution: {
       nodes: [
-        { name: "pc", type: "PROGRAM COUNTER", x: 18, y: 12 },
-        { name: "hold", type: "MUX8", x: 18, y: 30 },
-        { name: "sequencer", type: "SEQUENCER", x: 18, y: 42 },
-        { name: "running", type: "NAND", x: 10, y: 48 },
-        { name: "clock", type: "AND", x: 10, y: 40 },
-        { name: "fetch", type: "NOT", x: 28, y: 42 },
-        { name: "instruction", type: "REGISTER", x: 42, y: 8 },
-        { name: "number", type: "REGISTER", x: 42, y: 18 },
-        { name: "execute", type: "EXECUTE UNIT", x: 54, y: 14 },
+        { name: "pc", type: "PROGRAM COUNTER", x: 16, y: 10 },
+        { name: "hold", type: "MUX8", x: 16, y: 26 },
+        { name: "sequencer", type: "SEQUENCER", x: 28, y: 46 },
+        { name: "running", type: "NAND", x: 18, y: 54 },
+        { name: "clock", type: "AND", x: 18, y: 46 },
+        { name: "fetch", type: "NOT", x: 38, y: 40 },
+        { name: "instruction", type: "REGISTER", x: 44, y: 8 },
+        { name: "number", type: "REGISTER", x: 44, y: 20 },
+        { name: "execute", type: "EXECUTE UNIT", x: 58, y: 14 },
       ],
       wires: [
         ["CLK", "clock:0"],

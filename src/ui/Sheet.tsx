@@ -212,8 +212,10 @@ export function Brief(props: { onStack: (arrive?: number) => void }): JSX.Elemen
         </Show>
 
         <Show when={circuit() && !programmed()}>
+          {/* The execute unit's table is wider than the brief, so it scrolls
+              sideways. */}
           <div class="mt-3">
-            <div class="relative w-full">
+            <div class="relative w-full overflow-x-auto">
               <table class="w-full border-collapse text-center text-note tabular-nums">
                 <thead>
                   <tr class="text-ink">

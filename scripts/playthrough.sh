@@ -177,11 +177,12 @@ play() {
 # Climbs the stack from level $1, the last of its layer, in its own video.
 # The full run climbs as it goes, while the layers above are unsolved, so each
 # shows the state a player would see. Reopening the level keeps its board, and
-# testing it again puts the way up on screen.
+# testing it again (or, on the typing pool, filling in its table) puts the way
+# up on screen.
 climb() {
   local n=$1 floor number
   open_level "$n" "$OUT/stack-up-from-$n.webm"
-  check 2 "$n"
+  if typing_pool; then write_table "$n"; else check 2 "$n"; fi
   floor=$(js "__abstract.layerOf($n).floor" | tr -d '"')
   number=$(js "__abstract.layerOf($n).number")
   expect "document.querySelector('#up').textContent.includes('Up to $floor')" "level $n leads up to $floor"

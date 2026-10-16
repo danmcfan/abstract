@@ -168,8 +168,11 @@ A part that turns a number into one signal: the output with the input's number i
 **Sequencer**:
 The part that says whether the CPU is on its fetch tick or its execute tick.
 
+**Control unit**:
+The part, built first in L8, that turns an opcode into the signals that do its instruction: which register writes, what it takes, the ALU's OP, and whether to store, jump, read a device, send to one or halt. Its board is wired for the player's opcodes; the part in the bin reads the instruction set.
+
 **Execute unit**:
-The CPU without fetch: the register file, the ALU and the wiring that does one instruction given as inputs. The first L8 level.
+The CPU without fetch: the control unit, the register file, the ALU, RAM and the wiring that does one instruction given as inputs. The second L8 level.
 
 **Instruction**:
 One thing the CPU can do, such as add two registers or jump. The game fixes what each instruction does; the player names it and numbers it.
@@ -184,6 +187,10 @@ The word the player chose for an instruction, such as `SET`.
 
 **Opcode**:
 The number, 0 to 15, the player chose for an instruction, which the CPU reads to know what to do.
+
+**Test program**:
+A short program the CPU level runs to test the board, assembled with the player's instruction set: the values its device gives, and the values it must send with `out` before it halts. One that never halts fails at the tick limit.
+_Avoid_: test case, sample program
 
 **Program memory**:
 The memory, 256 instructions long, that holds the program the CPU runs, filled from the player's instruction set. The level supplies it, like a terminal; the player never builds it.
