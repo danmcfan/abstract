@@ -25,6 +25,7 @@ import {
   DOOR,
   encode,
   executeUnit,
+  registerUnit,
   finish,
   KEYPAD,
   play,
@@ -210,6 +211,13 @@ const register: Memory = {
   outputs: ([, q = 0]) => [q],
 };
 
+// The instruction register: a register whose Q splits into OPCODE, its top
+// 4 signals, then R and S.
+const instructionRegister: Memory = {
+  next: register.next,
+  outputs: ([, d = 0]) => [d >> 4, (d >> 2) & 3, d & 3],
+};
+
 // NONE's eight inputs.
 const NONE_INPUTS = ["A", "B", "C", "D", "E", "F", "G", "H"];
 
@@ -284,6 +292,9 @@ const EXECUTE_STEPS: (Instruction & { din?: Value })[] = [
   { op: "jump if zero", r: 2, n: 20 },
   { op: "halt" },
 ];
+
+// The value the register unit's RAM input gives in its timing table.
+const RAM_VALUE = 17;
 
 // The CPU's test programs. The last has instructions after its HALT, which
 // a CPU that doesn't stop there would run.
@@ -1466,6 +1477,50 @@ export const LEVELS: Level[] = [
   opEncoderLevel(BITBOX_INSTRUCTION_SET),
   writeEncoderLevel(BITBOX_INSTRUCTION_SET),
   controlUnit(BITBOX_INSTRUCTION_SET),
+  {
+    gate: "INSTRUCTION REGISTER",
+    goal: "On a tick with LOAD on, it takes D. OPCODE is D's top 4 signals, R the next 2 and S the low 2.",
+    layer: 8,
+    inputs: ["CLK", "LOAD", "D"],
+    outputs: ["OPCODE", "R", "S"],
+    widths: { D: 8, OPCODE: 4, R: 2, S: 2 },
+    memory: instructionRegister,
+    // It loads, holds while LOAD is off, sets up a load without a tick,
+    // then loads again.
+    steps: [
+      { inputs: [0, 1, 0b1011_0110], expected: [0, 0, 0] },
+      { inputs: [0, 1, 0b1011_0110], tick: true, expected: [11, 1, 2] },
+      { inputs: [0, 0, 0b0100_1101], tick: true, expected: [11, 1, 2] },
+      { inputs: [0, 1, 0b0100_1101], expected: [11, 1, 2] },
+      { inputs: [0, 1, 0b0100_1101], tick: true, expected: [4, 3, 1] },
+      { inputs: [0, 1, 0b1111_1111], tick: true, expected: [15, 3, 3] },
+    ],
+    grid: { width: 56, height: 44 },
+    // A register keeps D, and a split shares its signals out, high first,
+    // to a join for each output.
+    solution: {
+      nodes: [
+        { name: "reg", type: "REGISTER", x: 14, y: 18 },
+        { name: "split", type: "SPLIT", x: 26, y: 12, width: 8 },
+        { name: "opcode", type: "JOIN", x: 36, y: 6, width: 4 },
+        { name: "r", type: "JOIN", x: 36, y: 22, width: 2 },
+        { name: "s", type: "JOIN", x: 36, y: 32, width: 2 },
+      ],
+      wires: [
+        ["CLK", "reg:0"],
+        ["LOAD", "reg:1"],
+        ["D", "reg:2"],
+        ["reg", "split"],
+        ...into("opcode", ["split:0", "split:1", "split:2", "split:3"]),
+        ...into("r", ["split:4", "split:5"]),
+        ...into("s", ["split:6", "split:7"]),
+        ["opcode", "OPCODE"],
+        ["r", "R"],
+        ["s", "S"],
+      ],
+    },
+  },
+  registerUnitLevel(BITBOX_INSTRUCTION_SET),
   executeLevel(BITBOX_INSTRUCTION_SET),
   cpuLevel(BITBOX_INSTRUCTION_SET),
   {
@@ -1616,84 +1671,123 @@ function controlUnit(set: InstructionSet): CircuitLevel {
   };
 }
 
-function executeLevel(set: InstructionSet): CircuitLevel {
-  const memory = executeUnit(set);
-  // The expected outputs are the spec's, played from all 0.
+// The execute unit's timing table as a level's steps, from all 0: each
+// instruction's inputs, and the outputs after its tick.
+function executeSteps(memory: Memory, inputsOf: (instruction: (typeof EXECUTE_STEPS)[number]) => Value[]): Row[] {
   let state: State = [];
-  const steps = EXECUTE_STEPS.map((instruction): Row => {
-    const [i, n] = encode(set, instruction);
-    const inputs = [0, i, n, instruction.din ?? 0];
-    const din = inputs[3] ?? 0;
-    state = memory.next([0, i, n, din], memory.next([1, i, n, din], state));
+  return EXECUTE_STEPS.map((instruction): Row => {
+    const inputs = inputsOf(instruction);
+    const rest = inputs.slice(1);
+    state = memory.next([0, ...rest], memory.next([1, ...rest], state));
     return { inputs, tick: true, expected: memory.outputs(state, inputs) };
   });
+}
+
+// An instruction's OPCODE, R, S and N, encoded in a set.
+function operands(set: InstructionSet, instruction: Instruction): Value[] {
+  const [i, n] = encode(set, instruction);
+  return [i >> 4, (i >> 2) & 3, i & 3, n];
+}
+
+function registerUnitLevel(set: InstructionSet): CircuitLevel {
+  const memory = registerUnit(set);
   return {
-    gate: "EXECUTE UNIT",
-    goal: "On each tick, do instruction I with number N. ADDR and DEV show N, and DOUT shows register R.",
+    gate: "REGISTER UNIT",
+    goal: "On a tick, register R takes S, N, RAM or DIN, or the ALU result, as your opcode says. A shows register R.",
     layer: 8,
-    inputs: ["CLK", "I", "N", "DIN"],
-    outputs: ["JUMP", "ADDR", "OUT", "DOUT", "DEV", "IN", "HALT"],
-    widths: { I: 8, N: 8, DIN: 8, ADDR: 8, DOUT: 8, DEV: 8 },
-    // Joins for the opcode, and R and S.
-    buses: [4, 2],
+    inputs: ["CLK", "OPCODE", "R", "S", "N", "RAM", "DIN", "IN"],
+    outputs: ["A"],
+    widths: { OPCODE: 4, R: 2, S: 2, N: 8, RAM: 8, DIN: 8, A: 8 },
     memory,
-    steps,
-    grid: { width: 80, height: 64 },
-    // I splits into the opcode, R and S. R and S pick the registers, and
-    // the write encoder picks what R takes: S, N, RAM or DIN, or the ALU.
-    // RAM's address is N, and it takes R.
+    // IN is on only for in, as the control unit would turn it on.
+    steps: executeSteps(memory, (instruction) => [
+      0,
+      ...operands(set, instruction),
+      RAM_VALUE,
+      instruction.din ?? 0,
+      instruction.op === "in" ? 1 : 0,
+    ]),
+    grid: { width: 72, height: 56 },
+    // R and S pick registers in the register file, and the write encoder
+    // picks what R takes: S, N, RAM or DIN, or the ALU. A MUX8 on IN swaps
+    // RAM for DIN.
     solution: {
       nodes: [
-        { name: "i", type: "SPLIT", x: 15, y: 18, width: 8 },
-        { name: "opcode", type: "JOIN", x: 21, y: 8, width: 4 },
-        { name: "r", type: "JOIN", x: 21, y: 22, width: 2 },
-        { name: "s", type: "JOIN", x: 21, y: 28, width: 2 },
-        { name: "ops", type: "OP ENCODER", x: 28, y: 2 },
-        { name: "writes", type: "WRITE ENCODER", x: 36, y: 2 },
-        { name: "control", type: "CONTROL UNIT", x: 44, y: 2 },
-        { name: "registers", type: "REGISTER FILE", x: 30, y: 22 },
-        { name: "alu", type: "ALU", x: 42, y: 26 },
-        { name: "ram", type: "RAM", x: 42, y: 40 },
-        { name: "memory", type: "MUX8", x: 52, y: 44 },
-        { name: "result", type: "4-WAY MUX8", x: 60, y: 28 },
+        { name: "op", type: "OP ENCODER", x: 22, y: 4 },
+        { name: "ws", type: "WRITE ENCODER", x: 22, y: 14 },
+        { name: "file", type: "REGISTER FILE", x: 34, y: 24 },
+        { name: "alu", type: "ALU", x: 46, y: 6 },
+        { name: "memory", type: "MUX8", x: 34, y: 44 },
+        { name: "result", type: "4-WAY MUX8", x: 58, y: 26 },
       ],
       wires: [
-        ["I", "i"],
-        ...[0, 1, 2, 3].map((pin): [string, string] => [`i:${pin}`, `opcode:${pin}`]),
-        ["i:4", "r:0"],
-        ["i:5", "r:1"],
-        ["i:6", "s:0"],
-        ["i:7", "s:1"],
-        ["opcode", "ops"],
-        ["opcode", "writes"],
-        ["opcode", "control:0"],
-        ["registers:0", "control:1"],
-        ["CLK", "registers:0"],
-        ["writes:0", "registers:1"],
-        ["r", "registers:2"],
-        ["result", "registers:3"],
-        ["r", "registers:4"],
-        ["s", "registers:5"],
-        ["registers:0", "alu:0"],
-        ["registers:1", "alu:1"],
-        ["ops", "alu:2"],
-        ["CLK", "ram:0"],
-        ["control:0", "ram:1"],
-        ["N", "ram:2"],
-        ["registers:0", "ram:3"],
-        ["ram", "memory:0"],
-        ["DIN", "memory:1"],
-        ["control:2", "memory:2"],
-        ["registers:1", "result:0"],
+        ["CLK", "file:0"],
+        ["ws:0", "file:1"],
+        ["R", "file:2"],
+        ["result", "file:3"],
+        ["R", "file:4"],
+        ["S", "file:5"],
+        ["OPCODE", "op"],
+        ["OPCODE", "ws"],
+        ["file:0", "alu:0"],
+        ["file:1", "alu:1"],
+        ["op", "alu:2"],
+        ["file:1", "result:0"],
         ["N", "result:1"],
         ["memory", "result:2"],
         ["alu", "result:3"],
-        ["writes:1", "result:4"],
+        ["ws:1", "result:4"],
+        ["RAM", "memory:0"],
+        ["DIN", "memory:1"],
+        ["IN", "memory:2"],
+        ["file:0", "A"],
+      ],
+    },
+    reads: registerUnitLevel,
+  };
+}
+
+function executeLevel(set: InstructionSet): CircuitLevel {
+  const memory = executeUnit(set);
+  return {
+    revision: 2,
+    gate: "EXECUTE UNIT",
+    goal: "On each tick, do the instruction. DOUT shows register R. RAM uses only N's low 3 signals.",
+    layer: 8,
+    inputs: ["CLK", "OPCODE", "R", "S", "N", "DIN"],
+    outputs: ["JUMP", "OUT", "DOUT", "IN", "HALT"],
+    widths: { OPCODE: 4, R: 2, S: 2, N: 8, DIN: 8, DOUT: 8 },
+    memory,
+    // The expected outputs are the spec's, played from all 0.
+    steps: executeSteps(memory, (instruction) => [0, ...operands(set, instruction), instruction.din ?? 0]),
+    grid: { width: 64, height: 50 },
+    // The control unit reads the opcode and register R. The register unit
+    // does the rest, with RAM's place N and the control unit's IN. RAM's
+    // address is N, and it takes R when STORE is on.
+    solution: {
+      nodes: [
+        { name: "control", type: "CONTROL UNIT", x: 22, y: 4 },
+        { name: "registers", type: "REGISTER UNIT", x: 22, y: 24 },
+        { name: "ram", type: "RAM", x: 40, y: 34 },
+      ],
+      wires: [
+        ["OPCODE", "control:0"],
+        ["registers", "control:1"],
+        ["CLK", "registers:0"],
+        ["OPCODE", "registers:1"],
+        ["R", "registers:2"],
+        ["S", "registers:3"],
+        ["N", "registers:4"],
+        ["ram", "registers:5"],
+        ["DIN", "registers:6"],
+        ["control:2", "registers:7"],
+        ["CLK", "ram:0"],
+        ["control:0", "ram:1"],
+        ["N", "ram:2"],
+        ["registers", "ram:3"],
         ["control:1", "JUMP"],
-        ["N", "ADDR"],
         ["control:3", "OUT"],
-        ["registers:0", "DOUT"],
-        ["N", "DEV"],
+        ["registers", "DOUT"],
         ["control:2", "IN"],
         ["control:4", "HALT"],
       ],
@@ -1728,7 +1822,7 @@ function cpuLevel(set: InstructionSet): CircuitLevel {
         { name: "running", type: "NAND", x: 18, y: 54 },
         { name: "clock", type: "AND", x: 18, y: 46 },
         { name: "fetch", type: "NOT", x: 38, y: 40 },
-        { name: "instruction", type: "REGISTER", x: 44, y: 8 },
+        { name: "instruction", type: "INSTRUCTION REGISTER", x: 44, y: 8 },
         { name: "number", type: "REGISTER", x: 44, y: 20 },
         { name: "execute", type: "EXECUTE UNIT", x: 58, y: 14 },
       ],
@@ -1737,12 +1831,12 @@ function cpuLevel(set: InstructionSet): CircuitLevel {
         ["running", "clock:1"],
         ["clock", "sequencer"],
         ["sequencer", "running:0"],
-        ["execute:6", "running:1"],
+        ["execute:4", "running:1"],
         ["CLK", "pc:0"],
         ["sequencer", "pc:1"],
         ["hold", "pc:2"],
         ["pc", "hold:0"],
-        ["execute:1", "hold:1"],
+        ["number", "hold:1"],
         ["execute:0", "hold:2"],
         ["pc", `${PROGRAM_MEMORY}:0`],
         ["sequencer", "fetch"],
@@ -1754,13 +1848,15 @@ function cpuLevel(set: InstructionSet): CircuitLevel {
         [`${PROGRAM_MEMORY}:1`, "number:2"],
         ["sequencer", "execute:0"],
         ["instruction", "execute:1"],
-        ["number", "execute:2"],
-        ["DIN", "execute:3"],
-        ["execute:2", "OUT"],
-        ["execute:3", "DOUT"],
-        ["execute:4", "DEV"],
-        ["execute:5", "IN"],
-        ["execute:6", "HALT"],
+        ["instruction:1", "execute:2"],
+        ["instruction:2", "execute:3"],
+        ["number", "execute:4"],
+        ["DIN", "execute:5"],
+        ["execute:1", "OUT"],
+        ["execute:2", "DOUT"],
+        ["number", "DEV"],
+        ["execute:3", "IN"],
+        ["execute:4", "HALT"],
       ],
     },
     reads: cpuLevel,

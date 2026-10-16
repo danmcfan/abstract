@@ -82,5 +82,6 @@ function doing(game: Game, level: ProgramLevel): Doing | null {
   const unit = [...game.nodes.values()].find((node) => node.type === "EXECUTE UNIT");
   if (!unit) return null;
   const input = (pin: number): Value => edgeInto(game, unit.id, pin)?.value ?? 0;
-  return { instruction: level.describe(input(1), input(2)), registers: registersOf(unit.state) };
+  const i = (input(1) << 4) | (input(2) << 2) | input(3);
+  return { instruction: level.describe(i, input(4)), registers: registersOf(unit.state) };
 }

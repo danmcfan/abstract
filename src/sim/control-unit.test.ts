@@ -28,7 +28,10 @@ const at = (id: InstructionID, a = 0): number[] => control(BITBOX_INSTRUCTION_SE
 describe("the L8 control levels", () => {
   test("follow the instruction set, encoders first", () => {
     const first = index("OP ENCODER");
-    expect(LEVELS.slice(first, first + 4).map((level) => levelId(level))).toEqual([...L8_CONTROL, "EXECUTE UNIT"]);
+    expect(LEVELS.slice(first, first + 4).map((level) => levelId(level))).toEqual([
+      ...L8_CONTROL,
+      "INSTRUCTION REGISTER",
+    ]);
     expect(LEVELS[first - 1]?.kind).toBe("instruction set");
   });
 
