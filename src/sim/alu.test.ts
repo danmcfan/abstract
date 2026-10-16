@@ -37,16 +37,12 @@ function placer(game: Game): (type: NodeType, x: number, y: number, width?: numb
 // A one-signal sum, as OUT and COUT.
 const carried = (x: Value): Value[] => [x & 1, x >> 1];
 
-// The OP table in ADR 9, one row per OP: what OUT and COUT should be.
+// The OP table in ADR 12, one row per OP: what OUT and COUT should be. COUT
+// is ADD/SUB's carry whatever the job, and the ones place means subtract.
 function sliceTable(a: Value, b: Value, cin: Value, op: Value): Value[] {
-  const arithmetic: Value[][] = [carried(a + b + cin), carried(a + (1 - b) + cin), [0, 0], [0, 0]];
-  const logic: Value[][] = [
-    [a & b, 0],
-    [a | b, 0],
-    [a ^ b, 0],
-    [1 - a, 0],
-  ];
-  return [...arithmetic, ...logic][op]!;
+  const [sum, carry] = carried(a + (op & 1 ? 1 - b : b) + cin);
+  const logic = [a & b, a | b, a ^ b, 1 - a];
+  return [op & 4 ? logic[op & 3]! : sum!, carry!];
 }
 
 describe("the L4 parts", () => {
@@ -115,13 +111,15 @@ describe("the L4 parts", () => {
         expect([0, 1, 2, 3].map((sel) => unit.evaluate([a, b, sel], 1)[0])).toEqual([a & b, a | b, a ^ b, 1 - a]);
   });
 
-  test("the ALU slice matches the OP table on every row, with OP 2 and 3 giving 0", () => {
+  test("the ALU slice matches the OP table on every row, with OP 2 adding and 3 subtracting", () => {
     const slice = kindOf(PARTS, "ALU SLICE");
     for (let op = 0; op < 8; op++)
       for (const a of [0, 1])
         for (const b of [0, 1])
           for (const cin of [0, 1]) expect(slice.evaluate([a, b, cin, op], 1)).toEqual(sliceTable(a, b, cin, op));
-    for (const op of [2, 3]) expect(slice.evaluate([1, 1, 1, op], 1)).toEqual([0, 0]);
+    expect(slice.evaluate([1, 1, 0, 2], 1)).toEqual([0, 1]);
+    expect(slice.evaluate([1, 1, 1, 3], 1)).toEqual([0, 1]);
+    expect(slice.evaluate([1, 1, 0, 4], 1)).toEqual([1, 1]);
   });
 
   test("the ALU does each operation on whole buses, wrapping add and subtract, with OUT only", () => {
@@ -131,17 +129,17 @@ describe("the L4 parts", () => {
     expect(op(200, 100, 0)).toEqual([44]);
     expect(op(9, 4, 1)).toEqual([5]);
     expect(op(3, 5, 1)).toEqual([254]);
-    expect(op(12, 10, 2)).toEqual([0]);
-    expect(op(12, 10, 3)).toEqual([0]);
+    expect(op(12, 10, 2)).toEqual([22]);
+    expect(op(12, 10, 3)).toEqual([2]);
     expect(op(12, 10, 4)).toEqual([8]);
     expect(op(12, 10, 5)).toEqual([14]);
     expect(op(12, 10, 6)).toEqual([6]);
     expect(op(12, 10, 7)).toEqual([243]);
   });
 
-  test("the ALU SLICE and 2-BIT ALU levels changed, so they're at revision 2", () => {
-    expect(revisionOf(circuitAt(levelIndex("ALU SLICE")))).toBe(2);
-    expect(revisionOf(circuitAt(levelIndex("2-BIT ALU")))).toBe(2);
+  test("the ALU SLICE and 2-BIT ALU levels changed again, so they're at revision 3", () => {
+    expect(revisionOf(circuitAt(levelIndex("ALU SLICE")))).toBe(3);
+    expect(revisionOf(circuitAt(levelIndex("2-BIT ALU")))).toBe(3);
   });
 
   test("once solved, the 2-bit levels give the 8-bit parts, and the others their own", () => {
@@ -193,8 +191,8 @@ describe("the 2-bit MUX level", () => {
 
 // The 2-bit ALU's intended solution: two ALU slices in a chain, the ones
 // place at the bottom, the low COUT into the high CIN. The first CIN is OP's
-// ones signal, so it's on for subtract (and only matters for add and
-// subtract).
+// ones signal, so it's on for OP 1 and 3, which subtract (and only matters
+// for arithmetic).
 function buildAlu(game: Game, missingSubtractCarry = false): void {
   const place = placer(game);
   const a = terminal(game, "INPUT", "A");
@@ -252,6 +250,7 @@ describe("the 2-bit ALU level", () => {
     expect(wrong).toEqual([
       { inputs: [3, 1, 1], expected: [2], actual: [1] },
       { inputs: [1, 2, 1], expected: [3], actual: [2] },
+      { inputs: [3, 3, 3], expected: [0], actual: [3] },
     ]);
   });
 });
