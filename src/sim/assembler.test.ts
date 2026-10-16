@@ -49,4 +49,9 @@ describe("the assembler", () => {
     const text = Array.from({ length: 257 }, () => "HALT").join("\n");
     expect(errors(text)).toEqual([{ line: 257, problem: "Program memory holds only 256 instructions." }]);
   });
+
+  test("refuses a label past the end of program memory", () => {
+    const text = ["JMP end", ...Array.from({ length: 255 }, () => "HALT"), "end:"].join("\n");
+    expect(errors(text)).toEqual([{ line: 257, problem: "The label end is past the end of program memory." }]);
+  });
 });

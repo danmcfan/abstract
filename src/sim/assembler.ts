@@ -108,6 +108,8 @@ export function assembleProgram(set: InstructionSet, text: string): Assembly {
     if (label !== null) {
       if (labels.has(label.toUpperCase())) errors.push({ line, problem: `The label ${label} is used twice.` });
       else labels.set(label.toUpperCase(), address);
+      if (address >= PROGRAM_LENGTH && code === "")
+        errors.push({ line, problem: `The label ${label} is past the end of program memory.` });
     }
     if (code === "") continue;
     address++;
