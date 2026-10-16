@@ -12,6 +12,8 @@ import {
 } from "../sim/level";
 import { GateIcon } from "./GateIcon";
 import { session } from "./state";
+import { speech } from "./speech";
+import { wrapTab } from "./trap";
 
 const pad = (n: number): string => String(n).padStart(2, "0");
 
@@ -46,6 +48,7 @@ export function Stack(props: {
   const [car, setCar] = createSignal({ top: 0, height: 0 });
   const rows = new Map<number, HTMLElement>();
   let list: HTMLOListElement | undefined;
+  let dialog: HTMLDialogElement | undefined;
 
   const measure = (): void => {
     const li = rows.get(floor());
@@ -57,7 +60,31 @@ export function Stack(props: {
     open();
     measure();
   });
+  // A modal dialog: focus moves in, Tab stays inside (and in Bitbox's window,
+  // which pops up over it), Escape closes it, and focus goes back on close.
+  const opener = document.activeElement;
+  const stops = (): HTMLElement[] =>
+    [dialog, document.querySelector("#dialogue")].flatMap((root) =>
+      root ? Array.from(root.querySelectorAll<HTMLElement>("button:not(:disabled)")) : [],
+    );
+  const onKey = (event: KeyboardEvent): void => {
+    // Escape belongs to Bitbox while he's talking. This listens in the capture
+    // phase so it sees him talking before his own listener hushes him.
+    if (event.key === "Escape" && speech() === null) props.onClose();
+    if (event.key !== "Tab") return;
+    const to = wrapTab<Element | null>(stops(), document.activeElement, event.shiftKey);
+    if (!(to instanceof HTMLElement)) return;
+    event.preventDefault();
+    to.focus();
+  };
+  window.addEventListener("keydown", onKey, true);
+  onCleanup(() => {
+    window.removeEventListener("keydown", onKey, true);
+    if (opener instanceof HTMLElement) opener.focus();
+  });
+
   onMount(() => {
+    document.querySelector<HTMLElement>("#stack-close")?.focus();
     const observer = new ResizeObserver(measure);
     if (list !== undefined) observer.observe(list);
     onCleanup(() => {
@@ -75,12 +102,25 @@ export function Stack(props: {
   });
 
   return (
-    <main id="stack" class="fixed inset-0 z-30 overflow-y-auto bg-paper/95 p-4 text-ink-deep">
+    // Opened without showModal(), which would make Bitbox's window inert, so
+    // the trap above does the modal part.
+    <dialog
+      id="stack"
+      open
+      ref={(el) => {
+        dialog = el;
+      }}
+      aria-modal="true"
+      aria-labelledby="stack-title"
+      class="fixed inset-0 z-30 m-0 size-full max-h-none max-w-none overflow-y-auto border-0 bg-paper/95 p-4 text-ink-deep"
+    >
       <div class="pop mx-auto my-4 w-full max-w-190 sheet">
         <header class="flex items-center justify-between gap-4 border-b-2 border-ink px-5 py-3">
           <div>
             <p class="text-xs text-pencil">Dwg LOA-001: each layer is built from the ones below it.</p>
-            <h1 class="text-2xl font-bold text-ink">The stack</h1>
+            <h1 id="stack-title" class="text-2xl font-bold text-ink">
+              The stack
+            </h1>
           </div>
           <button
             id="stack-close"
@@ -193,6 +233,6 @@ export function Stack(props: {
           </ol>
         </div>
       </div>
-    </main>
+    </dialog>
   );
 }

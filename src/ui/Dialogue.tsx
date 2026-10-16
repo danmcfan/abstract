@@ -107,9 +107,13 @@ export function Dialogue(props: { docked?: boolean }): JSX.Element {
           <Show when={speech()}>
             {(s) => (
               <div class="flex min-w-0 flex-1 flex-col">
+                {/* The line is announced once, whole, rather than letter by letter as it types. */}
+                <p class="sr-only" aria-live="polite">
+                  {text()}
+                </p>
                 {/* A mouse shortcut for Next; the keyboard has Enter and the Next button. */}
                 <div role="presentation" class="min-h-0 overflow-y-auto" onClick={next}>
-                  <p class={`cursor-pointer leading-snug ${look().text}`} aria-live="polite">
+                  <p class={`cursor-pointer leading-snug ${look().text}`} aria-hidden="true">
                     {text().slice(0, shown())}
                     <Show when={!typing()}>
                       <span class="caret" />
