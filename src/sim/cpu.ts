@@ -280,3 +280,52 @@ export function describeInstruction(set: InstructionSet, i: Value, n: Value): st
   const written = operands === "" ? [] : operands.split(", ").map((name) => operand[name] ?? name);
   return [rowOf(set, id).mnemonic, written.join(", ")].filter((part) => part !== "").join(" ");
 }
+
+// What a running program reads from with in and sends to with out, by
+// device number.
+export interface Devices {
+  read(device: Value): Value;
+  send(device: Value, value: Value): void;
+}
+
+// The CPU's spec, ticked one tick at a time with its devices, as the door
+// program runs. The execute unit takes DIN on the fetch tick, so a device
+// is read then, and only for an in, so only an in moves the keypad on.
+export class Computer {
+  private state: State;
+  private readonly spec: Memory;
+  private readonly set: InstructionSet;
+
+  constructor(set: InstructionSet, words: readonly Value[]) {
+    this.set = set;
+    this.spec = cpu(set);
+    this.state = loaded(words);
+  }
+
+  tick(devices: Devices): void {
+    const fetching = (this.state[EXEC] ?? 0) === 0;
+    const word = this.state[PROGRAM + this.programCounter] ?? 0;
+    const din = fetching && decode(this.set, word >> 12) === "in" ? devices.read(word & 0xff) : 0;
+    this.state = this.spec.next([0, din], this.spec.next([1, din], this.state));
+    if (!fetching) return;
+    const [out = 0, dout = 0, dev = 0] = this.spec.outputs(this.state, []);
+    if (out === 1) devices.send(dev, dout);
+  }
+
+  get programCounter(): number {
+    return this.state[PC] ?? 0;
+  }
+
+  get registers(): Value[] {
+    return this.state.slice(PLACES, PLACES + REGISTER_COUNT);
+  }
+
+  // The instruction last fetched, written out.
+  get instruction(): string {
+    return describeInstruction(this.set, this.state[FETCHED] ?? 0, this.state[FETCHED + 1] ?? 0);
+  }
+
+  get halted(): boolean {
+    return (this.state[EXEC] ?? 0) === 1 && decode(this.set, (this.state[FETCHED] ?? 0) >> 4) === "halt";
+  }
+}
