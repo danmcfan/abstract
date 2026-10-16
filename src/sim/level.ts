@@ -18,6 +18,7 @@ import {
 import {
   assemble,
   control,
+  fields,
   opEncoder,
   writeEncoder,
   cpu,
@@ -215,7 +216,7 @@ const register: Memory = {
 // 4 signals, then R and S.
 const instructionRegister: Memory = {
   next: register.next,
-  outputs: ([, d = 0]) => [d >> 4, (d >> 2) & 3, d & 3],
+  outputs: ([, d = 0]) => Object.values(fields(d)),
 };
 
 // NONE's eight inputs.
@@ -293,7 +294,8 @@ const EXECUTE_STEPS: (Instruction & { din?: Value })[] = [
   { op: "halt" },
 ];
 
-// The value the register unit's RAM input gives in its timing table.
+// The value the register unit's RAM input gives in its timing table. It
+// differs from every DIN there, so a board that mixes up RAM and DIN fails.
 const RAM_VALUE = 17;
 
 // The CPU's test programs. The last has instructions after its HALT, which
@@ -1686,7 +1688,8 @@ function executeSteps(memory: Memory, inputsOf: (instruction: (typeof EXECUTE_ST
 // An instruction's OPCODE, R, S and N, encoded in a set.
 function operands(set: InstructionSet, instruction: Instruction): Value[] {
   const [i, n] = encode(set, instruction);
-  return [i >> 4, (i >> 2) & 3, i & 3, n];
+  const { opcode, r, s } = fields(i);
+  return [opcode, r, s, n];
 }
 
 function registerUnitLevel(set: InstructionSet): CircuitLevel {
@@ -1699,13 +1702,13 @@ function registerUnitLevel(set: InstructionSet): CircuitLevel {
     outputs: ["A"],
     widths: { OPCODE: 4, R: 2, S: 2, N: 8, RAM: 8, DIN: 8, A: 8 },
     memory,
-    // IN is on only for in, as the control unit would turn it on.
+    // IN is what the control unit gives for the opcode.
     steps: executeSteps(memory, (instruction) => [
       0,
       ...operands(set, instruction),
       RAM_VALUE,
       instruction.din ?? 0,
-      instruction.op === "in" ? 1 : 0,
+      control(set, [operands(set, instruction)[0] ?? 0])[2] ?? 0,
     ]),
     grid: { width: 72, height: 56 },
     // R and S pick registers in the register file, and the write encoder

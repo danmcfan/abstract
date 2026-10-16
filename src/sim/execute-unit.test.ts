@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { encode, registerUnit, type Instruction } from "./cpu";
+import { control, encode, fields, registerUnit, type Instruction } from "./cpu";
 import { randomSet } from "./fixtures";
 import { BITBOX_INSTRUCTION_SET } from "./instruction";
 import {
@@ -16,6 +16,12 @@ import {
 import type { NodeType, State, Value } from "./node";
 
 const L8_DATA = ["INSTRUCTION REGISTER", "REGISTER UNIT", "EXECUTE UNIT"];
+// Each level's nodes and wires, counted by hand: ADR 11 allows 7 and 20.
+const SIZES: Record<string, [nodes: number, wires: number]> = {
+  "INSTRUCTION REGISTER": [5, 15],
+  "REGISTER UNIT": [6, 20],
+  "EXECUTE UNIT": [3, 19],
+};
 const index = (gate: NodeType): number => LEVELS.findIndex((level) => levelId(level) === gate);
 
 // Ticks a memory part once with its inputs, from its state.
@@ -40,13 +46,12 @@ describe("the L8 data levels", () => {
 
   // Every valid instruction set, not only Bitbox's, keeps within ADR 11.
   test.each([1, 2, 3, 4, 5, 6].flatMap((seed) => L8_DATA.map((gate) => [gate, seed] as const)))(
-    "%s's solution keeps within 7 nodes and 20 wires and passes for random set %d",
+    "%s's solution has its hand-counted size and passes for random set %d",
     (gate, seed) => {
       const levels = withInstructionSet(LEVELS, randomSet(seed));
       const level = circuitAt(index(gate), levels);
       const solution = level.solution!;
-      expect(solution.nodes.length).toBeLessThanOrEqual(7);
-      expect(solution.wires.length).toBeLessThanOrEqual(20);
+      expect([solution.nodes.length, solution.wires.length]).toEqual(SIZES[gate]!);
       const game = loadLevel(level, partsOf(levels));
       buildSolution(game, level);
       const result = checkLevel(game, index(gate), levels);
@@ -68,8 +73,8 @@ describe("the instruction register", () => {
 
 // CLK, OPCODE, R, S, N, RAM, DIN and IN for an instruction.
 const inputs = ({ op, r = 0, s = 0, n = 0 }: Instruction, ram = 0, din = 0): Value[] => {
-  const [i] = encode(BITBOX_INSTRUCTION_SET, { op, r, s, n });
-  return [0, i >> 4, r, s, n, ram, din, op === "in" ? 1 : 0];
+  const { opcode } = fields(encode(BITBOX_INSTRUCTION_SET, { op, r, s, n })[0]);
+  return [0, opcode, r, s, n, ram, din, control(BITBOX_INSTRUCTION_SET, [opcode])[2] ?? 0];
 };
 describe("the register unit", () => {
   const unit = registerUnit(BITBOX_INSTRUCTION_SET);

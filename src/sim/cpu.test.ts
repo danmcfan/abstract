@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { REVERSED } from "./fixtures";
 import { BITBOX_INSTRUCTION_SET, type InstructionSet } from "./instruction";
-import { describeInstruction, encode, executeUnit, runOnSpec, type Instruction } from "./cpu";
+import { describeInstruction, encode, executeUnit, fields, runOnSpec, type Instruction } from "./cpu";
 import { TEST_PROGRAMS } from "./level";
 import type { State, Value } from "./node";
 
@@ -21,7 +21,8 @@ function execute(set: InstructionSet, program: (Instruction & { din?: Value })[]
   let state: State = [];
   return program.map((instruction) => {
     const [i, n] = encode(set, instruction);
-    const inputs = (clk: Value): Value[] => [clk, i >> 4, (i >> 2) & 3, i & 3, n, instruction.din ?? 0];
+    const { opcode, r, s } = fields(i);
+    const inputs = (clk: Value): Value[] => [clk, opcode, r, s, n, instruction.din ?? 0];
     state = unit.next(inputs(1), unit.next(inputs(0), state));
     state = unit.next(inputs(0), state);
     return unit.outputs(state, inputs(0));

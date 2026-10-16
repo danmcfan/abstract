@@ -1,5 +1,5 @@
 import { edgeInto, loadContents, programMemoryOf, restartForTest, type Game } from "./circuit";
-import { play, registersOf, type Outcome } from "./cpu";
+import { joinFields, play, registersOf, type Outcome } from "./cpu";
 import { applyInputs, machineOn, TICK_LIMIT, type CheckResult, type CircuitLevel, type ProgramLevel } from "./level";
 import type { Value } from "./node";
 import { tableRow, TestRun, type Doing, type Run, type Shown, type TableRow } from "./testrun";
@@ -82,6 +82,6 @@ function doing(game: Game, level: ProgramLevel): Doing | null {
   const unit = [...game.nodes.values()].find((node) => node.type === "EXECUTE UNIT");
   if (!unit) return null;
   const input = (pin: number): Value => edgeInto(game, unit.id, pin)?.value ?? 0;
-  const i = (input(1) << 4) | (input(2) << 2) | input(3);
+  const i = joinFields(input(1), input(2), input(3));
   return { instruction: level.describe(i, input(4)), registers: registersOf(unit.state) };
 }
