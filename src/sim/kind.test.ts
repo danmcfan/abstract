@@ -293,6 +293,48 @@ const EXPECTED: Record<NodeType, Expected[]> = {
     },
   ],
   SEQUENCER: [{ ins: [1], outs: [1], size: [6, 4], cases: [[[1], [0]]] }],
+  "PROGRAM MEMORY": [{ ins: [8], outs: [8, 8], size: [8, 6], cases: [[[3], [0, 0]]] }],
+  // Bitbox's set: opcode 3 is add, and 1 is set.
+  "CONTROL UNIT": [
+    {
+      ins: [4, 1],
+      outs: [1, 2, 3, 1, 1, 1, 1, 1],
+      size: [6, 16],
+      cases: [
+        [
+          [3, 0],
+          [1, 3, 0, 0, 0, 0, 0, 0],
+        ],
+      ],
+    },
+  ],
+  "EXECUTE UNIT": [
+    {
+      ins: [1, 8, 8, 8],
+      outs: [1, 8, 1, 8, 8, 1, 1],
+      size: [6, 14],
+      cases: [
+        [
+          [0, 0x15, 7, 0],
+          [0, 7, 0, 0, 7, 0, 0],
+        ],
+      ],
+    },
+  ],
+  // Blank program memory holds HALT, opcode 0 in Bitbox's set.
+  CPU: [
+    {
+      ins: [1, 8],
+      outs: [1, 8, 8, 1, 1],
+      size: [6, 10],
+      cases: [
+        [
+          [0, 0],
+          [0, 0, 0, 0, 1],
+        ],
+      ],
+    },
+  ],
 };
 
 describe("every kind the game uses", () => {
@@ -335,7 +377,16 @@ describe("a registry made from levels", () => {
   });
 
   test("knows only its own parts, beside terminals and wiring", () => {
-    expect(kinds(parts).map((kind) => kind.type)).toEqual(["INPUT", "OUTPUT", "SPLIT", "JOIN", "ON", "OFF", "ADD2"]);
+    expect(kinds(parts).map((kind) => kind.type)).toEqual([
+      "INPUT",
+      "OUTPUT",
+      "SPLIT",
+      "JOIN",
+      "ON",
+      "OFF",
+      "PROGRAM MEMORY",
+      "ADD2",
+    ]);
     expect(() => kindOf(parts, "NAND")).toThrow();
   });
 

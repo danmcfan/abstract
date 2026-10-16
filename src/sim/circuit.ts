@@ -154,12 +154,21 @@ export function tick(game: Game, clock: NodeID): void {
   setInput(game, clock, 0);
 }
 
+// Fills a node that keeps loaded contents, such as program memory, and
+// settles. Other nodes ignore it.
+export function loadContents(game: Game, id: NodeID, contents: State): void {
+  const node = game.nodes.get(id);
+  if (!node || nodeKind(game, node).keeps !== true) return;
+  node.state = [...contents];
+  settle(game);
+}
+
 // Puts every node but the input terminals back to off and every memory
-// part's state back to all 0, then settles, so what happens next doesn't hang
+// part's state back to all 0, keeping loaded contents, then settles, so what happens next doesn't hang
 // on what happened before. simulate starts from the same place.
 export function restart(game: Game): void {
   for (const node of game.nodes.values()) {
-    node.state = [];
+    if (nodeKind(game, node).keeps !== true) node.state = [];
     if (nodeKind(game, node).terminal !== "input") node.signals = [];
   }
   settle(game);
@@ -381,17 +390,19 @@ function settle(game: Game): void {
 // from the last, so a loop or memory part keeps its value between them. The
 // returned function takes one value per input terminal in inputs and gives
 // one value per output terminal in outputs (the value on its wire, or 0 if
-// unwired) and whether the board settled.
+// unwired) and whether the board settled. Loaded contents are the board's,
+// unless contents gives others by node.
 export function simulate(
   game: Game,
   inputs: NodeID[],
   outputs: NodeID[],
+  contents: ReadonlyMap<NodeID, State> = new Map(),
 ): (values: Value[]) => { outputs: Value[]; stable: boolean } {
   const board = plan(game);
   const signals: Signals = {
     outputs: board.steps.map((step) => (step.kind.terminal === "input" ? step.node.signals : [])),
     inputs: [],
-    states: board.steps.map(() => []),
+    states: board.steps.map(({ node, kind }) => (kind.keeps === true ? (contents.get(node.id) ?? node.state) : [])),
   };
   run(board, signals, (node) => node.signals[0] ?? 0);
   const slot = new Map(inputs.map((id, i) => [id, i]));

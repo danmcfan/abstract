@@ -6,8 +6,10 @@ export interface Scheduler {
   every(ms: number, task: () => void): () => void;
 }
 
-// How long a test run waits between rows.
+// How long a test run waits between rows, or, running a test program,
+// between instructions.
 export const TEST_STEP_MS = 600;
+const PROGRAM_STEP_MS = 200;
 
 // Moves a session along in time: steps a test run through its rows, and
 // ticks the clock over and over while Run is on. Opening, clearing or
@@ -68,7 +70,8 @@ export class Driver {
     this.stopTesting();
     this.changed();
     if (!this.step()) return;
-    this.stopTest = this.scheduler.every(TEST_STEP_MS, () => {
+    const ms = this.session.circuit?.programs === undefined ? TEST_STEP_MS : PROGRAM_STEP_MS;
+    this.stopTest = this.scheduler.every(ms, () => {
       if (!this.step()) this.stopTesting();
     });
   }

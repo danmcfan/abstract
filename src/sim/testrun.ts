@@ -20,9 +20,10 @@ export interface TableRow extends Row {
 
 // A row of the table as the level panel shows it: untested, or tested with
 // what the board gave.
-function tableRow(row: Row, actual?: Value[]): TableRow {
+export function tableRow(row: Row, actual?: Value[]): TableRow {
   const shown: TableRow = { inputs: row.inputs, expected: row.expected, status: "untested" };
   if (row.tick !== undefined) shown.tick = row.tick;
+  if (row.name !== undefined) shown.name = row.name;
   if (actual === undefined) return shown;
   shown.actual = actual;
   shown.status = matches(actual, row.expected) ? "passed" : "failed";
@@ -34,25 +35,48 @@ export function table(level: CircuitLevel): TableRow[] {
   return testTable(level).map((row) => tableRow(row));
 }
 
-// A row a test run showed on the board, and whether showing it ticked the
-// clock.
+// A step a test run showed on the board: the row it finished, if any, and
+// whether it ticked the clock. A test program's row comes with the values
+// the board sent out.
 export interface Shown {
-  row: CheckedRow;
+  row: CheckedRow | null;
   ticked: boolean;
+  outs?: Value[];
+}
+
+// What the CPU's board is doing in a test run: the instruction its execute
+// unit has, written out, and the execute unit's registers.
+export interface Doing {
+  instruction: string;
+  registers: Value[];
+}
+
+// A test run, shown on the board a step at a time.
+export interface Run {
+  readonly result: CheckResult;
+  // The row on the board, or null before the first and after the last.
+  current: number | null;
+  done: boolean;
+  // A new array each time a row changes, and only then, so the level panel
+  // redraws once per row.
+  rows: TableRow[];
+  // Only on a program level, while a program runs.
+  now: Doing | null;
+  // Shows the next step on the board, or ends the run and returns null
+  // once every row is shown.
+  step(game: Game): Shown | null;
 }
 
 // A test run of one level, shown on the board a row at a time. Every row is
 // tested up front, out of sight; stepping only shows them, setting the
 // board's inputs to each row and ticking its clock where a step says. Once
 // every row is shown, the rows that failed out of sight join the table.
-export class TestRun {
+export class TestRun implements Run {
   readonly result: CheckResult;
-  // The row on the board, or null before the first and after the last.
   current: number | null = null;
   done = false;
-  // A new array each time a row is shown, and only then, so the level panel
-  // redraws once per row.
   rows: TableRow[];
+  readonly now = null;
   private readonly level: CircuitLevel;
   private shown = 0;
 

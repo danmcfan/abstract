@@ -12,6 +12,7 @@ import {
   partsOf,
 } from "./level";
 import type { NodeID, Value } from "./node";
+import { testRun } from "./programrun";
 import { table, TestRun } from "./testrun";
 
 // The NOT level: input A, output Y, two rows.
@@ -27,6 +28,7 @@ const check = (hidden: CheckResult["hidden"]["failed"] = []): CheckResult => ({
   hidden: { checked: hidden.length, failed: hidden },
   forbidden: [],
   unstable: false,
+  endless: false,
   passed: false,
 });
 
@@ -51,7 +53,7 @@ describe("test run", () => {
     expect(run.current).toBeNull();
     expect(run.rows.map((row) => row.status)).toEqual(["untested", "untested"]);
 
-    expect(run.step(game)?.row.inputs).toEqual([0]);
+    expect(run.step(game)?.row?.inputs).toEqual([0]);
     expect(run.current).toBe(0);
     expect(run.rows[0]).toEqual({ inputs: [0], expected: [1], actual: [0], status: "failed" });
     expect(run.rows[1]!.status).toBe("untested");
@@ -98,10 +100,11 @@ function boardOutputs(game: Game, level: CircuitLevel): Value[] {
 function stepRun(game: Game, levels: Level[], index: number): { recorded: Value[]; shown: Value[] }[] {
   const level = circuitAt(index, levels);
   restart(game);
-  const run = new TestRun(level, checkLevel(game, index, levels));
+  const run = testRun(level, checkLevel(game, index, levels));
   const seen: { recorded: Value[]; shown: Value[] }[] = [];
   for (let step = run.step(game); step !== null; step = run.step(game)) {
-    seen.push({ recorded: step.row.actual, shown: boardOutputs(game, level) });
+    // A test program's row ends with the values the board sent out.
+    if (step.row) seen.push({ recorded: step.row.actual, shown: step.outs ?? boardOutputs(game, level) });
   }
   return seen;
 }
@@ -190,5 +193,39 @@ describe("a test run's board", () => {
     wire(game, out(terminalNamed(game, "input", "R")!.id), inp(bottom, 1));
     wire(game, out(top), inp(terminalNamed(game, "output", "Q")!.id));
     expectShownAsRecorded(game, levels, [[1], [1], [0], [0]]);
+  });
+});
+
+describe("a test run of the CPU", () => {
+  const index = LEVELS.findIndex((level) => level.kind !== "instruction set" && level.gate === "CPU");
+  const level = circuitAt(index);
+
+  test("shows each instruction being done, and the registers, a step at a time", () => {
+    const game = loadLevel(level);
+    buildSolution(game, level);
+    restart(game);
+    const run = testRun(level, checkLevel(game, index));
+    expect(run.step(game)?.row).toBeNull();
+    expect(run.current).toBe(0);
+    expect(run.now).toEqual({ instruction: "SET R0, 3", registers: [3, 0, 0, 0] });
+    run.step(game);
+    expect(run.now).toEqual({ instruction: "SET R1, 1", registers: [3, 1, 0, 0] });
+    run.step(game);
+    expect(run.now?.instruction).toBe("OUT R0, DOOR");
+  });
+
+  test("marks a program's row when it halts, then loads the next", () => {
+    const game = loadLevel(level);
+    buildSolution(game, level);
+    restart(game);
+    const run = testRun(level, checkLevel(game, index));
+    let step = run.step(game);
+    while (step && !step.row) step = run.step(game);
+    expect(step?.row?.name).toBe("count down from 3");
+    expect(run.rows[0]?.status).toBe("passed");
+    expect(run.rows[1]?.status).toBe("untested");
+    run.step(game);
+    expect(run.current).toBe(1);
+    expect(run.now?.instruction).toBe("IN R1, KEYPAD");
   });
 });

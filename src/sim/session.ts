@@ -1,7 +1,13 @@
 import type { Game } from "./circuit";
 import { newGame, placeNode, restart, tick } from "./circuit";
 import { DEFAULT_GRID } from "./grid";
-import { checkInstructionSet, normalMnemonic, type InstructionSet, type InstructionSetCheck } from "./instruction";
+import {
+  BITBOX_INSTRUCTION_SET,
+  checkInstructionSet,
+  normalMnemonic,
+  type InstructionSet,
+  type InstructionSetCheck,
+} from "./instruction";
 import type { Parts } from "./kind";
 import {
   checkLevel,
@@ -10,6 +16,7 @@ import {
   levelAt,
   levelId,
   LEVELS,
+  loadFirstProgram,
   loadLevel,
   PARTS,
   partsOf,
@@ -22,12 +29,14 @@ import {
   type Layer,
   type Level,
   type Solved,
+  withInstructionSet,
 } from "./level";
 import type { NodeType } from "./node";
 import { loadBoard, saveBoard, type Boards, type SaveStore } from "./save";
 import { silent, type Sound } from "./sound";
 import { flags, respond, respondToTable, type Cue } from "./story";
-import { table, TestRun, type TableRow } from "./testrun";
+import { testRun } from "./programrun";
+import { table, type Doing, type Run, type TableRow } from "./testrun";
 
 // How many ticks a second Run gives the clock: the player sets it on the
 // gauge, and a test run ignores it.
@@ -64,17 +73,20 @@ export class Session {
   private boards: Boards = {};
   private solvedLevels: Solved;
   // The current test run, or the last one until the board or level changes.
-  private testRun: TestRun | null = null;
+  private testRun: Run | null = null;
 
   private readonly store: SaveStore;
   private readonly sound: Sound;
-  private readonly levels: Level[];
-  private readonly parts: Parts;
+  private readonly gameLevels: Level[];
+  // The levels and parts as they read the last good instruction set.
+  private levels: Level[];
+  private parts: Parts;
 
   // The levels are the game's own, except in tests.
   constructor(store: SaveStore, sound: Sound = silent, levels: Level[] = LEVELS) {
     this.store = store;
     this.sound = sound;
+    this.gameLevels = levels;
     this.levels = levels;
     this.parts = levels === LEVELS ? PARTS : partsOf(levels);
     this.game = this.boardFor(levelAt(0, levels));
@@ -83,6 +95,7 @@ export class Session {
     this.boards = data?.boards ?? {};
     this.instructionSet = data?.instructionSet ?? {};
     this.validInstructionSet = data?.validInstructionSet ?? null;
+    this.readInstructionSet();
     if (data?.clockSpeed !== undefined) this.clockSpeed = clockSpeedFrom(data.clockSpeed);
   }
 
@@ -113,6 +126,7 @@ export class Session {
     this.boards = data.boards;
     this.instructionSet = data.instructionSet ?? {};
     this.validInstructionSet = data.validInstructionSet ?? null;
+    this.readInstructionSet();
     this.start(this.savedLevel);
   }
 
@@ -124,6 +138,7 @@ export class Session {
     this.boards = {};
     this.instructionSet = {};
     this.validInstructionSet = null;
+    this.readInstructionSet();
     this.start(0);
   }
 
@@ -154,6 +169,13 @@ export class Session {
     });
   }
 
+  // Makes the levels after L7 read the last good instruction set. Before
+  // there is one, they read Bitbox's, which only a dev jump past L7 sees.
+  private readInstructionSet(): void {
+    this.levels = withInstructionSet(this.gameLevels, this.validInstructionSet ?? BITBOX_INSTRUCTION_SET);
+    this.parts = partsOf(this.levels);
+  }
+
   // How each row of the instruction set stands.
   get instructionCheck(): InstructionSetCheck {
     return checkInstructionSet(this.instructionSet);
@@ -171,6 +193,7 @@ export class Session {
     const check = this.instructionCheck;
     if (check.solved) {
       this.validInstructionSet = structuredClone(this.instructionSet);
+      this.readInstructionSet();
       this.solvedLevels[levelId(this.level)] = revisionOf(this.level);
     }
     const response = respondToTable(before, check, this.level, (flag) => this.flags.has(flag));
@@ -212,6 +235,11 @@ export class Session {
     return this.testRun?.current ?? null;
   }
 
+  // What the CPU's board is doing, while a test run runs a program on it.
+  get now(): Doing | null {
+    return this.testRun?.now ?? null;
+  }
+
   // How many levels from the first are solved: the next one is playable.
   get solved(): number {
     return solvedCount(this.solvedLevels, this.levels);
@@ -227,7 +255,9 @@ export class Session {
     const level = levelAt(index, this.levels);
     const board = level.kind === "instruction set" ? undefined : this.boards[level.gate];
     this.levelIndex = index;
-    this.load(board ? loadBoard(board, this.parts) : this.boardFor(level));
+    const game = board ? loadBoard(board, this.parts) : this.boardFor(level);
+    if (level.kind !== "instruction set") loadFirstProgram(game, level);
+    this.load(game);
   }
 
   // Throws away the current level's board for a fresh one. Other levels'
@@ -279,7 +309,7 @@ export class Session {
     if (this.testing || level.kind === "instruction set") return false;
     this.sound.play("carriage");
     restart(this.game);
-    this.testRun = new TestRun(level, checkLevel(this.game, this.levelIndex, this.levels));
+    this.testRun = testRun(level, checkLevel(this.game, this.levelIndex, this.levels));
     this.result = null;
     this.stamped = false;
     return true;
@@ -293,7 +323,7 @@ export class Session {
     const shown = run.step(this.game);
     if (shown) {
       if (shown.ticked) this.sound.play("clock");
-      this.sound.play(matches(shown.row.actual, shown.row.expected) ? "tick" : "fail-tick");
+      if (shown.row) this.sound.play(matches(shown.row.actual, shown.row.expected) ? "tick" : "fail-tick");
       return true;
     }
     const { result } = run;

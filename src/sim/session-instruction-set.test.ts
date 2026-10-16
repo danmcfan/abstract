@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { BITBOX_INSTRUCTION_SET } from "./instruction";
-import { LEVELS, levelId, revisionOf } from "./level";
+import { buildSolution, LEVELS, levelId, revisionOf } from "./level";
 import { memorySave, type SaveStore } from "./save";
 import { Session } from "./session";
 
@@ -31,7 +31,7 @@ describe("the instruction set level", () => {
     expect(cue).toEqual({ say: "solved", level: session.level });
     expect(session.editInstructions({ add: { mnemonic: "PLUS", opcode: 3 } })).toBeNull();
     expect(session.solved).toBe(L7 + 1);
-    expect(session.next).toEqual({ to: "end" });
+    expect(session.next?.to).toBe("floor");
     expect(session.validInstructionSet?.add).toEqual({ mnemonic: "PLUS", opcode: 3 });
   });
 
@@ -104,4 +104,47 @@ describe("the instruction set level", () => {
     expect(session.instructionSet).toEqual({});
     expect(session.validInstructionSet).toBeNull();
   });
+});
+
+// Bitbox's set, with add moved to the spare opcode.
+function changed(): Session {
+  const session = atTypingPool();
+  session.editInstructions(BITBOX_INSTRUCTION_SET);
+  session.editInstructions({ add: { mnemonic: "ADD", opcode: 15 } });
+  return session;
+}
+
+// Builds a level's intended board, wired for Bitbox's opcodes, and runs
+// its test.
+function passes(session: Session, gate: string): boolean {
+  session.start(LEVELS.findIndex((level) => levelId(level) === gate));
+  session.edit((game) => {
+    if (session.circuit) buildSolution(game, session.circuit);
+  });
+  session.beginTest();
+  while (session.step());
+  return session.result?.passed === true;
+}
+
+describe("after the instruction set changes", () => {
+  test("the CPU still passes its test programs, in the new opcodes", () => {
+    expect(passes(changed(), "CPU")).toBe(true);
+  });
+
+  test("a control unit wired for the old opcodes fails", () => {
+    expect(passes(changed(), "CONTROL UNIT")).toBe(false);
+  });
+});
+
+test("a CPU board opened from a save holds its first test program", () => {
+  const store = memorySave();
+  const session = atTypingPool(store);
+  session.editInstructions(BITBOX_INSTRUCTION_SET);
+  const cpu = LEVELS.findIndex((level) => levelId(level) === "CPU");
+  session.start(cpu);
+  session.save();
+  const reloaded = new Session(store);
+  reloaded.start(cpu);
+  const memory = [...reloaded.game.nodes.values()].find((node) => node.type === "PROGRAM MEMORY");
+  expect(memory?.state.length).toBe(7);
 });

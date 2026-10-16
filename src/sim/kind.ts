@@ -23,6 +23,9 @@ export interface NodeKind {
   // A memory part's next state, from its inputs and its state. Other kinds
   // keep no state.
   next?: (inputs: Value[], state: State) => State;
+  // Whether its state is contents the level loads, such as a program, which
+  // restarting the board keeps.
+  keeps?: boolean;
   // One end of the level's truth table: an input the board sets, or an
   // output it reads.
   terminal?: "input" | "output";
@@ -142,7 +145,29 @@ const SUPPLIED: readonly NodeKind[] = [
   },
   constant("ON", 1),
   constant("OFF", 0),
+  // Program memory holds one word per address, I in its high byte and N in
+  // its low one, and gives the word at ADDR. Only a test run or the level
+  // loads it; nothing on the board writes to it.
+  {
+    type: "PROGRAM MEMORY",
+    inputCount: () => 1,
+    outputCount: () => 2,
+    pinWidth: () => 8,
+    size: () => ({ width: 8, height: 6 }),
+    evaluate: ([addr = 0], _width, state = []) => {
+      const word = state[addr] ?? 0;
+      return [(word >> 8) & 0xff, word & 0xff];
+    },
+    next: (_inputs, state) => state,
+    keeps: true,
+    clickable: false,
+    removable: false,
+    look: { shape: "box", inputs: ["ADDR"], outputs: ["I", "N"], flare: 0 },
+  },
 ];
+
+// The level supplies program memory on the CPU's board, like a terminal.
+export const PROGRAM_MEMORY: NodeType = "PROGRAM MEMORY";
 
 // A constant node gives one fixed signal from its only pin, always. It's
 // drawn as a small box with its signal written inside.
