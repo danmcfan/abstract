@@ -14,7 +14,7 @@ import {
 import type { Value } from "../sim/node";
 import { CLOCK_SPEED } from "../sim/session";
 import { CLUES } from "./clues";
-import { say } from "./speech";
+import { hush, say } from "./speech";
 import { GateIcon } from "./GateIcon";
 import { SoundButton } from "./SoundButton";
 import * as script from "./script";
@@ -395,6 +395,7 @@ export function Brief(props: { onStack: (arrive?: number) => void }): JSX.Elemen
               id="next"
               class="mt-2.5 btn"
               onClick={() => {
+                hush();
                 driver.start(session().levelIndex + 1);
               }}
             >

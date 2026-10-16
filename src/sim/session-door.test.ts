@@ -119,6 +119,13 @@ describe("the door program level", () => {
     session.typeName("ENIGMA");
     expect(session.keypad).toBe("TURING");
   });
+
+  test("a new game wipes the name off the keypad", () => {
+    const session = atTheDoor();
+    session.typeName("ENIGMA");
+    session.reset();
+    expect(session.keypad).toBe("");
+  });
 });
 
 describe("the door program's clock", () => {
