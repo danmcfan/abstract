@@ -566,17 +566,44 @@ const LEVELS: Partial<Record<string, LevelScript>> = {
     ],
     solved: [{ face: "happy", text: "Control unit, done! That's the whole instruction set, wired in." }],
   },
+  "INSTRUCTION REGISTER": {
+    intro: [
+      { face: "idle", text: "The instruction register keeps one instruction, and hands it out in pieces." },
+      { face: "idle", text: "D's top 4 signals are the opcode. The next 2 are R, and the low 2 are S." },
+    ],
+    hint: [
+      { face: "thinking", text: "A register keeps D. Split what it keeps into its 8 signals." },
+      { face: "thinking", text: "The split gives the top signal first. Join the first 4 for OPCODE." },
+      { face: "thinking", text: "Then join the next 2 for R, and the last 2 for S." },
+      CONTROLS,
+    ],
+    solved: [{ face: "happy", text: "Instruction register, done! One byte in, three answers out." }],
+  },
+  "REGISTER UNIT": {
+    intro: [
+      { face: "idle", text: "The register unit is where the work happens: the registers and the ALU." },
+      { face: "idle", text: "On a tick, register R takes what your opcode says. A always shows R." },
+      { face: "thinking", text: "RAM comes in from outside. IN says to take DIN instead." },
+    ],
+    hint: [
+      { face: "thinking", text: "R and S pick registers in the register file. R is the one that changes." },
+      { face: "thinking", text: "Your encoders read OPCODE. One tells the ALU its job, the other says what R takes." },
+      { face: "thinking", text: "A 4-way MUX8 on SRC picks what R takes: S, N, memory or the ALU." },
+      { face: "thinking", text: "A MUX8 on IN swaps RAM for DIN." },
+      CONTROLS,
+    ],
+    solved: [{ face: "happy", text: "Register unit, done! Every instruction that changes a register, in one part." }],
+  },
   "EXECUTE UNIT": {
     intro: [
-      { face: "idle", text: "Now the execute unit: everything that does an instruction, given as I and N." },
-      { face: "idle", text: "Registers, the ALU, RAM and your control unit, all on one board." },
+      { face: "idle", text: "Now the execute unit: everything that does an instruction." },
+      { face: "idle", text: "Your control unit, your register unit and RAM, on one board." },
       { face: "thinking", text: "Each step in the table is one instruction, written in your opcodes." },
     ],
     hint: [
-      { face: "thinking", text: "Split I. The top four signals are the opcode, then R, then S." },
-      { face: "thinking", text: "R and S pick registers in the register file. R is the one that changes." },
-      { face: "thinking", text: "A 4-way MUX8 on SRC picks what R takes: S, N, memory or the ALU." },
-      { face: "thinking", text: "Wire N straight into RAM's ADDR. A MUX8 on IN swaps RAM for DIN." },
+      { face: "thinking", text: "The control unit reads the opcode, and register R from the register unit's A." },
+      { face: "thinking", text: "Wire N straight into RAM's ADDR. RAM only uses its low 3 signals." },
+      { face: "thinking", text: "RAM takes register R when STORE is on, and feeds the register unit." },
       CONTROLS,
     ],
     solved: [
