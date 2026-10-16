@@ -5,6 +5,7 @@ import {
   checkLevel,
   floorAbove,
   hasClock,
+  isCircuit,
   LAYERS,
   layerLevels,
   levelAt,
@@ -621,4 +622,12 @@ describe("the instruction set level", () => {
     const solved = Object.fromEntries(LEVELS.slice(0, index + 1).map((level) => [levelId(level), revisionOf(level)]));
     expect(solvedCount(solved)).toBe(index + 1);
   });
+});
+
+test("the adders and ADD/SUB name their outputs SUM and COUT", () => {
+  const adders = LEVELS.filter((level) => isCircuit(level)).filter(
+    (level) => level.outputs.includes("COUT") && level.layer <= 4 && level.gate !== "ALU SLICE",
+  );
+  expect(adders.map((level) => level.gate)).toContain("ADD/SUB");
+  for (const level of adders) expect(level.outputs).toEqual(["SUM", "COUT"]);
 });

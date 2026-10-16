@@ -645,7 +645,7 @@ export const LEVELS: Level[] = [
     goal: "Add A, B and CIN. When SUB is on, add A, NOT B and CIN instead.",
     layer: 4,
     inputs: ["A", "B", "CIN", "SUB"],
-    outputs: ["OUT", "COUT"],
+    outputs: ["SUM", "COUT"],
     target: ([a = 0, b = 0, cin = 0, sub = 0]) => operate(sub, a, b, cin, 1),
     // Flip B with an XOR on SUB, then a full adder.
     solution: {
@@ -659,7 +659,7 @@ export const LEVELS: Level[] = [
         ["A", "adder:0"],
         ["flip", "adder:1"],
         ["CIN", "adder:2"],
-        ["adder", "OUT"],
+        ["adder", "SUM"],
         ["adder:1", "COUT"],
       ],
     },
