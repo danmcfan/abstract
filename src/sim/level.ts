@@ -1081,52 +1081,57 @@ export const LEVELS: Level[] = [
     },
   },
   {
-    gate: "REGISTER FILE",
+    gate: "2-REGISTER FILE",
     goal: "On a tick with WRITE on, register WSEL takes DIN. A and B always show registers ASEL and BSEL.",
     layer: 5,
     inputs: ["CLK", "WRITE", "WSEL", "DIN", "ASEL", "BSEL"],
     outputs: ["A", "B"],
-    widths: { WSEL: 2, DIN: 8, ASEL: 2, BSEL: 2, A: 8, B: 8 },
-    memory: places(4, ([, ...registers], [, , , , asel = 0, bsel = 0]) => [registers[asel] ?? 0, registers[bsel] ?? 0]),
+    widths: { DIN: 8, A: 8, B: 8 },
+    memory: places(2, ([, ...registers], [, , , , asel = 0, bsel = 0]) => [registers[asel] ?? 0, registers[bsel] ?? 0]),
     // Each register gets its own value, then A and B show two different
-    // registers, and the same one twice. Step 7 sets up a write but doesn't
+    // registers, and the same one twice. Step 6 sets up a write but doesn't
     // tick, so A still shows the old value.
     steps: [
       { inputs: [0, 1, 0, 11, 0, 0], expected: [0, 0] },
       { inputs: [0, 1, 0, 11, 0, 0], tick: true, expected: [11, 11] },
       { inputs: [0, 1, 1, 22, 0, 1], tick: true, expected: [11, 22] },
-      { inputs: [0, 1, 2, 33, 2, 1], tick: true, expected: [33, 22] },
-      { inputs: [0, 1, 3, 44, 3, 2], tick: true, expected: [44, 33] },
-      { inputs: [0, 0, 0, 99, 0, 3], tick: true, expected: [11, 44] },
+      { inputs: [0, 0, 0, 99, 1, 0], tick: true, expected: [22, 11] },
       { inputs: [0, 1, 1, 55, 1, 1], expected: [22, 22] },
       { inputs: [0, 1, 1, 55, 1, 0], tick: true, expected: [55, 11] },
-      { inputs: [0, 0, 0, 0, 2, 3], expected: [33, 44] },
+      { inputs: [0, 0, 0, 0, 0, 1], expected: [11, 55] },
     ],
-    grid: { width: 64, height: 52 },
-    // A DEMUX4 sends WRITE to the LOAD of register WSEL, and a 4-way MUX8
-    // for each of A and B picks the register it shows.
+    // Like the 2-bit register: four registers are the same thing twice
+    // more, so Bitbox hands over the 4-register file.
+    gives: {
+      gate: "REGISTER FILE",
+      inputs: ["CLK", "WRITE", "WSEL", "DIN", "ASEL", "BSEL"],
+      outputs: ["A", "B"],
+      widths: { WSEL: 2, DIN: 8, ASEL: 2, BSEL: 2, A: 8, B: 8 },
+      memory: places(4, ([, ...registers], [, , , , asel = 0, bsel = 0]) => [registers[asel] ?? 0, registers[bsel] ?? 0]),
+    },
+    grid: { width: 56, height: 40 },
+    // A DEMUX sends WRITE to the LOAD of register WSEL, and a MUX8 for each
+    // of A and B picks the register it shows.
     solution: {
       nodes: [
-        { name: "write", type: "DEMUX4", x: 20, y: 12 },
-        { name: "r0", type: "REGISTER", x: 32, y: 7 },
-        { name: "r1", type: "REGISTER", x: 32, y: 17 },
-        { name: "r2", type: "REGISTER", x: 32, y: 27 },
-        { name: "r3", type: "REGISTER", x: 32, y: 37 },
-        { name: "readA", type: "4-WAY MUX8", x: 46, y: 15 },
-        { name: "readB", type: "4-WAY MUX8", x: 46, y: 36 },
+        { name: "write", type: "DEMUX", x: 18, y: 10 },
+        { name: "r0", type: "REGISTER", x: 30, y: 8 },
+        { name: "r1", type: "REGISTER", x: 30, y: 22 },
+        { name: "readA", type: "MUX8", x: 42, y: 10 },
+        { name: "readB", type: "MUX8", x: 42, y: 24 },
       ],
       wires: [
         ["WRITE", "write:0"],
         ["WSEL", "write:1"],
-        ...[0, 1, 2, 3].flatMap((i): [string, string][] => [
+        ...[0, 1].flatMap((i): [string, string][] => [
           ["CLK", `r${i}:0`],
           [`write:${i}`, `r${i}:1`],
           ["DIN", `r${i}:2`],
           [`r${i}`, `readA:${i}`],
           [`r${i}`, `readB:${i}`],
         ]),
-        ["ASEL", "readA:4"],
-        ["BSEL", "readB:4"],
+        ["ASEL", "readA:2"],
+        ["BSEL", "readB:2"],
         ["readA", "A"],
         ["readB", "B"],
       ],

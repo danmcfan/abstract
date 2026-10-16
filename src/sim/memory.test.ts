@@ -29,7 +29,7 @@ const L5 = [
   "2-BIT REGISTER",
   "DEMUX4",
   "4-WAY MUX8",
-  "REGISTER FILE",
+  "2-REGISTER FILE",
   "RAM",
 ];
 
@@ -64,7 +64,7 @@ describe("the L5 levels", () => {
   });
 
   test.each(L5)("%s puts its part in the parts bin once solved", (gate) => {
-    const part = gate === "2-BIT REGISTER" ? "REGISTER" : gate;
+    const part = ({ "2-BIT REGISTER": "REGISTER", "2-REGISTER FILE": "REGISTER FILE" } as Record<string, string>)[gate] ?? gate;
     expect(partsBin(levelIndex(gate) + 1)).toContain(part);
     expect(partsBin(levelIndex(gate))).not.toContain(part);
   });
@@ -180,15 +180,21 @@ describe("the 4-way MUX8", () => {
   });
 });
 
-const FILE = levelOf("REGISTER FILE");
+const FILE = levelOf("2-REGISTER FILE");
 
 describe("the register file", () => {
+  test("the 2-register file gives the 4-register REGISTER FILE", () => {
+    expect(FILE.gives).toMatchObject({ gate: "REGISTER FILE", widths: { WSEL: 2, ASEL: 2, BSEL: 2, DIN: 8 } });
+    expect(FILE.widths).toMatchObject({ DIN: 8, A: 8, B: 8 });
+    expect(FILE.widths.WSEL ?? 1).toBe(1);
+  });
+
   test("shows a register's old value on A until the tick that writes it", () => {
     const steps: Row[] = [
-      { inputs: [0, 1, 2, 77, 2, 2], expected: [] },
-      { inputs: [1, 1, 2, 77, 2, 2], expected: [] },
-      { inputs: [0, 1, 0, 9, 2, 0], tick: true, expected: [] },
-      { inputs: [0, 0, 0, 1, 0, 2], tick: true, expected: [] },
+      { inputs: [0, 1, 1, 77, 1, 1], expected: [] },
+      { inputs: [1, 1, 1, 77, 1, 1], expected: [] },
+      { inputs: [0, 1, 0, 9, 1, 0], tick: true, expected: [] },
+      { inputs: [0, 0, 0, 1, 0, 1], tick: true, expected: [] },
     ];
     expect(partPlays(FILE, steps)).toEqual([
       [0, 0],
@@ -200,7 +206,7 @@ describe("the register file", () => {
 
   test("its timing table writes every register a different value, and shows the same register on A and B", () => {
     const writes = FILE.steps!.filter((step) => step.tick === true && step.inputs[1] === 1);
-    expect(new Set(writes.map((step) => step.inputs[2])).size).toBe(4);
+    expect(new Set(writes.map((step) => step.inputs[2])).size).toBe(2);
     expect(new Set(writes.map((step) => step.inputs[3])).size).toBe(writes.length);
     expect(FILE.steps!.some(({ inputs: [, , , , a, b] }) => a === b)).toBe(true);
   });
