@@ -701,7 +701,7 @@ export const LEVELS: Level[] = [
   {
     gate: "ALU SLICE",
     revision: 3,
-    goal: "Do OP to A and B: 0 add, 1 subtract, 4 and, 5 or, 6 xor, 7 not A. Arithmetic adds A, B (or NOT B) and CIN, so OP 2 adds and 3 subtracts. COUT is the carry for every OP.",
+    goal: "Do OP to A and B. Arithmetic adds A, B (or NOT B for OP 1 and 3) and CIN; 4 and, 5 or, 6 xor, 7 not A. COUT is the carry for every OP.",
     layer: 4,
     inputs: ["A", "B", "CIN", "OP"],
     outputs: ["OUT", "COUT"],
