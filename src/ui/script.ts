@@ -396,11 +396,13 @@ const LEVELS: Partial<Record<string, LevelScript>> = {
       { face: "idle", text: "Last job in the vault: RAM. 8 places, each holding 8 signals." },
       { face: "idle", text: "ADDR numbers the place. On a tick with WRITE on, it takes DIN." },
       { face: "idle", text: "DOUT always shows the place ADDR numbers." },
+      { face: "idle", text: "ADDR has 8 signals, but RAM only counts its low 3. Address 13 is place 5." },
     ],
     hint: [
       { face: "thinking", text: "Two register files have 8 registers between them." },
-      { face: "thinking", text: "ADDR's low two signals pick the register in both. Join them for WSEL and ASEL." },
-      { face: "thinking", text: "ADDR's top signal picks the file: a DEMUX steers WRITE, and a MUX8 picks DOUT." },
+      { face: "thinking", text: "Split ADDR. Its low 3 signals come out of the bottom three pins." },
+      { face: "thinking", text: "The lowest two pick the register in both. Join them for WSEL and ASEL." },
+      { face: "thinking", text: "The one above picks the file: a DEMUX steers WRITE, and a MUX8 picks DOUT." },
       CONTROLS,
     ],
     solved: [
@@ -426,30 +428,21 @@ const LEVELS: Partial<Record<string, LevelScript>> = {
       { face: "idle", text: "Our CPU will never lose its place now." },
     ],
   },
-  "2-TO-4 DECODER": {
+  "3-TO-8 DECODER": {
     intro: [
       { face: "idle", text: "A decoder turns a number into one signal." },
-      { face: "idle", text: "S is a number from 0 to 3. Only the output with S's number is on." },
+      { face: "idle", text: "S is a number from 0 to 7. Number n is D's signal n: only that one is on." },
     ],
     hint: [
-      { face: "thinking", text: "Split S. Each output is an AND of two signals." },
-      { face: "thinking", text: "D0 wants both of S's signals off. NOT them first." },
+      { face: "thinking", text: "Split S. Its top signal picks a group of four: 0 to 3, or 4 to 7." },
+      { face: "thinking", text: "A DEMUX4 per group. Join S's low two signals for its SEL." },
+      { face: "thinking", text: "A join takes its high signal first. Number n goes into pin 7 minus n." },
       CONTROLS,
     ],
-    solved: [{ face: "happy", text: "Decoder, done! Two signals in, one of four lit." }],
-  },
-  "4-TO-16 DECODER": {
-    intro: [
-      { face: "idle", text: "Our CPU will read a number from 0 to 15 for each instruction." },
-      { face: "idle", text: "This decoder lights one of 16 signals for it. LO has 0 to 7, and HI 8 to 15." },
+    solved: [
+      { face: "happy", text: "Decoder, done! Three signals in, one of eight lit." },
+      { face: "idle", text: "Four signals is just twice the groups. There's a 4-to-16 decoder in your parts bin!" },
     ],
-    hint: [
-      { face: "thinking", text: "Split S. Its top two signals pick a group of four, with a 2-to-4 decoder." },
-      { face: "thinking", text: "A DEMUX4 per group, on S's bottom two signals, picks the one within it." },
-      { face: "thinking", text: "Join the 16 signals into LO and HI. Number 0 goes in LO's bottom pin." },
-      CONTROLS,
-    ],
-    solved: [{ face: "happy", text: "4-to-16 decoder, done! Any instruction number, one signal lit." }],
   },
   "4-BIT ZERO TEST": {
     intro: [
@@ -467,6 +460,18 @@ const LEVELS: Partial<Record<string, LevelScript>> = {
       { face: "idle", text: "8 signals is just one more row of ORs. There's an 8-signal zero test in your parts bin!" },
     ],
   },
+  NONE: {
+    intro: [
+      { face: "idle", text: "Eight wires, one question: is every one of them off?" },
+      { face: "idle", text: "OUT is on only when A to H are all off." },
+    ],
+    hint: [
+      { face: "thinking", text: "Eight signals make a bus. Join them." },
+      { face: "thinking", text: "Then ask the zero test." },
+      CONTROLS,
+    ],
+    solved: [{ face: "happy", text: "None, done! All quiet, one lamp on." }],
+  },
   SEQUENCER: {
     intro: [
       { face: "idle", text: "Every instruction takes two ticks. Fetch reads it, then execute does it." },
@@ -479,6 +484,21 @@ const LEVELS: Partial<Record<string, LevelScript>> = {
     ],
     solved: [
       { face: "happy", text: "Sequencer, done! Fetch, execute, fetch, execute." },
+      { face: "thinking", text: "But a CPU has to stop somewhere." },
+    ],
+  },
+  STEPPER: {
+    intro: [
+      { face: "idle", text: "The stepper is a sequencer with a brake." },
+      { face: "idle", text: "EXEC toggles on every tick, until HALT is on during execute. Then it holds." },
+    ],
+    hint: [
+      { face: "thinking", text: "Put an AND between CLK and a sequencer, so you can cut the clock." },
+      { face: "thinking", text: "The clock runs unless EXEC and HALT are both on. That's a NAND." },
+      CONTROLS,
+    ],
+    solved: [
+      { face: "happy", text: "Stepper, done! Fetch, execute, and stop when told." },
       { face: "amazed", text: "That's the clock tower wound up. The whole factory keeps time with us now." },
       { face: "thinking", text: "Next we decide what our instructions are called." },
     ],
@@ -532,7 +552,7 @@ const LEVELS: Partial<Record<string, LevelScript>> = {
       { face: "thinking", text: "Split I. The top four signals are the opcode, then R, then S." },
       { face: "thinking", text: "R and S pick registers in the register file. R is the one that changes." },
       { face: "thinking", text: "A 4-way MUX8 on SRC picks what R takes: S, N, memory or the ALU." },
-      { face: "thinking", text: "RAM's address is N's bottom three signals. A MUX8 on IN swaps RAM for DIN." },
+      { face: "thinking", text: "Wire N straight into RAM's ADDR. A MUX8 on IN swaps RAM for DIN." },
       CONTROLS,
     ],
     solved: [
