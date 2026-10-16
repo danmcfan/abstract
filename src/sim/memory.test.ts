@@ -64,7 +64,8 @@ describe("the L5 levels", () => {
   });
 
   test.each(L5)("%s puts its part in the parts bin once solved", (gate) => {
-    const part = ({ "2-BIT REGISTER": "REGISTER", "2-REGISTER FILE": "REGISTER FILE" } as Record<string, string>)[gate] ?? gate;
+    const part =
+      ({ "2-BIT REGISTER": "REGISTER", "2-REGISTER FILE": "REGISTER FILE" } as Record<string, string>)[gate] ?? gate;
     expect(partsBin(levelIndex(gate) + 1)).toContain(part);
     expect(partsBin(levelIndex(gate))).not.toContain(part);
   });
@@ -186,7 +187,7 @@ describe("the register file", () => {
   test("the 2-register file gives the 4-register REGISTER FILE", () => {
     expect(FILE.gives).toMatchObject({ gate: "REGISTER FILE", widths: { WSEL: 2, ASEL: 2, BSEL: 2, DIN: 8 } });
     expect(FILE.widths).toMatchObject({ DIN: 8, A: 8, B: 8 });
-    expect(FILE.widths.WSEL ?? 1).toBe(1);
+    expect(FILE.widths).not.toHaveProperty("WSEL");
   });
 
   test("shows a register's old value on A until the tick that writes it", () => {

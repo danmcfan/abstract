@@ -1107,7 +1107,10 @@ export const LEVELS: Level[] = [
       inputs: ["CLK", "WRITE", "WSEL", "DIN", "ASEL", "BSEL"],
       outputs: ["A", "B"],
       widths: { WSEL: 2, DIN: 8, ASEL: 2, BSEL: 2, A: 8, B: 8 },
-      memory: places(4, ([, ...registers], [, , , , asel = 0, bsel = 0]) => [registers[asel] ?? 0, registers[bsel] ?? 0]),
+      memory: places(4, ([, ...registers], [, , , , asel = 0, bsel = 0]) => [
+        registers[asel] ?? 0,
+        registers[bsel] ?? 0,
+      ]),
     },
     grid: { width: 56, height: 40 },
     // A DEMUX sends WRITE to the LOAD of register WSEL, and a MUX8 for each
