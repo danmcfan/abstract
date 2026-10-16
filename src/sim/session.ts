@@ -157,6 +157,7 @@ export class Session {
     this.instructionSet = {};
     this.validInstructionSet = null;
     this.doorProgram = "";
+    this.keypad = "";
     this.finished = false;
     this.readInstructionSet();
     this.start(0);
