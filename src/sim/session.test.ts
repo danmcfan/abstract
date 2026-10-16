@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { moveNode, placeNode, setInput, wire, type Game, type Pin } from "./circuit";
+import { edgeInto, moveNode, placeNode, setInput, wire, type Game, type Pin } from "./circuit";
 import type { Node, NodeID, NodeType } from "./node";
 import type { Rect } from "./grid";
 import { memorySave, type SaveData, type SaveStore } from "./save";
@@ -814,4 +814,29 @@ describe("the clock speed", () => {
     driver.setClockSpeed(1);
     expect(scheduler.tasks.map((t) => t.ms)).toEqual([TEST_STEP_MS]);
   });
+});
+
+describe("a test run with every switch left on", () => {
+  // The board shows the rows from 0 too, not from what the switches latched (#73).
+  test.each(["D LATCH", "BIT", "2-BIT REGISTER", "PROGRAM COUNTER", "SEQUENCER", "CPU"])(
+    "%s shows every row passing",
+    (id) => {
+      const index = LEVELS.findIndex((level) => levelId(level) === id);
+      const session = new Session(memorySave(saved(index, index)));
+      session.start(index);
+      session.edit((game) => {
+        buildSolution(game, circuitAt(index));
+        for (const node of game.nodes.values()) if (node.type === "INPUT") setInput(game, node.id, 2 ** node.width - 1);
+      });
+      const level = circuitAt(index);
+      const lamps = level.outputs.map((label) => terminal(session.game, label));
+      session.beginTest();
+      while (session.step()) {
+        const row = session.rows[session.currentRow ?? -1];
+        if (row?.tick !== undefined || level.programs !== undefined) continue;
+        expect(lamps.map((lamp) => edgeInto(session.game, lamp, 0)?.value ?? 0)).toEqual(row?.actual ?? []);
+      }
+      expect(session.rows.map((row) => row.status)).not.toContain("failed");
+    },
+  );
 });

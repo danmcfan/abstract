@@ -1,4 +1,4 @@
-import { edgeInto, loadContents, programMemoryOf, restart, type Game } from "./circuit";
+import { edgeInto, loadContents, programMemoryOf, restartForTest, type Game } from "./circuit";
 import { play, registersOf, type Outcome } from "./cpu";
 import { applyInputs, machineOn, TICK_LIMIT, type CheckResult, type CircuitLevel, type ProgramLevel } from "./level";
 import type { Value } from "./node";
@@ -45,7 +45,7 @@ class ProgramRun implements Run {
       return null;
     }
     if (!this.playing) {
-      restart(game);
+      restartForTest(game);
       const memory = programMemoryOf(game.nodes);
       if (memory) loadContents(game, memory.id, test.words);
       this.current = index;

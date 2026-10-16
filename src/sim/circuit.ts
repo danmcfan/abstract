@@ -170,11 +170,21 @@ export function programMemoryOf(nodes: ReadonlyMap<NodeID, Node>): Node | undefi
 
 // Puts the board back to off, so what happens next doesn't hang on what
 // happened before. Memory parts go back to all 0 but keep loaded contents,
-// and input terminals keep their values. simulate starts from the same place.
+// and input terminals keep their values.
 export function restart(game: Game): void {
+  clearBoard(game, false);
+}
+
+// restart for a test run: the switches go off too, so no memory part takes in
+// what they were left on. simulate starts from the same place.
+export function restartForTest(game: Game): void {
+  clearBoard(game, true);
+}
+
+function clearBoard(game: Game, switchesOff: boolean): void {
   for (const node of game.nodes.values()) {
     if (nodeKind(game, node).keeps !== true) node.state = [];
-    if (nodeKind(game, node).terminal !== "input") node.signals = [];
+    if (nodeKind(game, node).terminal !== "input" || switchesOff) node.signals = [];
   }
   settle(game);
 }
@@ -409,7 +419,8 @@ export function simulate(
     inputs: [],
     states: board.steps.map(({ node, kind }) => (kind.keeps === true ? (contents.get(node.id) ?? node.state) : [])),
   };
-  run(board, signals, (node) => node.signals[0] ?? 0);
+  // Every input starts off, so no memory part takes anything in before the first values.
+  run(board, signals, () => 0);
   const slot = new Map(inputs.map((id, i) => [id, i]));
   const lamps = outputs.map((id) => board.steps.findIndex((step) => step.node.id === id));
   return (values) => {
