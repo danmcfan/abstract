@@ -170,10 +170,18 @@ export function programMemoryOf(nodes: ReadonlyMap<NodeID, Node>): Node | undefi
 
 // Puts the board back to off, so what happens next doesn't hang on what
 // happened before. Memory parts go back to all 0 but keep loaded contents,
-// and input terminals keep their values unless switchesOff turns them off too,
-// as a test run does so no memory part takes in what the switches were left on.
-// simulate starts from the same place, with the switches off.
-export function restart(game: Game, { switchesOff = false } = {}): void {
+// and input terminals keep their values.
+export function restart(game: Game): void {
+  clearBoard(game, false);
+}
+
+// restart for a test run: the switches go off too, so no memory part takes in
+// what they were left on. simulate starts from the same place.
+export function restartForTest(game: Game): void {
+  clearBoard(game, true);
+}
+
+function clearBoard(game: Game, switchesOff: boolean): void {
   for (const node of game.nodes.values()) {
     if (nodeKind(game, node).keeps !== true) node.state = [];
     if (nodeKind(game, node).terminal !== "input" || switchesOff) node.signals = [];

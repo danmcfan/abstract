@@ -1,6 +1,6 @@
 import { assembleProgram, type Assembly } from "./assembler";
 import type { Game } from "./circuit";
-import { newGame, placeNode, restart, tick } from "./circuit";
+import { newGame, placeNode, restartForTest, tick } from "./circuit";
 import { DoorRun } from "./door";
 import { DEFAULT_GRID } from "./grid";
 import {
@@ -408,7 +408,7 @@ export class Session {
     const { level } = this;
     if (this.testing || !isCircuit(level)) return false;
     this.sound.play("carriage");
-    restart(this.game, { switchesOff: true });
+    restartForTest(this.game);
     this.testRun = testRun(level, checkLevel(this.game, this.levelIndex, this.levels));
     this.result = null;
     this.stamped = false;
