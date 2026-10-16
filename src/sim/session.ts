@@ -403,12 +403,12 @@ export class Session {
 
   // Returns false if a run is already going. Every row is checked here, out
   // of sight and without a sound; step() shows them, one tick each. The
-  // board restarts first, so the rows it shows are the ones checked.
+  // board restarts first, switches off, so the rows it shows are the ones checked.
   beginTest(): boolean {
     const { level } = this;
     if (this.testing || !isCircuit(level)) return false;
     this.sound.play("carriage");
-    restart(this.game);
+    restart(this.game, { switchesOff: true });
     this.testRun = testRun(level, checkLevel(this.game, this.levelIndex, this.levels));
     this.result = null;
     this.stamped = false;

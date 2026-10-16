@@ -90,6 +90,21 @@ describe("each level's intended solution", () => {
     },
   );
 
+  // A memory part starts at 0 however the player left the switches (#73).
+  test.each(unbuilt.map(({ level, index }) => [levelId(level), index] as const))(
+    "%s passes with every switch left on",
+    (_, index) => {
+      const level = circuitAt(index);
+      const game = loadLevel(level);
+      buildSolution(game, level);
+      for (const label of level.inputs) {
+        const node = terminalNamed(game, "input", label)!;
+        setInput(game, node.id, 2 ** node.width - 1);
+      }
+      expect(checkLevel(game, index).passed).toBe(true);
+    },
+  );
+
   test("a wire names a terminal by its label and a placed node by its name, with :n for its nth pin", () => {
     const level: Level = {
       ...circuitAt(1),

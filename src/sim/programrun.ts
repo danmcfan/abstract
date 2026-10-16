@@ -45,7 +45,7 @@ class ProgramRun implements Run {
       return null;
     }
     if (!this.playing) {
-      restart(game);
+      restart(game, { switchesOff: true });
       const memory = programMemoryOf(game.nodes);
       if (memory) loadContents(game, memory.id, test.words);
       this.current = index;
