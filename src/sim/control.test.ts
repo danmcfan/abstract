@@ -158,10 +158,18 @@ test("the 2-to-4 decoder is no longer a level", () => {
 
 describe("none", () => {
   test("turns OUT on only when all of A to H are off", () => {
-    const rows = truthTable(levelOf("NONE"));
+    const none = kindOf(PARTS, "NONE");
     expect(levelOf("NONE").inputs).toEqual(["A", "B", "C", "D", "E", "F", "G", "H"]);
-    expect(rows).toHaveLength(256);
-    expect(rows.filter((row) => row.expected[0] === 1).map((row) => row.inputs)).toEqual([[0, 0, 0, 0, 0, 0, 0, 0]]);
+    const on = Array.from({ length: 256 }, (_, n) => Array.from({ length: 8 }, (__, i) => (n >> i) & 1)).filter(
+      (inputs) => none.evaluate(inputs, 1)[0] === 1,
+    );
+    expect(on).toEqual([[0, 0, 0, 0, 0, 0, 0, 0]]);
+  });
+
+  test("shows all off, each input on alone, and all on", () => {
+    const shown = truthTable(levelOf("NONE"));
+    expect(shown).toHaveLength(10);
+    expect(shown.map((row) => row.expected[0])).toEqual([1, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
   });
 
   test("comes straight after the 4-bit zero test", () => {

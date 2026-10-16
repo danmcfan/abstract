@@ -1171,8 +1171,8 @@ export const LEVELS: Level[] = [
     // first, so those are pins 5, 6 and 7. Their B outputs go unused.
     solution: {
       nodes: [
-        { name: "addr", type: "SPLIT", x: 15, y: 30, width: 8 },
-        { name: "low", type: "JOIN", x: 21, y: 30, width: 2 },
+        { name: "addr", type: "SPLIT", x: 12, y: 24, width: 8 },
+        { name: "low", type: "JOIN", x: 20, y: 38, width: 2 },
         { name: "write", type: "DEMUX", x: 22, y: 14 },
         { name: "lower", type: "REGISTER FILE", x: 34, y: 13 },
         { name: "upper", type: "REGISTER FILE", x: 34, y: 35 },
@@ -1338,6 +1338,13 @@ export const LEVELS: Level[] = [
     // A join for the zero test.
     buses: [8],
     target: (inputs) => [inputs.every((a) => a === 0) ? 1 : 0],
+    // All off, each input on alone, then all on. The test run checks the
+    // rest out of sight.
+    cases: [
+      [0, 0, 0, 0, 0, 0, 0, 0],
+      ...Array.from({ length: 8 }, (_, on) => Array.from({ length: 8 }, (__, i) => (i === on ? 1 : 0))),
+      [1, 1, 1, 1, 1, 1, 1, 1],
+    ],
     // Join the inputs into one bus and zero test it.
     solution: {
       nodes: [
