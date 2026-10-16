@@ -3,6 +3,7 @@ import { render } from "solid-js/web";
 import type { Arm, Pose } from "../robot/clips";
 import { EXPRESSIONS, type Expression } from "../robot/expression";
 import { createViewer, gameLighting, type Lighting, type View, type Viewer } from "../robot/viewer";
+import { isTyping } from "../ui/keys";
 
 // Bitbox's model sheet, a dev-only page at /bitbox.html: the robot under
 // lights you can move, from any side, in any expression, or posed by hand.
@@ -186,7 +187,7 @@ function ModelSheet(): JSX.Element {
   };
 
   const onKey = (event: KeyboardEvent): void => {
-    if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) return;
+    if (isTyping(event.target)) return;
     const n = Number(event.key);
     const chosen = n >= 1 ? EXPRESSIONS[n - 1] : undefined;
     if (chosen !== undefined) setExpression(chosen);
