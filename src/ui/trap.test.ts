@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { wrapTab } from "./trap";
+import { tabStops, wrapTab } from "./trap";
 
 const items = ["a", "b", "c"];
 
@@ -23,4 +23,12 @@ test("focus outside the stops is pulled back in", () => {
 
 test("no stops leaves focus alone", () => {
   expect(wrapTab([], "a", false)).toBeNull();
+});
+
+test("tabStops lists enabled buttons in each root, skipping missing roots", () => {
+  const live = {} as unknown as HTMLElement;
+  const root = {
+    querySelectorAll: () => [live],
+  } as unknown as Element;
+  expect(tabStops([null, root])).toEqual([live]);
 });

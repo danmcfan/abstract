@@ -10,3 +10,8 @@ export function wrapTab<T>(stops: readonly T[], active: T, back: boolean): T | n
   if (!back && active === last) return first;
   return null;
 }
+
+// The buttons a player can Tab to inside these roots, in order.
+export function tabStops(roots: readonly (Element | null)[]): HTMLElement[] {
+  return roots.flatMap((root) => (root ? Array.from(root.querySelectorAll<HTMLElement>("button:not(:disabled)")) : []));
+}

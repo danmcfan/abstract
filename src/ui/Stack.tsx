@@ -13,7 +13,8 @@ import {
 import { GateIcon } from "./GateIcon";
 import { session } from "./state";
 import { speech } from "./speech";
-import { wrapTab } from "./trap";
+import { tabStops, wrapTab } from "./trap";
+import { DIALOGUE_ID } from "./Dialogue";
 
 const pad = (n: number): string => String(n).padStart(2, "0");
 
@@ -63,10 +64,7 @@ export function Stack(props: {
   // A modal dialog: focus moves in, Tab stays inside (and in Bitbox's window,
   // which pops up over it), Escape closes it, and focus goes back on close.
   const opener = document.activeElement;
-  const stops = (): HTMLElement[] =>
-    [dialog, document.querySelector("#dialogue")].flatMap((root) =>
-      root ? Array.from(root.querySelectorAll<HTMLElement>("button:not(:disabled)")) : [],
-    );
+  const stops = (): HTMLElement[] => tabStops([dialog ?? null, document.querySelector(`#${DIALOGUE_ID}`)]);
   const onKey = (event: KeyboardEvent): void => {
     // Escape belongs to Bitbox while he's talking. This listens in the capture
     // phase so it sees him talking before his own listener hushes him.
@@ -110,7 +108,6 @@ export function Stack(props: {
       ref={(el) => {
         dialog = el;
       }}
-      aria-modal="true"
       aria-labelledby="stack-title"
       class="fixed inset-0 z-30 m-0 size-full max-h-none max-w-none overflow-y-auto border-0 bg-paper/95 p-4 text-ink-deep"
     >
