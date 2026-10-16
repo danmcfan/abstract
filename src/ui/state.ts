@@ -7,6 +7,7 @@ import { localSave } from "../sim/save";
 import { Session } from "../sim/session";
 import type { Cue } from "../sim/story";
 import { sound } from "./sound";
+import { speak } from "./speech";
 
 // Adapts the session to Solid. The sim mutates plain objects in place and
 // settles itself; every change bumps a version signal, so readers that call
@@ -31,6 +32,7 @@ export const driver = new Driver(
     },
   },
   touch,
+  speak,
 );
 
 export function session(): Session {
@@ -58,6 +60,18 @@ export function editInstructions(rows: InstructionSet): Cue | null {
   const cue = live.editInstructions(rows);
   touch();
   return cue;
+}
+
+// Changes the door program's text.
+export function editDoorProgram(text: string): void {
+  live.editDoorProgram(text);
+  touch();
+}
+
+// Types a name on the door's keypad.
+export function typeName(name: string): void {
+  live.typeName(name);
+  touch();
 }
 
 // Whether Run is ticking the clock.

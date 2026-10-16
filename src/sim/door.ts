@@ -62,9 +62,9 @@ export class DoorRun {
 export function referenceDoorProgram(set: InstructionSet): string {
   const m = (id: InstructionID): string => `${rowOf(set, id).mnemonic.padEnd(6)} `;
   return [
-    "; Add up the name's letters and send the total to the door.",
-    `      ${m("set")}R0, 0       ; running total`,
-    `next: ${m("in")}R1, KEYPAD  ; next letter, 0 at the end`,
+    "; Add up the letters, send the total.",
+    `      ${m("set")}R0, 0      ; the total`,
+    `next: ${m("in")}R1, KEYPAD ; 0 after the last`,
     `      ${m("jump if zero")}R1, done`,
     `      ${m("add")}R0, R1`,
     `      ${m("jump")}next`,

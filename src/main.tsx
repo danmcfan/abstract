@@ -1,10 +1,13 @@
-import { Show, createSignal, type JSX } from "solid-js";
+import { Match, Show, Switch, createSignal, type JSX } from "solid-js";
 import { render } from "solid-js/web";
 import { pinPosition, type Pin } from "./sim/circuit";
+import { referenceDoorProgram } from "./sim/door";
+import { BITBOX_INSTRUCTION_SET } from "./sim/instruction";
 import { circuitAt, layerOf, LEVELS, levelId, solutionWires } from "./sim/level";
 import type { Node, NodeID } from "./sim/node";
 import { Board, toScreen } from "./ui/Board";
 import { DesktopNotice } from "./ui/DesktopNotice";
+import { CpuPanel, DoorScreen } from "./ui/DoorScreen";
 import { watchScreen } from "./ui/device";
 import { Dialogue } from "./ui/Dialogue";
 import { InstructionForm } from "./ui/InstructionForm";
@@ -96,7 +99,8 @@ function App(): JSX.Element {
 
 // The sheet: the menu bar across the top, the brief down the left over
 // Bitbox's desk, and the board over the parts bin. The instruction set level
-// has its form where the board goes.
+// has its form where the board goes, and the door program has its editor and
+// the door there, over the CPU in the parts bin's place.
 function Play(props: { onMenu: () => void; onStack: (arrive?: number) => void; stacked: boolean }): JSX.Element {
   useTutorial();
   return (
@@ -104,14 +108,21 @@ function Play(props: { onMenu: () => void; onStack: (arrive?: number) => void; s
       <MenuBar onMenu={props.onMenu} onStack={props.onStack} />
       <Brief onStack={props.onStack} />
       <div class="relative min-h-0 min-w-0">
-        <Show when={!session().circuit} fallback={<Board />}>
-          <InstructionForm />
-        </Show>
+        <Switch fallback={<Board />}>
+          <Match when={session().level.kind === "instruction set"}>
+            <InstructionForm />
+          </Match>
+          <Match when={session().level.kind === "door program"}>
+            <DoorScreen />
+          </Match>
+        </Switch>
       </div>
       <Show when={!props.stacked} fallback={<div />}>
         <Dialogue docked />
       </Show>
-      <PartsBin />
+      <Show when={session().level.kind === "door program"} fallback={<PartsBin />}>
+        <CpuPanel />
+      </Show>
     </div>
   );
 }
@@ -149,6 +160,11 @@ if (import.meta.env.DEV) {
       // are on the board as the given nodes, so the playthrough can build it.
       get solution() {
         return session().circuit?.solution ?? null;
+      },
+      // The door program Bitbox would write, in the player's mnemonics, so
+      // the playthrough can type it.
+      get referenceProgram() {
+        return referenceDoorProgram(session().validInstructionSet ?? BITBOX_INSTRUCTION_SET);
       },
       solutionWires: (ids: NodeID[]) => solutionWires(current(), circuitAt(session().levelIndex), ids),
       nodes: () => [...current().nodes.values()].map(({ id, type, label, isHigh }) => ({ id, type, label, isHigh })),
