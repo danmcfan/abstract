@@ -229,12 +229,12 @@ function places(count: number, outputs: Memory["outputs"]): Memory {
 // the decoder's LO and HI: the instruction with opcode n is on pin 7 - n of
 // one or the other. Each board is wired for the set its level reads.
 const line = (n: number): string => `${n < 8 ? "lo" : "hi"}:${7 - (n % 8)}`;
-const linesOf =
+const lineIn =
   (set: InstructionSet) =>
   (id: (typeof INSTRUCTIONS)[number]["id"]): string =>
     line(rowOf(set, id).opcode ?? 0);
 // The opcode no instruction has in the set.
-const spareOf = (set: InstructionSet): number => {
+export const spareOf = (set: InstructionSet): number => {
   const opcodes = new Set(INSTRUCTIONS.flatMap(({ id }) => rowOf(set, id).opcode ?? []));
   return Array.from({ length: 16 }, (_, n) => n).find((n) => !opcodes.has(n)) ?? 0;
 };
@@ -1482,7 +1482,7 @@ export function withInstructionSet(levels: readonly Level[], set: InstructionSet
 }
 
 function opEncoderLevel(set: InstructionSet): CircuitLevel {
-  const lineOf = linesOf(set);
+  const lineOf = lineIn(set);
   return {
     gate: "OP ENCODER",
     goal: "OP is the ALU job for your opcode's instruction: add 0, subtract 1, and 4, or 5, xor 6, and 7 for every other instruction.",
@@ -1518,7 +1518,7 @@ function opEncoderLevel(set: InstructionSet): CircuitLevel {
 }
 
 function writeEncoderLevel(set: InstructionSet): CircuitLevel {
-  const lineOf = linesOf(set);
+  const lineOf = lineIn(set);
   return {
     gate: "WRITE ENCODER",
     goal: "WRITE is on when your opcode's instruction writes register R. SRC picks what R takes: 0 S, 1 N, 2 RAM or DIN, 3 the ALU.",
@@ -1562,7 +1562,7 @@ function writeEncoderLevel(set: InstructionSet): CircuitLevel {
 }
 
 function controlUnit(set: InstructionSet): CircuitLevel {
-  const lineOf = linesOf(set);
+  const lineOf = lineIn(set);
   const jz = rowOf(set, "jump if zero").opcode ?? 0;
   return {
     revision: 2,

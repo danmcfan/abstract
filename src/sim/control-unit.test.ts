@@ -10,6 +10,7 @@ import {
   loadLevel,
   partsOf,
   revisionOf,
+  spareOf,
   withInstructionSet,
 } from "./level";
 import type { NodeType } from "./node";
@@ -17,8 +18,6 @@ import type { NodeType } from "./node";
 const L8_CONTROL = ["OP ENCODER", "WRITE ENCODER", "CONTROL UNIT"];
 const index = (gate: NodeType): number => LEVELS.findIndex((level) => levelId(level) === gate);
 const opcodeOf = (id: InstructionID): number => rowOf(BITBOX_INSTRUCTION_SET, id).opcode ?? 0;
-const spare = (set: InstructionSet): number =>
-  Array.from({ length: 16 }, (_, n) => n).find((n) => !INSTRUCTIONS.some(({ id }) => rowOf(set, id).opcode === n))!;
 
 // Each spec's outputs for an instruction in Bitbox's set.
 const op = (id: InstructionID): number => opEncoder(BITBOX_INSTRUCTION_SET, [opcodeOf(id)])[0]!;
@@ -83,7 +82,7 @@ describe("the op encoder", () => {
     expect(INSTRUCTIONS.map(({ id }) => [id, op(id)])).toEqual(
       INSTRUCTIONS.map(({ id }) => [id, { add: 0, subtract: 1, and: 4, or: 5, xor: 6 }[id as string] ?? 7]),
     );
-    expect(opEncoder(BITBOX_INSTRUCTION_SET, [spare(BITBOX_INSTRUCTION_SET)])).toEqual([7]);
+    expect(opEncoder(BITBOX_INSTRUCTION_SET, [spareOf(BITBOX_INSTRUCTION_SET)])).toEqual([7]);
   });
 });
 
@@ -96,7 +95,7 @@ describe("the write encoder", () => {
     expect(write("add")).toEqual([1, 3]);
     expect(write("not")).toEqual([1, 3]);
     for (const id of ["halt", "write", "jump", "jump if zero", "out"] as const) expect(write(id)[0]).toBe(0);
-    expect(writeEncoder(BITBOX_INSTRUCTION_SET, [spare(BITBOX_INSTRUCTION_SET)])[0]).toBe(0);
+    expect(writeEncoder(BITBOX_INSTRUCTION_SET, [spareOf(BITBOX_INSTRUCTION_SET)])[0]).toBe(0);
   });
 });
 
