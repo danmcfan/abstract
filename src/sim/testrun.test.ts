@@ -168,7 +168,7 @@ describe("a test run's board", () => {
   test("shows the recorded outputs on every row of every level's intended solution", () => {
     // Each value is paired with its gate, so a failure names the level.
     LEVELS.forEach((level, index) => {
-      if (level.kind === "instruction set" || level.solution === undefined) return;
+      if (level.kind !== undefined || level.solution === undefined) return;
       const game = loadLevel(level);
       buildSolution(game, level);
       for (const { recorded, shown } of stepRun(game, LEVELS, index))
@@ -197,7 +197,7 @@ describe("a test run's board", () => {
 });
 
 describe("a test run of the CPU", () => {
-  const index = LEVELS.findIndex((level) => level.kind !== "instruction set" && level.gate === "CPU");
+  const index = LEVELS.findIndex((level) => level.kind === undefined && level.gate === "CPU");
   const level = circuitAt(index);
 
   test("shows each instruction being done, and the registers, a step at a time", () => {

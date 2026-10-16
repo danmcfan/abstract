@@ -6,7 +6,7 @@ import type { Value } from "./node";
 // a mnemonic from their instruction set and then its operands, separated by
 // commas. "name:" at the start of a line is a label, and ";" starts a comment.
 
-interface LineError {
+export interface LineError {
   // Counted from 1, as the editor numbers its lines.
   line: number;
   problem: string;

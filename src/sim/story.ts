@@ -1,3 +1,4 @@
+import type { LineError } from "./assembler";
 import { shownProblems, type InstructionSetCheck } from "./instruction";
 import { levelId, type CheckResult, type Level } from "./level";
 import type { NodeType } from "./node";
@@ -13,6 +14,11 @@ export type Cue =
   | { say: "forbidden"; parts: NodeType[] }
   | { say: "unstable" }
   | { say: "error" }
+  | { say: "program error"; error: LineError }
+  | { say: "program empty" }
+  | { say: "door open" }
+  | { say: "door shut"; sent: number }
+  | { say: "door halted" }
   | { react: "happy" };
 
 // The story flag keys, one per thing Bitbox only says once.

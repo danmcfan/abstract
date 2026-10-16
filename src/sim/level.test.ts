@@ -58,13 +58,13 @@ const levelIndex = (type: NodeType): number => LEVELS.findIndex((level) => level
 
 describe("each level's intended solution", () => {
   const unbuilt = LEVELS.flatMap((level, index) =>
-    level.kind === "instruction set" || level.prebuilt === true ? [] : [{ level, index }],
+    level.kind !== undefined || level.prebuilt === true ? [] : [{ level, index }],
   );
 
   // The NAND sheet is the one Bitbox remembers; every later level is built.
   test("only the first level comes pre-wired", () => {
     expect(
-      LEVELS.flatMap((level, index) => (level.kind !== "instruction set" && level.prebuilt === true ? [index] : [])),
+      LEVELS.flatMap((level, index) => (level.kind === undefined && level.prebuilt === true ? [index] : [])),
     ).toEqual([0]);
   });
 
@@ -506,7 +506,6 @@ describe("the stack", () => {
 
   test("a layer with no levels in the game is locked, even with everything solved", () => {
     expect(layerState(3, 3, levels)).toBe("locked");
-    expect(layerState(9, LEVELS.length)).toBe("locked");
   });
 
   test("only a layer's last level leads up a floor, and only to a layer with levels", () => {

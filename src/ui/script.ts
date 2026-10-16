@@ -1,4 +1,5 @@
 import { INSTRUCTION_SET_ID, levelId, type Level } from "../sim/level";
+import type { LineError } from "../sim/assembler";
 import type { NodeType } from "../sim/node";
 import type { Cue } from "../sim/story";
 import type { Line } from "./speech";
@@ -19,7 +20,15 @@ interface LevelScript {
   solved: Line[];
 }
 
-// Keyed by levelId: a circuit level's gate, or the instruction set level's id.
+// The door program's run ends with the door open: the closing scene.
+const DOOR_OPEN: Line[] = [
+  { face: "amazed", text: "It's open! Is that daylight?" },
+  { face: "happy", text: "That door ran on a CPU you built, from one NAND gate, one layer at a time." },
+  { face: "thinking", text: "Alan Turing imagined machines like this before anyone had built one." },
+  { face: "happy", text: "Thanks for getting me out. After you." },
+];
+
+// Keyed by levelId: a circuit level's gate, or the id of a level with no circuit.
 const LEVELS: Partial<Record<string, LevelScript>> = {
   NAND: {
     intro: [
@@ -553,6 +562,30 @@ const LEVELS: Partial<Record<string, LevelScript>> = {
       { face: "thinking", text: "Now for the door. It wants a program, and we can finally write one." },
     ],
   },
+  "DOOR PROGRAM": {
+    intro: [
+      { face: "amazed", text: "There it is. The way out." },
+      { face: "thinking", text: "The door has a keypad, and a cable to a CPU running your instruction set." },
+      { face: "idle", text: "Type the door program on the left, one instruction per line, in your own mnemonics." },
+      { face: "thinking", text: "The code comes from a name. Remember the pencil notes on the sheets downstairs?" },
+    ],
+    hint: [
+      {
+        face: "thinking",
+        text: "in from KEYPAD gives the next letter of the name, in ASCII. After the last, it gives 0.",
+      },
+      {
+        face: "thinking",
+        text: "Add the letters up in a register. When the keypad gives 0, send the total with out to DOOR.",
+      },
+      {
+        face: "idle",
+        text: "Write next: at the start of a line to label it, so a jump can come back. ; starts a comment.",
+      },
+      { face: "idle", text: "Type the name on the keypad, then press Run. Step does one tick at a time." },
+    ],
+    solved: DOOR_OPEN,
+  },
 };
 
 // The first time the elevator reaches each floor, by layer number.
@@ -578,6 +611,7 @@ const floor = (layer: number): Line[] => FLOORS[layer] ?? [];
 // The sheet's title for a level.
 export function heading(level: Level): string {
   if (level.kind === "instruction set") return "Instruction set";
+  if (level.kind === "door program") return "The door program";
   return `${level.prebuilt === true ? "Meet" : "Build"} ${level.gate}`;
 }
 
@@ -588,6 +622,7 @@ export const solved = (level: Level): Line[] =>
 
 function about(level: Level): string {
   if (level.kind === "instruction set") return `We're writing our instruction set. ${level.goal}`;
+  if (level.kind === "door program") return `We're writing the door program. ${level.goal}`;
   return level.prebuilt === true
     ? `This is ${level.gate}. ${level.goal}`
     : `We're building ${level.gate}. ${level.goal}`;
@@ -622,6 +657,8 @@ const tableError: Line[] = [
 function welcomeBack(level: Level): Line[] {
   if (level.kind === "instruction set")
     return [{ face: "idle", text: "Changing your mind? Go ahead. Everything downstream reads this table." }];
+  if (level.kind === "door program")
+    return [{ face: "happy", text: "Welcome back! The door's still waiting for its program." }];
   return [
     {
       face: "happy",
@@ -632,6 +669,25 @@ function welcomeBack(level: Level): Line[] {
     },
   ];
 }
+
+const doorShut = (sent: number): Line[] => [
+  { face: "error", text: `Bzzt! The door got ${sent}. That's not its code, so it stays shut.` },
+  { face: "thinking", text: "The pencil notes on the sheets downstairs all point to one person. Try their name." },
+];
+
+const doorHalted: Line[] = [
+  { face: "worried", text: "The program stopped at HALT without sending the door anything." },
+  { face: "idle", text: "Use out to send the total to DOOR before it halts." },
+];
+
+const programError = (error: LineError): Line[] => [
+  { face: "worried", text: `Line ${error.line}: ${error.problem}` },
+  { face: "idle", text: "Fix the marked line, then press Run again." },
+];
+
+const programEmpty: Line[] = [
+  { face: "idle", text: "There's no program yet. Type it in on the left, one instruction per line." },
+];
 
 // On the notice that shows instead of the game: on a touch device, which
 // never plays, and on a desktop window too small to fit the sheet.
@@ -672,6 +728,21 @@ export function lines(cue: Exclude<Cue, { react: string }>): Line[] {
       break;
     case "error":
       said = tableError;
+      break;
+    case "program error":
+      said = programError(cue.error);
+      break;
+    case "program empty":
+      said = programEmpty;
+      break;
+    case "door open":
+      said = DOOR_OPEN;
+      break;
+    case "door shut":
+      said = doorShut(cue.sent);
+      break;
+    case "door halted":
+      said = doorHalted;
       break;
   }
   return said;

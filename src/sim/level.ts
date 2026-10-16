@@ -42,8 +42,9 @@ import { mask, type Label, type Node, type NodeID, type NodeType, type State, ty
 // instruction set level isn't a circuit: the player fills in a table
 // instead.
 export const INSTRUCTION_SET_ID = "INSTRUCTION SET";
+const DOOR_PROGRAM_ID = "DOOR PROGRAM";
 
-export type Level = CircuitLevel | InstructionSetLevel;
+export type Level = CircuitLevel | InstructionSetLevel | DoorProgramLevel;
 
 export type CircuitLevel = TruthTableLevel | (CircuitInfo & Pins & MemoryLevel) | ProgramLevel;
 
@@ -59,6 +60,13 @@ interface InstructionSetLevel extends LevelInfo {
   kind: "instruction set";
   // Saves and story flags know the level by this, as they know a circuit
   // level by its gate.
+  id: string;
+}
+
+// The last level, where the player writes the door program and runs it on
+// the CPU's spec. It is solved once the door opens, which ends the game.
+interface DoorProgramLevel extends LevelInfo {
+  kind: "door program";
   id: string;
 }
 
@@ -1396,11 +1404,17 @@ export const LEVELS: Level[] = [
   controlUnit(BITBOX_INSTRUCTION_SET),
   executeLevel(BITBOX_INSTRUCTION_SET),
   cpuLevel(BITBOX_INSTRUCTION_SET),
+  {
+    kind: "door program",
+    id: DOOR_PROGRAM_ID,
+    goal: "Write the door program in your instruction set, type the name on the keypad, and run it.",
+    layer: 9,
+  },
 ];
 
 // The game's levels as they read a player's instruction set.
 export function withInstructionSet(levels: readonly Level[], set: InstructionSet): Level[] {
-  return levels.map((level) => (level.kind !== "instruction set" && level.reads ? level.reads(set) : level));
+  return levels.map((level) => (level.kind === undefined && level.reads ? level.reads(set) : level));
 }
 
 function controlUnit(set: InstructionSet): CircuitLevel {
@@ -1683,17 +1697,17 @@ function operate(op: Value, a: Value, b: Value, cin: Value, width: number): Valu
 // The part a solved level adds to the bin: the gate it builds, unless it
 // gives another.
 export function partGiven(level: Level): Part | null {
-  if (level.kind === "instruction set") return null;
+  if (level.kind !== undefined) return null;
   return level.gives ?? level;
 }
 
 // What saves, story flags and solved progress know a level by: the gate it
-// builds, or an instruction set level's own identifier.
-export const levelId = (level: Level): string => (level.kind === "instruction set" ? level.id : level.gate);
+// builds, or the own identifier of a level with no circuit.
+export const levelId = (level: Level): string => (level.kind === undefined ? level.gate : level.id);
 
 // The game's circuit levels, the ones with a board.
 export const circuits = (levels: readonly Level[]): CircuitLevel[] =>
-  levels.flatMap((level) => (level.kind === "instruction set" ? [] : [level]));
+  levels.flatMap((level) => (level.kind === undefined ? [level] : []));
 
 // The parts the game's boards can hold: each level's gate, computing what
 // its level asks for, and each part a level gives instead. A level's own
@@ -1764,7 +1778,7 @@ export function levelAt(levelIndex: number, levels = LEVELS): Level {
 // The level at an index, which must be a circuit level.
 export function circuitAt(levelIndex: number, levels = LEVELS): CircuitLevel {
   const level = levelAt(levelIndex, levels);
-  if (level.kind === "instruction set") throw new Error(`Level ${levelIndex} isn't a circuit`);
+  if (level.kind !== undefined) throw new Error(`Level ${levelIndex} isn't a circuit`);
   return level;
 }
 
@@ -1774,6 +1788,14 @@ export function floorAbove(levelIndex: number, levels = LEVELS): Layer | null {
   const here = levelAt(levelIndex, levels).layer;
   const next = levels[levelIndex + 1];
   return next !== undefined && next.layer !== here ? layerOf(levelIndex + 1, levels) : null;
+}
+
+// The layer whose clue a sheet shows, if any: the last sheet of each of L1
+// to L6 has one in its margin, once that level is solved.
+export function clueAt(levelIndex: number, solved: number, levels = LEVELS): number | null {
+  const { layer } = levelAt(levelIndex, levels);
+  const last = layerLevels(layer, levels).at(-1);
+  return layer <= 6 && last === levelIndex && levelIndex < solved ? layer : null;
 }
 
 // How many signals a level's terminal carries.

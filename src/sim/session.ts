@@ -1,5 +1,7 @@
+import { assembleProgram, type Assembly } from "./assembler";
 import type { Game } from "./circuit";
 import { newGame, placeNode, restart, tick } from "./circuit";
+import { DoorRun } from "./door";
 import { DEFAULT_GRID } from "./grid";
 import {
   BITBOX_INSTRUCTION_SET,
@@ -12,6 +14,7 @@ import type { Parts } from "./kind";
 import {
   checkLevel,
   clockOf,
+  clueAt,
   floorAbove,
   levelAt,
   levelId,
@@ -42,6 +45,9 @@ import { table, type Doing, type Run, type TableRow } from "./testrun";
 // gauge, and a test run ignores it.
 export const CLOCK_SPEED = { min: 1, max: 64, start: 4 };
 
+// The keypad takes letters, as many as fit on its display.
+const KEYPAD_LETTERS = 12;
+
 const clockSpeedFrom = (speed: number): number =>
   2 ** Math.round(Math.log2(Math.min(CLOCK_SPEED.max, Math.max(CLOCK_SPEED.min, speed))));
 
@@ -70,6 +76,13 @@ export class Session {
   // was good, which the levels after it read. Starting over blanks both.
   instructionSet: InstructionSet = {};
   validInstructionSet: InstructionSet | null = null;
+  // The door program as the player has typed it, the name on the keypad,
+  // and its run on the CPU, if one has started. The door opening finishes
+  // the game, and a finished game stays finished until it starts over.
+  doorProgram = "";
+  keypad = "";
+  door: DoorRun | null = null;
+  finished = false;
   private boards: Boards = {};
   private solvedLevels: Solved;
   // The current test run, or the last one until the board or level changes.
@@ -95,6 +108,8 @@ export class Session {
     this.boards = data?.boards ?? {};
     this.instructionSet = data?.instructionSet ?? {};
     this.validInstructionSet = data?.validInstructionSet ?? null;
+    this.doorProgram = data?.doorProgram ?? "";
+    this.finished = data?.finished ?? false;
     this.readInstructionSet();
     if (data?.clockSpeed !== undefined) this.clockSpeed = clockSpeedFrom(data.clockSpeed);
   }
@@ -126,6 +141,8 @@ export class Session {
     this.boards = data.boards;
     this.instructionSet = data.instructionSet ?? {};
     this.validInstructionSet = data.validInstructionSet ?? null;
+    this.doorProgram = data.doorProgram ?? "";
+    this.finished = data.finished ?? false;
     this.readInstructionSet();
     this.start(this.savedLevel);
   }
@@ -138,6 +155,8 @@ export class Session {
     this.boards = {};
     this.instructionSet = {};
     this.validInstructionSet = null;
+    this.doorProgram = "";
+    this.finished = false;
     this.readInstructionSet();
     this.start(0);
   }
@@ -166,6 +185,8 @@ export class Session {
       clockSpeed: this.clockSpeed,
       instructionSet: this.instructionSet,
       ...(this.validInstructionSet && { validInstructionSet: this.validInstructionSet }),
+      doorProgram: this.doorProgram,
+      ...(this.finished && { finished: true }),
     });
   }
 
@@ -202,6 +223,80 @@ export class Session {
     return response?.cue ?? null;
   }
 
+  // The door program read with the last good instruction set, with a mark
+  // for each line that has a mistake.
+  get assembly(): Assembly {
+    return assembleProgram(this.validInstructionSet ?? BITBOX_INSTRUCTION_SET, this.doorProgram);
+  }
+
+  // Changes the door program and saves it. A run of the old text is over.
+  editDoorProgram(text: string): void {
+    this.doorProgram = text;
+    this.door = null;
+    this.save();
+  }
+
+  // Whether the door program is part way through a run.
+  get doorRunning(): boolean {
+    return this.door?.outcome === "running" && this.door.ticks > 0;
+  }
+
+  // Types a name on the keypad, in capitals and letters only. The keypad is
+  // read as the program runs, so it can't change during a run.
+  typeName(name: string): void {
+    if (this.door?.outcome === "running") return;
+    this.keypad = name
+      .toUpperCase()
+      .replaceAll(/[^A-Z]/gu, "")
+      .slice(0, KEYPAD_LETTERS);
+    this.door = null;
+  }
+
+  // Starts a run of the door program from the top, with the name on the
+  // keypad. A program with a mistake, or nothing in it, doesn't start, and
+  // Bitbox says why.
+  beginDoorRun(): Cue | null {
+    const { words, errors } = this.assembly;
+    const [error] = errors;
+    this.door = null;
+    if (error) return { say: "program error", error };
+    if (words.length === 0) return { say: "program empty" };
+    this.door = new DoorRun(this.validInstructionSet ?? BITBOX_INSTRUCTION_SET, words, this.keypad);
+    return null;
+  }
+
+  // Ticks the door program's CPU once, starting a new run if none is going.
+  // Returns whether it ticked, and what Bitbox says if the run ended. The
+  // door opening solves the level and finishes the game.
+  tickDoor(): { ticked: boolean; cue: Cue | null } {
+    if (this.door?.outcome !== "running") {
+      const refused = this.beginDoorRun();
+      if (refused) return { ticked: false, cue: refused };
+    }
+    const { door } = this;
+    if (!door) return { ticked: false, cue: null };
+    door.tick();
+    this.sound.play("clock");
+    if (door.outcome === "running") return { ticked: true, cue: null };
+    if (door.outcome === "open") {
+      this.solvedLevels[levelId(this.level)] = revisionOf(this.level);
+      this.finished = true;
+      this.save();
+      this.sound.play("bell");
+      return { ticked: true, cue: { say: "door open" } };
+    }
+    if (door.outcome === "shut") {
+      this.sound.play("fail-stamp");
+      return { ticked: true, cue: { say: "door shut", sent: door.sent ?? 0 } };
+    }
+    return { ticked: true, cue: { say: "door halted" } };
+  }
+
+  // The layer whose clue the sheet shows in its margin, if any.
+  get clue(): number | null {
+    return clueAt(this.levelIndex, this.solved, this.levels);
+  }
+
   // Sets how many ticks a second Run gives, from 1 to 64, and saves it.
   setClockSpeed(speed: number): void {
     this.clockSpeed = clockSpeedFrom(speed);
@@ -215,7 +310,7 @@ export class Session {
   // The open level, if it has a circuit: the instruction set level doesn't.
   get circuit(): CircuitLevel | null {
     const { level } = this;
-    return level.kind === "instruction set" ? null : level;
+    return level.kind === undefined ? level : null;
   }
 
   // The rows the level panel shows, checked as far as the test run has
@@ -253,10 +348,10 @@ export class Session {
   // they've never been, aborting any test run without recording a result.
   start(index: number): void {
     const level = levelAt(index, this.levels);
-    const board = level.kind === "instruction set" ? undefined : this.boards[level.gate];
+    const board = level.kind === undefined ? this.boards[level.gate] : undefined;
     this.levelIndex = index;
     const game = board ? loadBoard(board, this.parts) : this.boardFor(level);
-    if (level.kind !== "instruction set") loadFirstProgram(game, level);
+    if (level.kind === undefined) loadFirstProgram(game, level);
     this.load(game);
   }
 
@@ -266,15 +361,16 @@ export class Session {
     this.load(this.boardFor(this.level));
   }
 
-  // A fresh board for a level. The instruction set level has no circuit, so
-  // its board stays empty.
+  // A fresh board for a level. The instruction set and the door program have
+  // no circuit, so their boards stay empty.
   private boardFor(level: Level): Game {
-    return level.kind === "instruction set" ? newGame(this.parts, DEFAULT_GRID) : loadLevel(level, this.parts);
+    return level.kind === undefined ? loadLevel(level, this.parts) : newGame(this.parts, DEFAULT_GRID);
   }
 
   private load(game: Game): void {
     this.game = game;
     this.testRun = null;
+    this.door = null;
     this.result = null;
     this.stamped = false;
     this.save();
@@ -306,7 +402,7 @@ export class Session {
   // board restarts first, so the rows it shows are the ones checked.
   beginTest(): boolean {
     const { level } = this;
-    if (this.testing || level.kind === "instruction set") return false;
+    if (this.testing || level.kind !== undefined) return false;
     this.sound.play("carriage");
     restart(this.game);
     this.testRun = testRun(level, checkLevel(this.game, this.levelIndex, this.levels));
@@ -341,9 +437,12 @@ export class Session {
   }
 
   // Where the player goes from here, once the last test run has passed, or
-  // while the instruction set is good.
+  // while the instruction set is good, or once the door has opened.
   get next(): Next | null {
-    const done = this.circuit ? this.result?.passed === true : this.instructionCheck.solved;
+    const { level } = this;
+    let done = this.result?.passed === true;
+    if (level.kind === "instruction set") done = this.instructionCheck.solved;
+    if (level.kind === "door program") done = this.finished;
     if (!done) return null;
     if (this.levelIndex + 1 >= this.levels.length) return { to: "end" };
     const layer = floorAbove(this.levelIndex, this.levels);
