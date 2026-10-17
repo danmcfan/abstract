@@ -419,10 +419,12 @@ export class Session {
   }
 
   // Drops a part, or a split or join as wide as its bus, from the parts bin
-  // in the middle of the board.
-  place(type: NodeType, width = 1): void {
+  // centred on a board point, the board's middle by default, or as near it
+  // as there's room.
+  place(type: NodeType, width = 1, at?: { x: number; y: number }): void {
     const { grid } = this.game;
-    if (!placeNode(this.game, type, { x: grid.width / 2, y: grid.height / 2 }, "", width)) return;
+    const center = at ?? { x: grid.width / 2, y: grid.height / 2 };
+    if (!placeNode(this.game, type, center, "", width)) return;
     this.sound.play("place");
   }
 

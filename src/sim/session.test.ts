@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { edgeInto, moveNode, pinKey, placeNode, setInput, wire, type Game, type Pin } from "./circuit";
+import { edgeInto, footprint, moveNode, pinKey, placeNode, setInput, wire, type Game, type Pin } from "./circuit";
 import type { Node, NodeID, NodeType } from "./node";
 import type { Rect } from "./grid";
 import { memorySave, type SaveData, type SaveStore } from "./save";
@@ -486,6 +486,16 @@ describe("one board per level", () => {
     session.start(NOT_LEVEL);
     expect(board()).toEqual(before);
     expect(session.game.grid).toEqual(grid);
+  });
+
+  test("a part dropped on the board lands on the drop cell, matching its footprint", () => {
+    const { session } = fresh(2);
+    const at = { x: 6, y: 5 };
+    const ghost = footprint(session.game, "NOT", at);
+    session.place("NOT", 1, at);
+    const placed = [...session.game.nodes.values()].find((n) => n.type === "NOT");
+    expect(placed?.rect).toEqual(ghost);
+    expect(ghost.x + ghost.width / 2).toBeCloseTo(at.x, 0);
   });
 
   test("a level never visited opens on a fresh board", () => {

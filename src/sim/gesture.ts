@@ -22,6 +22,9 @@ import { silent, type Sound } from "./sound";
 // A press only becomes a drag once the pointer has moved this far on screen;
 // anything less is a click, however large the board is drawn.
 const DRAG_DEAD_ZONE_PX = 5;
+
+// Whether a press has moved far enough on screen, in pixels, to be a drag.
+export const pastDeadZone = (dx: number, dy: number): boolean => Math.hypot(dx, dy) >= DRAG_DEAD_ZONE_PX;
 // The radius of a drawn pin dot, in cells: over a switch, a pin takes the
 // press only on its dot rather than across its usual cell-wide reach.
 const PIN_DOT = 0.26;
@@ -79,7 +82,7 @@ export function createGestures(host: GestureHost): Gestures {
   };
   // Whether the pointer has left a press's dead zone, making it a drag.
   const leftDeadZone = (start: Point, p: Point): boolean =>
-    Math.hypot(p.x - start.x, p.y - start.y) * host.pixelsPerCell() >= DRAG_DEAD_ZONE_PX;
+    pastDeadZone((p.x - start.x) * host.pixelsPerCell(), (p.y - start.y) * host.pixelsPerCell());
 
   return {
     get hoveredPin() {

@@ -31,23 +31,22 @@ drag() {
 # Screen point of a node pin or body, as "x y".
 pin() { js "(p => Math.round(p.x) + ' ' + Math.round(p.y))(__abstract.pinScreen($1, '$2', ${3:-0}))" | tr -d '"'; }
 body() { js "(p => Math.round(p.x) + ' ' + Math.round(p.y))(__abstract.nodeScreen($1))" | tr -d '"'; }
+card() { js "(r => Math.round(r.x + r.width / 2) + ' ' + Math.round(r.y + r.height / 2))(document.querySelector('$1').getBoundingClientRect())" | tr -d '"'; }
 board() { js "(p => Math.round(p.x) + ' ' + Math.round(p.y))(__abstract.boardScreen($1, $2))" | tr -d '"'; }
 
 terminal() { js "__abstract.nodes().find(n => n.type === '$1' && n.label === '$2').id"; }
 newest() { js "Math.max(...__abstract.nodes().map(n => n.id))"; }
 
-# Adds a gate from the parts bin and drags it to board cell (x, y). A split
+# Drags a gate from the parts bin onto board cell (x, y). A split
 # or join takes its bus width as a fourth argument, when the bin has more than
 # one. The bin pages sideways, so its card is brought fully into view first,
 # as a player would page to it.
 add() {
   local card="button[data-gate=\"$1\"]${4:+[data-width=\"$4\"]}"
   ab eval "document.querySelector('$card').scrollIntoView({ inline: 'nearest', block: 'nearest' })"
-  ab click "$card"
-  local id; id=$(newest)
   # shellcheck disable=SC2046
-  drag $(body "$id") $(board "$2" "$3")
-  echo "$id"
+  drag $(card "$card") $(board "$2" "$3")
+  newest
 }
 
 # Wires node $1's output pin $4 (default 0) to node $2's input pin $3.

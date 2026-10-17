@@ -81,6 +81,13 @@ export function placeNode(
 
 // Moves a node to the snapped position nearest (x, y), unless that would
 // overlap another node. Returns whether the node moved.
+// The cells a part of this type and width would take, centred on a board
+// point and snapped to the grid, whether or not they're free.
+export function footprint(game: Game, type: NodeType, center: { x: number; y: number }, width = 1): Rect {
+  const size = kindOf(game.parts, type).size(width);
+  return snap({ x: center.x - size.width / 2, y: center.y - size.height / 2, ...size }, game.grid);
+}
+
 export function moveNode(game: Game, id: NodeID, x: number, y: number): boolean {
   const node = game.nodes.get(id);
   if (!node) return false;

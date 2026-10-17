@@ -17,7 +17,10 @@ import { hush, say } from "./speech";
 import { GateIcon } from "./GateIcon";
 import { SoundButton } from "./SoundButton";
 import * as script from "./script";
-import { driver, placePart, running, session } from "./state";
+import { boardPointAt } from "./Board";
+import { binDrag, driver, placePart, running, session, setBinDrag } from "./state";
+import { pastDeadZone } from "../sim/gesture";
+import type { NodeType } from "../sim/node";
 
 const pad = (n: number): string => String(n).padStart(2, "0");
 // A bus value's signals, high bit first, for hovering over its number.
@@ -558,19 +561,21 @@ export function PartsBin(): JSX.Element {
               </Show>
             }
           >
-            {(type) => (
-              <button
-                class={PART_CARD}
-                data-gate={type}
-                disabled={session().testing}
-                onClick={() => {
-                  placePart(type);
-                }}
-              >
-                <GateIcon type={type} class="h-9 w-15 shrink-0" />
-                {type}
-              </button>
-            )}
+            {(type) => {
+              const hand = pickUp(type, 1);
+              return (
+                <button
+                  class={PART_CARD}
+                  data-gate={type}
+                  disabled={session().testing}
+                  onPointerDown={hand.onPointerDown}
+                  onClick={hand.onClick}
+                >
+                  <GateIcon type={type} class="h-9 w-15 shrink-0" />
+                  {type}
+                </button>
+              );
+            }}
           </For>
           {/* The open level's own part, once it's solved, for the levels
               after it; it can't go on this level's board. */}
@@ -595,20 +600,22 @@ export function PartsBin(): JSX.Element {
           <Show when={wiringHere().length > 0}>
             <span class="row-span-2 border-l-2 border-dashed border-ink" aria-hidden="true" />
             <For each={wiringHere()}>
-              {(w) => (
-                <button
-                  class={PART_CARD}
-                  data-gate={w.type}
-                  data-width={w.width}
-                  disabled={session().testing}
-                  onClick={() => {
-                    placePart(w.type, w.width);
-                  }}
-                >
-                  <GateIcon type={w.type} width={Math.min(w.width, 4)} class="h-9 w-15 shrink-0" />
-                  {w.width > 1 ? `${w.type} ${w.width}` : w.type}
-                </button>
-              )}
+              {(w) => {
+                const hand = pickUp(w.type, w.width);
+                return (
+                  <button
+                    class={PART_CARD}
+                    data-gate={w.type}
+                    data-width={w.width}
+                    disabled={session().testing}
+                    onPointerDown={hand.onPointerDown}
+                    onClick={hand.onClick}
+                  >
+                    <GateIcon type={w.type} width={Math.min(w.width, 4)} class="h-9 w-15 shrink-0" />
+                    {w.width > 1 ? `${w.type} ${w.width}` : w.type}
+                  </button>
+                );
+              }}
             </For>
           </Show>
         </div>
@@ -626,6 +633,52 @@ export function PartsBin(): JSX.Element {
       </div>
     </section>
   );
+}
+
+// A bin card's handlers: a click drops its part in the middle of the board;
+// pressing and dragging past the dead zone carries it, previewed on the
+// board, to the cell it's let go over, or nowhere if that's off the board.
+function pickUp(
+  type: NodeType,
+  width: number,
+): {
+  onPointerDown: (event: PointerEvent & { currentTarget: HTMLButtonElement }) => void;
+  onClick: () => void;
+} {
+  // Whether the last press was a drag, so the click that ends it places nothing more.
+  let dragged = false;
+  return {
+    onPointerDown: (event) => {
+      if (event.button !== 0) return;
+      dragged = false;
+      const card = event.currentTarget;
+      const start = { x: event.clientX, y: event.clientY };
+      card.setPointerCapture(event.pointerId);
+      const move = (e: PointerEvent): void => {
+        if (!dragged && !pastDeadZone(e.clientX - start.x, e.clientY - start.y)) return;
+        dragged = true;
+        setBinDrag({ type, width, at: boardPointAt(e.clientX, e.clientY) });
+      };
+      const end = (e: PointerEvent): void => {
+        card.removeEventListener("pointermove", move);
+        card.removeEventListener("pointerup", end);
+        card.removeEventListener("pointercancel", end);
+        const at = e.type === "pointerup" ? binDrag()?.at : null;
+        setBinDrag(null);
+        if (dragged && at && !session().testing) placePart(type, width, at);
+      };
+      card.addEventListener("pointermove", move);
+      card.addEventListener("pointerup", end);
+      card.addEventListener("pointercancel", end);
+    },
+    onClick: () => {
+      if (dragged) {
+        dragged = false;
+        return;
+      }
+      placePart(type, width);
+    },
+  };
 }
 
 const BIN_ARROW =

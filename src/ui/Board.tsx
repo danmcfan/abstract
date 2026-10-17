@@ -1,11 +1,11 @@
 import { For, Show, createMemo, createSignal, onCleanup, onMount, untrack, type JSX } from "solid-js";
-import { pinPosition, widthOf, type EdgeID, type Pin } from "../sim/circuit";
+import { footprint, pinPosition, widthOf, type EdgeID, type Pin } from "../sim/circuit";
 import { createGestures, type Gestures } from "../sim/gesture";
 import type { Size } from "../sim/grid";
 import { createRouter } from "../sim/route";
 import { NodeView } from "./NodeView";
 import { sound } from "./sound";
-import { current, mutate, session } from "./state";
+import { binDrag, current, mutate, session } from "./state";
 import { wirePath } from "./wirePath";
 
 // A drafting sheet drawn in SVG. The viewBox is in grid cells, so one user
@@ -26,6 +26,15 @@ export function toScreen(x: number, y: number): { x: number; y: number } {
   if (svg === undefined) throw new Error("The board isn't on the page");
   const p = new DOMPoint(x, y).matrixTransform(svg.getScreenCTM() ?? undefined);
   return { x: p.x, y: p.y };
+}
+
+// The board point under a client point, or null if it's off the board's
+// work area.
+export function boardPointAt(clientX: number, clientY: number): { x: number; y: number } | null {
+  if (svg === undefined) return null;
+  const p = toBoard(clientX, clientY);
+  const { width, height } = current().grid;
+  return p.x >= 0 && p.x < width && p.y >= 0 && p.y < height ? p : null;
 }
 
 function toBoard(clientX: number, clientY: number): { x: number; y: number } {
@@ -110,6 +119,16 @@ export function Board(): JSX.Element {
     const p = pinPosition(current(), from, w.from.side, w.from.index);
     return `M ${p.x} ${p.y} L ${w.to.x} ${w.to.y}`;
   };
+
+  const ghost = createMemo(() => {
+    const drag = binDrag();
+    const at = drag?.at;
+    if (!drag || !at) return null;
+    return {
+      rect: footprint(current(), drag.type, at, drag.width),
+      label: drag.width > 1 ? `${drag.type} ${drag.width}` : drag.type,
+    };
+  });
 
   const onPointerMove = (event: PointerEvent): void => {
     handle(event, (p) => {
@@ -243,6 +262,17 @@ export function Board(): JSX.Element {
         </For>
       </g>
       <Show when={preview()}>{(d) => <path class="preview" d={d()} />}</Show>
+      {/* Where a part dragged from the parts bin will land. */}
+      <Show when={ghost()}>
+        {(g) => (
+          <g class="ghost">
+            <rect x={g().rect.x} y={g().rect.y} width={g().rect.width} height={g().rect.height} />
+            <text x={g().rect.x + g().rect.width / 2} y={g().rect.y + g().rect.height / 2}>
+              {g().label}
+            </text>
+          </g>
+        )}
+      </Show>
     </svg>
   );
 }
