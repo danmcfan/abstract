@@ -11,6 +11,7 @@ export type Cue =
   | { say: "floor"; layer: number }
   | { say: "solved"; level: Level }
   | { say: "failed" }
+  | { say: "loose pins" }
   | { say: "forbidden"; parts: NodeType[] }
   | { say: "unstable" }
   | { say: "error" }
@@ -27,6 +28,7 @@ export const flags = {
   solved: (level: Level): string => `solved:${levelId(level)}`,
   failed: (level: Level): string => `failed:${levelId(level)}`,
   floor: (layer: number): string => `floor:${layer}`,
+  loosePins: "loose pins",
 };
 
 // What Bitbox does after a test run, with the story flag to set if it's
@@ -34,11 +36,13 @@ export const flags = {
 // every later pass a happy face, so passing always gets a reaction. A
 // failure is only talked through once; the ✗ marks say the rest. A
 // forbidden part or an unstable board is explained every time, since no ✗
-// mark shows it.
+// mark shows it. The first failure with a pin left unwired points at the
+// amber hints instead, once per save.
 export function respond(
   result: CheckResult,
   level: Level,
   heard: (flag: string) => boolean,
+  loose = false,
 ): { cue: Cue; flag?: string } | null {
   if (result.passed) {
     const flag = flags.solved(level);
@@ -46,6 +50,7 @@ export function respond(
   }
   if (result.forbidden.length > 0) return { cue: { say: "forbidden", parts: result.forbidden } };
   if (result.unstable) return { cue: { say: "unstable" } };
+  if (loose && !heard(flags.loosePins)) return { cue: { say: "loose pins" }, flag: flags.loosePins };
   const flag = flags.failed(level);
   return heard(flag) ? null : { cue: { say: "failed" }, flag };
 }

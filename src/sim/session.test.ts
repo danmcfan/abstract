@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { edgeInto, moveNode, placeNode, setInput, wire, type Game, type Pin } from "./circuit";
+import { edgeInto, moveNode, pinKey, placeNode, setInput, wire, type Game, type Pin } from "./circuit";
 import type { Node, NodeID, NodeType } from "./node";
 import type { Rect } from "./grid";
 import { memorySave, type SaveData, type SaveStore } from "./save";
@@ -975,5 +975,51 @@ describe("loading a board saved at an older revision", () => {
     expect(later.game.edges.size).toBe(3);
     later.start(LEVELS.findIndex((level) => levelId(level) === "AND"));
     expect(later.game.edges.size).toBe(0);
+  });
+});
+
+// Pins as a set, since hints come in board order.
+const keys = (list: Pin[]): Set<string> => new Set(list.map((pin) => pinKey(pin)));
+
+// The NOT level with a NAND fed by A on one input only.
+function halfWired(): { session: Session; g: NodeID } {
+  const { session } = fresh();
+  const g = placeNode(session.game, "NAND", { x: 20, y: 10 })!.id;
+  wire(session.game, out(find(session.game, "INPUT")), inp(g, 0));
+  return { session, g };
+}
+
+describe("pin hints", () => {
+  test("a failed run hints every unwired pin until it's wired", () => {
+    const { session, g } = halfWired();
+    expect(session.hints).toEqual([]);
+    runAll(session);
+    const o = find(session.game, "OUTPUT");
+    expect(keys(session.hints)).toEqual(keys([inp(g, 1), out(g), inp(o)]));
+    session.edit((game) => {
+      wire(game, out(find(game, "INPUT")), inp(g, 1));
+    });
+    expect(keys(session.hints)).toEqual(keys([out(g), inp(o)]));
+  });
+
+  test("clearing or reopening the level drops the hints", () => {
+    const { session } = halfWired();
+    runAll(session);
+    session.clear();
+    expect(session.hints).toEqual([]);
+    const { session: other } = halfWired();
+    runAll(other);
+    other.start(NOT_LEVEL);
+    expect(other.hints).toEqual([]);
+  });
+
+  test("Bitbox points the hints out once per save", () => {
+    const { session } = halfWired();
+    runAll(session);
+    expect(session.respond()).toEqual({ say: "loose pins" });
+    runAll(session);
+    expect(session.respond()).toEqual({ say: "failed" });
+    runAll(session);
+    expect(session.respond()).toBeNull();
   });
 });

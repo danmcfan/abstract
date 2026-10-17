@@ -1,4 +1,4 @@
-import { nodeKind, pinPosition, wiredNode, type EdgeID, type Game, type Pin } from "./circuit";
+import { nodeKind, pinPosition, wiredNode, type Edge, type EdgeID, type Game, type Pin } from "./circuit";
 import type { Size } from "./grid";
 
 // Wires run along grid lines between lattice points. A wire leaves its output
@@ -39,12 +39,13 @@ export function layoutKey(game: Game): string {
 }
 
 // A router that reroutes only when the layout changed, returning the same
-// Routing otherwise.
+// Routing otherwise. Each reroute keeps the last routes that still fit, so
+// the wires the player didn't touch stay put.
 export function createRouter(): (game: Game) => Routing {
   let last: { key: string; routing: Routing } | null = null;
   return (game) => {
     const key = layoutKey(game);
-    if (last?.key !== key) last = { key, routing: routeWires(game) };
+    if (last?.key !== key) last = { key, routing: routeWires(game, last?.routing.routes) };
     return last.routing;
   };
 }
@@ -80,7 +81,15 @@ function lattice(grid: Size): Lattice {
 
 const edgeKey = (a: number, b: number): string => (a < b ? `${a}-${b}` : `${b}-${a}`);
 
-export function routeWires(game: Game): Routing {
+// How many times routing starts over with the wires that found no route
+// moved to the front, so they get first pick of the board.
+const RETRIES = 4;
+
+// Routes every wire. A wire whose previous route still fits keeps it; the
+// rest are searched for. When some wire finds no route, routing starts over
+// with that wire first, keeping whichever pass routes the most wires. Nodes
+// never move: only routes change.
+export function routeWires(game: Game, previous?: ReadonlyMap<EdgeID, Route>): Routing {
   const grid = lattice(game.grid);
   const key = grid.key;
   const blocked = new Set<number>();
@@ -110,34 +119,90 @@ export function routeWires(game: Game): Routing {
     reserved.set(key(p.x - 1, p.y), `${edge.from}:${edge.fromIndex}`);
   }
 
+  const wires: Wire[] = [...game.edges.values()].map((edge) => {
+    const a = pinPosition(game, wiredNode(game, edge.from), "out", edge.fromIndex);
+    const b = pinPosition(game, wiredNode(game, edge.to), "in", edge.toIndex);
+    const old = previous?.get(edge.id);
+    const kept = old?.routed === true ? expand(old.points) : undefined;
+    return {
+      edge,
+      a,
+      b,
+      length: Math.abs(a.x - b.x) + Math.abs(a.y - b.y),
+      // A previous route only fits if both its pins are where they were.
+      kept: kept && same(kept[0], a) && same(kept.at(-1), b) ? kept.slice(1, -1) : undefined,
+    };
+  });
+  // Wires keeping their routes go first, so new wires go around them. Then
+  // short wires: they have the fewest options.
+  wires.sort(
+    (p, q) =>
+      Number(p.kept === undefined) - Number(q.kept === undefined) || p.length - q.length || p.edge.id - q.edge.id,
+  );
+
+  let best = routeInOrder(grid, blocked, reserved, wires);
+  for (let i = 0; i < RETRIES && best.failed.size > 0; i++) {
+    const failed = best.failed;
+    const order = [...wires.filter((w) => failed.has(w.edge.id)), ...wires.filter((w) => !failed.has(w.edge.id))];
+    const next = routeInOrder(grid, blocked, reserved, order);
+    if (next.failed.size < best.failed.size) best = next;
+    else break;
+  }
+  return best.routing;
+}
+
+interface Wire {
+  edge: Edge;
+  a: Point;
+  b: Point;
+  length: number;
+  // The lattice points of the wire's last route, between its pin stubs.
+  kept: Point[] | undefined;
+}
+
+const same = (p: Point | undefined, q: Point): boolean => p?.x === q.x && p.y === q.y;
+
+// Every lattice point along a route's corners.
+function expand(points: Point[]): Point[] {
+  const [first] = points;
+  if (first === undefined) return [];
+  const result = [first];
+  for (const corner of points.slice(1)) {
+    let at = result.at(-1) ?? first;
+    const dx = Math.sign(corner.x - at.x);
+    const dy = Math.sign(corner.y - at.y);
+    while (at.x !== corner.x || at.y !== corner.y) {
+      at = { x: at.x + dx, y: at.y + dy };
+      result.push(at);
+    }
+  }
+  return result;
+}
+
+// Routes the wires one at a time in the given order, each avoiding the ones
+// before it.
+function routeInOrder(
+  grid: Lattice,
+  blocked: Set<number>,
+  reserved: Map<number, string>,
+  wires: Wire[],
+): { routing: Routing; failed: Set<EdgeID> } {
+  const key = grid.key;
   const pointUse = new Map<number, Map<string, Usage>>();
   const edgeUse = new Map<string, string>();
   const netEdges = new Map<string, Set<string>>();
   const sources = new Map<string, Pin>();
   const routes = new Map<EdgeID, Route>();
+  const failed = new Set<EdgeID>();
   const lattices = new Map<EdgeID, { net: string; path: Point[]; route: Route }>();
 
-  // Short wires first: they have the fewest options.
-  const edges = [...game.edges.values()].map((edge) => {
-    const a = pinPosition(game, wiredNode(game, edge.from), "out", edge.fromIndex);
-    const b = pinPosition(game, wiredNode(game, edge.to), "in", edge.toIndex);
-    return { edge, a, b, length: Math.abs(a.x - b.x) + Math.abs(a.y - b.y) };
-  });
-  edges.sort((p, q) => p.length - q.length || p.edge.id - q.edge.id);
-
-  for (const { edge, a, b } of edges) {
+  for (const { edge, a, b, kept } of wires) {
     const net = `${edge.from}:${edge.fromIndex}`;
     sources.set(net, { node: edge.from, side: "out", index: edge.fromIndex });
-    const path = search(
-      grid,
-      net,
-      { x: a.x + 1, y: a.y },
-      { x: b.x - 1, y: b.y },
-      blocked,
-      reserved,
-      pointUse,
-      edgeUse,
-    );
+    const board: Board = { grid, net, blocked, reserved, pointUse, edgeUse };
+    const start = { x: a.x + 1, y: a.y };
+    const goal = { x: b.x - 1, y: b.y };
+    const path = kept && fits(board, kept, start, goal) ? kept : search(board, start, goal);
     if (!path) {
       const midX = (a.x + b.x) / 2;
       routes.set(edge.id, {
@@ -145,6 +210,7 @@ export function routeWires(game: Game): Routing {
         hops: [],
         routed: false,
       });
+      failed.add(edge.id);
       continue;
     }
     const full = [a, ...path, b];
@@ -194,7 +260,7 @@ export function routeWires(game: Game): Routing {
     }
   }
 
-  return { routes, junctions };
+  return { routing: { routes, junctions }, failed };
 }
 
 // How a net uses a point of its path: running straight through it, or
@@ -207,29 +273,84 @@ function pointUsage(prev: Point | undefined, next: Point | undefined): Usage {
 
 const stateOf = (k: number, dir: number): number => k * 4 + dir;
 
+// The board as one net's wire sees it: what blocks it and what the wires
+// routed before it already use.
+interface Board {
+  grid: Lattice;
+  net: string;
+  blocked: Set<number>;
+  reserved: Map<number, string>;
+  pointUse: Map<number, Map<string, Usage>>;
+  edgeUse: Map<string, string>;
+}
+
+function passable(board: Board, x: number, y: number): boolean {
+  if (!board.grid.inside(x, y)) return false;
+  const k = board.grid.key(x, y);
+  if (board.blocked.has(k)) return false;
+  const owner = board.reserved.get(k);
+  return owner === undefined || owner === board.net;
+}
+
+const others = (board: Board, k: number): [string, Usage][] =>
+  [...(board.pointUse.get(k) ?? [])].filter(([other]) => other !== board.net);
+
+// The cost of stepping from (x, y), heading dir, one point in direction d,
+// or null if the step isn't allowed.
+function stepCost(board: Board, x: number, y: number, dir: number, d: number): number | null {
+  const { grid, net } = board;
+  if (d === (dir + 2) % 4) return null;
+  const dx = DX[d] ?? 0;
+  const dy = DY[d] ?? 0;
+  const nx = x + dx;
+  const ny = y + dy;
+  if (!passable(board, nx, ny)) return null;
+  const k = grid.key(x, y);
+  const owner = board.edgeUse.get(edgeKey(k, grid.key(nx, ny)));
+  if (owner !== undefined && owner !== net) return null;
+
+  const here = others(board, k);
+  let step = owner === net ? SHARED_COST : 1;
+  if (d !== dir) {
+    // Turning where another signal is would look like a connection.
+    if (here.length > 0) return null;
+    step += TURN_COST;
+  } else if (here.length > 0) {
+    // Only cross straight over a wire running the other way.
+    const across = axisOf(d) === "h" ? "v" : "h";
+    if (here.some(([, usage]) => usage !== across)) return null;
+    step += CROSS_COST;
+  }
+
+  const sideX = dy;
+  const sideY = dx;
+  const beside = (bx: number, by: number): boolean => grid.inside(bx, by) && others(board, grid.key(bx, by)).length > 0;
+  if (beside(nx + sideX, ny + sideY) || beside(nx - sideX, ny - sideY)) step += BESIDE_COST;
+  return step;
+}
+
+// Whether a wire's earlier path, from start to goal, is still allowed.
+function fits(board: Board, path: Point[], start: Point, goal: Point): boolean {
+  if (!same(path[0], start) || !same(path.at(-1), goal) || !passable(board, start.x, start.y)) return false;
+  let dir = 0;
+  for (let i = 1; i < path.length; i++) {
+    const from = path[i - 1];
+    const to = path[i];
+    if (from === undefined || to === undefined) return false;
+    const d = DX.findIndex((dx, j) => dx === to.x - from.x && DY[j] === to.y - from.y);
+    if (d === -1 || stepCost(board, from.x, from.y, dir, d) === null) return false;
+    dir = d;
+  }
+  return dir !== 2;
+}
+
 // A* over (point, heading) from start to goal, both of which are pin stubs.
 // Returns the lattice points from start to goal, or null.
-function search(
-  grid: Lattice,
-  net: string,
-  start: Point,
-  goal: Point,
-  blocked: Set<number>,
-  reserved: Map<number, string>,
-  pointUse: Map<number, Map<string, Usage>>,
-  edgeUse: Map<string, string>,
-): Point[] | null {
+function search(board: Board, start: Point, goal: Point): Point[] | null {
+  const { grid } = board;
   const key = grid.key;
-  const passable = (x: number, y: number): boolean => {
-    if (!grid.inside(x, y)) return false;
-    const k = key(x, y);
-    if (blocked.has(k)) return false;
-    const owner = reserved.get(k);
-    return owner === undefined || owner === net;
-  };
-  if (!passable(start.x, start.y) || !passable(goal.x, goal.y)) return null;
+  if (!passable(board, start.x, start.y) || !passable(board, goal.x, goal.y)) return null;
 
-  const others = (k: number): [string, Usage][] => [...(pointUse.get(k) ?? [])].filter(([other]) => other !== net);
   const cost = new Map<number, number>();
   const parent = new Map<number, number>();
   const heap = new Heap();
@@ -246,37 +367,13 @@ function search(
     const { x, y } = grid.point(k);
     // Arriving heading left would need a U-turn into the input pin.
     if (x === goal.x && y === goal.y && dir !== 2) return unwind(grid, s, parent);
-    const here = others(k);
 
     for (let d = 0; d < 4; d++) {
-      if (d === (dir + 2) % 4) continue;
-      const dx = DX[d] ?? 0;
-      const dy = DY[d] ?? 0;
-      const nx = x + dx;
-      const ny = y + dy;
-      if (!passable(nx, ny)) continue;
-      const nk = key(nx, ny);
-      const owner = edgeUse.get(edgeKey(k, nk));
-      if (owner !== undefined && owner !== net) continue;
-
-      let step = owner === net ? SHARED_COST : 1;
-      if (d !== dir) {
-        // Turning where another signal is would look like a connection.
-        if (here.length > 0) continue;
-        step += TURN_COST;
-      } else if (here.length > 0) {
-        // Only cross straight over a wire running the other way.
-        const across = axisOf(d) === "h" ? "v" : "h";
-        if (here.some(([, usage]) => usage !== across)) continue;
-        step += CROSS_COST;
-      }
-
-      const sideX = dy;
-      const sideY = dx;
-      const beside = (bx: number, by: number): boolean => grid.inside(bx, by) && others(key(bx, by)).length > 0;
-      if (beside(nx + sideX, ny + sideY) || beside(nx - sideX, ny - sideY)) step += BESIDE_COST;
-
-      const ns = stateOf(nk, d);
+      const step = stepCost(board, x, y, dir, d);
+      if (step === null) continue;
+      const nx = x + (DX[d] ?? 0);
+      const ny = y + (DY[d] ?? 0);
+      const ns = stateOf(key(nx, ny), d);
       const total = (cost.get(s) ?? Infinity) + step;
       if (total < (cost.get(ns) ?? Infinity)) {
         cost.set(ns, total);

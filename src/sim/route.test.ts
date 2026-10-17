@@ -152,3 +152,52 @@ describe("createRouter", () => {
     expect(route(game)).not.toBe(second);
   });
 });
+
+// Places a node with its top-left corner at (x, y).
+function placeAt(game: Game, type: "NAND" | "NOT" | "INPUT", x: number, y: number): NodeID {
+  const width = type === "INPUT" ? 4 : 6;
+  const node = placeNode(game, type, { x: x + width / 2, y: y + 2 })!;
+  expect(node.rect).toMatchObject({ x, y });
+  return node.id;
+}
+
+const allRouted = (routing: Routing): boolean => [...routing.routes.values()].every((route) => route.routed);
+
+describe("rerouting", () => {
+  test("adding a wire that would block an existing one reroutes so both fit, moving no node", () => {
+    const game = newGame(PARTS, { width: 24, height: 20 });
+    const n0 = placeAt(game, "NAND", 5, 14);
+    const n1 = placeAt(game, "NOT", 13, 10);
+    const n2 = placeAt(game, "NAND", 13, 0);
+    const n3 = placeAt(game, "NAND", 1, 10);
+    const n4 = placeAt(game, "NOT", 5, 6);
+    placeAt(game, "INPUT", 7, 10);
+    const route = createRouter();
+    for (const [from, to] of [
+      [n0, n0],
+      [n2, n1],
+      [n0, n2],
+    ] as const) {
+      wire(game, out(from), inp(to));
+      expect(allRouted(route(game))).toBe(true);
+    }
+    const rects = JSON.stringify([...game.nodes.values()].map((node) => node.rect));
+    wire(game, out(n4), inp(n3));
+    // Routing shortest first, as the router once did, left an earlier wire with no route here.
+    expect(allRouted(routeWires(game))).toBe(true);
+    expect(allRouted(route(game))).toBe(true);
+    expect(JSON.stringify([...game.nodes.values()].map((node) => node.rect))).toBe(rects);
+  });
+
+  test("adding a wire leaves the routes of unrelated wires where they were", () => {
+    const { game } = fanOutCircuit();
+    const route = createRouter();
+    const before = route(game);
+    const c = placeNode(game, "INPUT", { x: 6, y: 40 })!.id;
+    const o = placeNode(game, "OUTPUT", { x: 40, y: 40 })!.id;
+    wire(game, out(c), inp(o));
+    const after = route(game);
+    expect(allRouted(after)).toBe(true);
+    for (const [id, old] of before.routes) expect(after.routes.get(id)!.points).toEqual(old.points);
+  });
+});

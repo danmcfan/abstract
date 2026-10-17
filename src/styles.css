@@ -17,6 +17,8 @@
   --color-dead: #a3b0c2;
   --color-pass: #23784a;
   --color-fail: #c0392b;
+  /* Pin hints: warm, so they read apart from the live blue and the fail red. */
+  --color-hint: #f0a020;
   /* More backdrops for the Bitbox model sheet (src/dev/bitbox.tsx), beside
      paper, surface and void. */
   --color-blueprint: #123a7c;
@@ -403,8 +405,14 @@ body {
   font-size: 0.5px;
   text-anchor: start;
 }
+/* A wire with no clean route is a thin pencil line, solid so it never
+   looks like a signal flowing. */
 #board .wire.unrouted .core {
-  stroke-dasharray: 0.3 0.3;
+  stroke: var(--color-pencil);
+  stroke-width: 0.07;
+}
+#board .wire.unrouted .flow {
+  visibility: hidden;
 }
 #board .junctions circle {
   fill: var(--color-dead);
@@ -581,6 +589,13 @@ body {
 }
 #board .pin.bus {
   stroke-width: 0.14;
+}
+/* After a failed test run, a pin left unwired glows amber. */
+#board .pin.hint {
+  fill: var(--color-hint);
+  stroke: var(--color-hint);
+  stroke-width: 0.14;
+  filter: drop-shadow(0 0 0.25px var(--color-hint));
 }
 #board .pin.hovered {
   fill: var(--color-glow);

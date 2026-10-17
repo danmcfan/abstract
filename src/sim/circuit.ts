@@ -242,6 +242,18 @@ export function pins(game: Game, node: Node): Pin[] {
   return result;
 }
 
+export const pinKey = (pin: Pin): string => `${pin.node}:${pin.side}:${pin.index}`;
+
+// Pins with no wire: inputs nothing feeds, and outputs that go nowhere.
+export function loosePins(game: Game): Pin[] {
+  const wired = new Set<string>();
+  for (const edge of game.edges.values()) {
+    wired.add(pinKey({ node: edge.from, side: "out", index: edge.fromIndex }));
+    wired.add(pinKey({ node: edge.to, side: "in", index: edge.toIndex }));
+  }
+  return [...game.nodes.values()].flatMap((node) => pins(game, node)).filter((pin) => !wired.has(pinKey(pin)));
+}
+
 // How many signals one of a node's pins carries.
 export function widthOf(game: Game, node: Node, pin: Pick<Pin, "side" | "index">): number {
   return nodeKind(game, node).pinWidth(pin.side, pin.index, node.width);
