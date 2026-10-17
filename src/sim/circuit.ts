@@ -250,14 +250,18 @@ export function pins(game: Game, node: Node): Pin[] {
 
 export const pinKey = (pin: Pin): string => `${pin.node}:${pin.side}:${pin.index}`;
 
-// Pins with no wire: inputs nothing feeds, and outputs that go nowhere.
+// Pins to wire: inputs nothing feeds, and the outputs of a node none of
+// whose outputs go anywhere. A part's spare outputs stay quiet.
 export function loosePins(game: Game): Pin[] {
-  const wired = new Set<string>();
+  const fed = new Set<string>();
+  const used = new Set<NodeID>();
   for (const edge of game.edges.values()) {
-    wired.add(pinKey({ node: edge.from, side: "out", index: edge.fromIndex }));
-    wired.add(pinKey({ node: edge.to, side: "in", index: edge.toIndex }));
+    fed.add(pinKey({ node: edge.to, side: "in", index: edge.toIndex }));
+    used.add(edge.from);
   }
-  return [...game.nodes.values()].flatMap((node) => pins(game, node)).filter((pin) => !wired.has(pinKey(pin)));
+  return [...game.nodes.values()]
+    .flatMap((node) => pins(game, node))
+    .filter((pin) => (pin.side === "in" ? !fed.has(pinKey(pin)) : !used.has(pin.node)));
 }
 
 // How many signals one of a node's pins carries.

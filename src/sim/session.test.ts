@@ -1017,6 +1017,16 @@ describe("pin hints", () => {
     expect(keys(session.hints)).toEqual(keys([out(g), inp(o)]));
   });
 
+  test("a part's spare outputs stay dark once any of its outputs is wired", () => {
+    const { session, g } = halfWired();
+    const split = placeNode(session.game, "SPLIT", { x: 30, y: 20 }, "", 2)!.id;
+    const o = find(session.game, "OUTPUT");
+    wire(session.game, out(find(session.game, "INPUT")), inp(g, 1));
+    wire(session.game, { node: split, side: "out", index: 1 }, inp(o));
+    runAll(session);
+    expect(keys(session.hints)).toEqual(keys([out(g), inp(split)]));
+  });
+
   test("clearing or reopening the level drops the hints", () => {
     const { session } = halfWired();
     runAll(session);
