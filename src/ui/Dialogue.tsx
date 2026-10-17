@@ -35,7 +35,7 @@ const DOCKED: Look = {
   section: "flex min-h-0 flex-col text-ink-deep sheet",
   body: "flex min-h-0 flex-1 gap-3 p-2.5",
   camera: "size-24 self-start",
-  text: "",
+  text: "line-fit",
 };
 const POPUP: Look = {
   section: "pop fixed right-5 bottom-5 z-40 w-115 text-ink-deep sheet",
@@ -66,14 +66,16 @@ export function Dialogue(props: { docked?: boolean }): JSX.Element {
     if (props.docked !== true || !desk || !words) return;
     const over = (): boolean => desk.scrollHeight > desk.clientHeight;
     let px = LARGEST_PX;
-    words.style.fontSize = `${px}px`;
-    while (px > SMALLEST_PX && over()) words.style.fontSize = `${--px}px`;
+    words.style.setProperty("--line-size", `${px}px`);
+    while (px > SMALLEST_PX && over()) words.style.setProperty("--line-size", `${--px}px`);
     setOverflows(over());
   };
   const watch = (el: HTMLDivElement): void => {
     box = el;
     const observer = new ResizeObserver(fit);
     observer.observe(el);
+    // A web font arriving resizes the line but not the desk.
+    void document.fonts.ready.then(fit);
     onCleanup(() => {
       observer.disconnect();
     });
@@ -159,9 +161,9 @@ export function Dialogue(props: { docked?: boolean }): JSX.Element {
                   >
                     <p ref={hold} class={`cursor-pointer leading-snug ${look().text}`} aria-hidden="true">
                       {text().slice(0, shown())}
-                      <Show when={!typing()} fallback={<span class="invisible">{text().slice(shown())}</span>}>
-                        <span class="caret" />
-                      </Show>
+                      {/* The rest of the line and the caret take their room from the start, so the line fits as it'll end up. */}
+                      <span class="invisible">{text().slice(shown())}</span>
+                      <span class={typing() ? "caret invisible" : "caret"} />
                     </p>
                   </div>
                   <div class="mt-auto flex items-center justify-between pt-2">

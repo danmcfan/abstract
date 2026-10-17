@@ -19,8 +19,8 @@ result=$(agent-browser eval "(async () => {
     await frame();
     if (document.querySelector('#dialogue [data-overflow]')) over.push(text);
   }
-  return JSON.stringify({ count: __abstract.lines().length, over });
+  return over.length === 0 ? 'fits' : over.join(' | ');
 })()" | tail -1)
 echo "$result"
-[[ $result == *'\"over\":[]'* || $result == *'"over":[]'* ]] || { echo "failed: some lines overflow Bitbox's desk" >&2; exit 1; }
+[[ $result == '"fits"' ]] || { echo "failed: some lines overflow Bitbox's desk" >&2; exit 1; }
 echo "Every line fits."

@@ -86,6 +86,12 @@ body {
   outline-offset: 3px;
 }
 
+/* A docked line's text, at the size Bitbox's desk fits it to
+   (src/ui/Dialogue.tsx). */
+@utility line-fit {
+  font-size: var(--line-size);
+}
+
 /* Small squares of grid paper behind the robot's video window. */
 @utility grid-paper {
   background-image:
