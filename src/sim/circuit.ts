@@ -265,7 +265,7 @@ export function switchAt(game: Game, node: Node, x: number, y: number): number |
   if (!nodeKind(game, node).clickable || node.width === 1) return null;
   const cell = Math.floor(x - node.rect.x - 1);
   const dy = y - (node.rect.y + node.rect.height / 2);
-  if (cell < 0 || cell >= node.width || Math.abs(dy) > 0.75) return null;
+  if (cell < 0 || cell >= node.width || Math.abs(dy) > node.rect.height / 2) return null;
   return node.width - 1 - cell;
 }
 

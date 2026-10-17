@@ -19,6 +19,13 @@ import { silent, type Sound } from "./sound";
 // it; nothing is editable while locked. Flipping a switch, drawing a wire
 // and connecting it play their sound cues.
 
+// A press only becomes a drag once the pointer has moved this far on screen;
+// anything less is a click, however large the board is drawn.
+const DRAG_DEAD_ZONE_PX = 5;
+// The radius of a drawn pin dot, in cells: over a switch, a pin takes the
+// press only on its dot rather than across its usual cell-wide reach.
+const PIN_DOT = 0.26;
+
 interface Point {
   x: number;
   y: number;
@@ -42,6 +49,8 @@ export interface GestureHost {
   game(): Game;
   edit(change: (game: Game) => void): void;
   locked(): boolean;
+  // Screen pixels per board cell, for the drag dead zone.
+  pixelsPerCell(): number;
   sound?: Sound;
 }
 
@@ -54,13 +63,23 @@ export function createGestures(host: GestureHost): Gestures {
   let hoveredPin: Pin | null = null;
   let hoveredNode: NodeID | null = null;
   let preview: { from: Pin; to: Point } | null = null;
-  let drag: { id: NodeID; offsetX: number; offsetY: number; moved: boolean } | null = null;
+  // started: the pointer has left the dead zone, so this press is a drag.
+  let drag: { id: NodeID; start: Point; offsetX: number; offsetY: number; started: boolean } | null = null;
   const sound = host.sound ?? silent;
 
+  // An input's output pin sits beside its switch, and a neighbour's pin may
+  // reach over it too; inside a switch's body the switch wins everywhere but
+  // on a pin's dot.
   const hover = (p: Point): void => {
-    hoveredPin = pinAt(host.game(), p.x, p.y);
-    hoveredNode = hoveredPin ? null : nodeAt(host.game(), p.x, p.y);
+    const game = host.game();
+    const under = game.nodes.get(nodeAt(game, p.x, p.y) ?? -1);
+    const onSwitch = under !== undefined && nodeKind(game, under).clickable;
+    hoveredPin = pinAt(game, p.x, p.y, onSwitch ? PIN_DOT : 1);
+    hoveredNode = hoveredPin ? null : (under?.id ?? null);
   };
+  // Whether the pointer has left a press's dead zone, making it a drag.
+  const leftDeadZone = (start: Point, p: Point): boolean =>
+    Math.hypot(p.x - start.x, p.y - start.y) * host.pixelsPerCell() >= DRAG_DEAD_ZONE_PX;
 
   return {
     get hoveredPin() {
@@ -84,7 +103,14 @@ export function createGestures(host: GestureHost): Gestures {
         return;
       }
       const node = host.game().nodes.get(hoveredNode ?? -1);
-      if (node) drag = { id: node.id, offsetX: p.x - node.rect.x, offsetY: p.y - node.rect.y, moved: false };
+      if (node)
+        drag = {
+          id: node.id,
+          start: p,
+          offsetX: p.x - node.rect.x,
+          offsetY: p.y - node.rect.y,
+          started: false,
+        };
     },
 
     move(p) {
@@ -94,10 +120,11 @@ export function createGestures(host: GestureHost): Gestures {
         preview = { ...preview, to: p };
         if (!host.locked()) sound.play("pencil");
       }
-      if (drag && !host.locked()) {
+      if (drag !== null && !drag.started) drag.started = leftDeadZone(drag.start, p);
+      if (drag !== null && drag.started && !host.locked()) {
         const d = drag;
         host.edit((g) => {
-          if (moveNode(g, d.id, p.x - d.offsetX, p.y - d.offsetY)) d.moved = true;
+          moveNode(g, d.id, p.x - d.offsetX, p.y - d.offsetY);
         });
       }
     },
@@ -116,12 +143,12 @@ export function createGestures(host: GestureHost): Gestures {
         });
       }
       // A click flips a switch: a single-signal input's one switch, or the
-      // bit under the pointer on a bus input.
-      if (d && !d.moved) {
+      // bit pressed on a bus input.
+      if (d && !d.started && !leftDeadZone(d.start, p)) {
         host.edit((g) => {
           const node = g.nodes.get(d.id);
           if (!node || !nodeKind(g, node).clickable) return;
-          const bit = node.width === 1 ? 0 : switchAt(g, node, p.x, p.y);
+          const bit = node.width === 1 ? 0 : switchAt(g, node, d.start.x, d.start.y);
           if (bit === null) return;
           setInput(g, node.id, (node.signals[0] ?? 0) ^ (1 << bit));
           sound.play("switch");

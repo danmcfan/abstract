@@ -185,6 +185,7 @@ describe("a bus input terminal", () => {
         change(game);
       },
       locked: () => false,
+      pixelsPerCell: () => 1,
     });
     const click = (bit: number): void => {
       const p = { x: a.rect.x + 1.5 + (3 - bit), y: a.rect.y + a.rect.height / 2 };
