@@ -1,4 +1,4 @@
-import { INSTRUCTION_SET_ID, levelId, type Level } from "../sim/level";
+import { INSTRUCTION_SET_ID, goalParts, levelId, type Level } from "../sim/level";
 import type { LineError } from "../sim/assembler";
 import type { NodeType } from "../sim/node";
 import type { Cue } from "../sim/story";
@@ -16,8 +16,6 @@ interface LevelScript {
   intro: Line[];
   // When the player asks for help, after the goal.
   hint: Line[];
-  // The goal, split for Bitbox's desk, when the level's own is too long for one line.
-  about?: Line[];
   // The first time it's solved.
   solved: Line[];
 }
@@ -242,11 +240,6 @@ const LEVELS: Partial<Record<string, LevelScript>> = {
     solved: [{ face: "happy", text: "Logic unit, done! Four jobs, one part." }],
   },
   "ALU SLICE": {
-    about: [
-      { face: "idle", text: "We're building ALU SLICE. Do OP to A and B." },
-      { face: "idle", text: "Arithmetic adds A, B (or NOT B for OP 1 and 3) and CIN. COUT is the carry for every OP." },
-      { face: "idle", text: "4 is AND, 5 is OR, 6 is XOR, 7 is NOT A." },
-    ],
     intro: [
       { face: "amazed", text: "This is the big one. One part that does six jobs." },
       { face: "idle", text: "OP is a 3-signal bus. Its top signal says arithmetic or logic." },
@@ -436,13 +429,6 @@ const LEVELS: Partial<Record<string, LevelScript>> = {
     ],
   },
   "3-TO-8 DECODER": {
-    about: [
-      {
-        face: "idle",
-        text: "We're building 3-TO-8 DECODER. Only the signal S numbers is on: number n is D's signal n.",
-      },
-      { face: "idle", text: "The join takes its high signal first, so number n goes into join pin 7−n." },
-    ],
     intro: [
       { face: "idle", text: "A decoder turns a number into one signal." },
       { face: "idle", text: "S is a number from 0 to 7. Number n is D's signal n: only that one is on." },
@@ -554,13 +540,6 @@ const LEVELS: Partial<Record<string, LevelScript>> = {
     ],
   },
   "WRITE ENCODER": {
-    about: [
-      {
-        face: "idle",
-        text: "We're building WRITE ENCODER. WRITE is on when your opcode's instruction writes register R.",
-      },
-      { face: "idle", text: "SRC picks what R takes: 0 S, 1 N, 2 RAM or DIN, 3 the ALU." },
-    ],
     intro: [
       { face: "idle", text: "The write encoder says if register R changes, and what it takes." },
       { face: "idle", text: "WRITE is on when the instruction writes R." },
@@ -730,15 +709,14 @@ export const solved = (level: Level): Line[] =>
   LEVELS[levelId(level)]?.solved ?? [{ face: "happy", text: `${levelId(level)}, done!` }];
 
 function about(level: Level): string {
-  if (level.kind === "instruction set") return `We're writing our instruction set. ${level.goal}`;
-  if (level.kind === "door program") return `We're writing the door program. ${level.goal}`;
-  return level.prebuilt === true
-    ? `This is ${level.gate}. ${level.goal}`
-    : `We're building ${level.gate}. ${level.goal}`;
+  if (level.kind === "instruction set") return "We're writing our instruction set.";
+  if (level.kind === "door program") return "We're writing the door program.";
+  return level.prebuilt === true ? `This is ${level.gate}.` : `We're building ${level.gate}.`;
 }
 
+// The first goal part shares its line with what the level is.
 export const help = (level: Level): Line[] => [
-  ...(LEVELS[levelId(level)]?.about ?? [{ face: "idle", text: about(level) }]),
+  ...goalParts(level).map((part, i): Line => ({ face: "idle", text: i === 0 ? `${about(level)} ${part}` : part })),
   ...(LEVELS[levelId(level)]?.hint ?? [CONTROLS]),
 ];
 

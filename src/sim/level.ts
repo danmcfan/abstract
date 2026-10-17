@@ -121,7 +121,9 @@ interface LevelInfo {
   // Bumped when the level changes enough that a player who solved it must
   // solve it again, such as a new truth table or terminals. Missing means 1.
   revision?: number;
-  goal: string;
+  // One sentence, or several when it's too long for one Bitbox line: each
+  // part is its own help line, and the brief reads them joined.
+  goal: string | string[];
   // The number of the layer the level belongs to.
   layer: number;
 }
@@ -761,7 +763,11 @@ export const LEVELS: Level[] = [
   {
     gate: "ALU SLICE",
     revision: 3,
-    goal: "Do OP to A and B. Arithmetic adds A, B (or NOT B for OP 1 and 3) and CIN; 4 and, 5 or, 6 xor, 7 not A. COUT is the carry for every OP.",
+    goal: [
+      "Do OP to A and B.",
+      "Arithmetic adds A, B (or NOT B for OP 1 and 3) and CIN. COUT is the carry for every OP.",
+      "4 is AND, 5 is OR, 6 is XOR, 7 is NOT A.",
+    ],
     layer: 4,
     inputs: ["A", "B", "CIN", "OP"],
     outputs: ["OUT", "COUT"],
@@ -1298,7 +1304,10 @@ export const LEVELS: Level[] = [
   },
   {
     gate: "3-TO-8 DECODER",
-    goal: "Only the signal S numbers is on: number n is D's signal n. The join takes its high signal first, so number n goes into join pin 7−n.",
+    goal: [
+      "Only the signal S numbers is on: number n is D's signal n.",
+      "The join takes its high signal first, so number n goes into join pin 7−n.",
+    ],
     layer: 6,
     inputs: ["S"],
     outputs: ["D"],
@@ -1641,7 +1650,10 @@ function writeEncoderLevel(set: InstructionSet): CircuitLevel {
   const lineOf = lineIn(set);
   return {
     gate: "WRITE ENCODER",
-    goal: "WRITE is on when your opcode's instruction writes register R. SRC picks what R takes: 0 S, 1 N, 2 RAM or DIN, 3 the ALU.",
+    goal: [
+      "WRITE is on when your opcode's instruction writes register R.",
+      "SRC picks what R takes: 0 S, 1 N, 2 RAM or DIN, 3 the ALU.",
+    ],
     layer: 8,
     inputs: ["OPCODE"],
     outputs: ["WRITE", "SRC"],
@@ -2440,3 +2452,10 @@ function seeded(seed: number): () => number {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
+
+// A level's goal as parts, one per Bitbox line.
+export const goalParts = (level: { goal: string | string[] }): string[] =>
+  typeof level.goal === "string" ? [level.goal] : level.goal;
+
+// A level's goal as one passage, for the brief.
+export const goalText = (level: { goal: string | string[] }): string => goalParts(level).join(" ");

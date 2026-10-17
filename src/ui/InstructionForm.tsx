@@ -12,6 +12,7 @@ import {
   type Problem,
   shownProblems,
 } from "../sim/instruction";
+import { goalText } from "../sim/level";
 import { speak } from "./speech";
 import { editInstructions, session } from "./state";
 
@@ -46,7 +47,7 @@ export function InstructionForm(): JSX.Element {
         <Typewriters class="h-10 w-40 shrink-0 text-ink" />
         <div class="min-w-0 flex-1">
           <h2 class="font-bold text-ink">SH {pad(session().levelIndex + 1)} · INSTRUCTION SET</h2>
-          <p class="text-note">{session().level.goal}</p>
+          <p class="text-note">{goalText(session().level)}</p>
         </div>
         <button
           id="use-all"

@@ -10,6 +10,7 @@ import {
   TICK_LIMIT,
   wiring,
 } from "../sim/level";
+import { goalText } from "../sim/level";
 import type { Value } from "../sim/node";
 import { CLOCK_SPEED } from "../sim/session";
 import { CLUES } from "./clues";
@@ -159,7 +160,7 @@ export function Brief(props: { onStack: (arrive?: number) => void }): JSX.Elemen
           <Show when={circuit()}>
             {(level) => <GateIcon type={level().gate} class="h-11 w-16 shrink-0 text-ink" />}
           </Show>
-          <p class="text-note leading-snug">{session().level.goal}</p>
+          <p class="text-note leading-snug">{goalText(session().level)}</p>
         </div>
 
         <Show when={session().level.kind === "instruction set"}>

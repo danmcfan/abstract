@@ -12,6 +12,7 @@ import {
   partsOf,
   revisionOf,
   withInstructionSet,
+  goalText,
 } from "./level";
 import type { State, Value } from "./node";
 
@@ -35,8 +36,8 @@ describe("the L8 data levels", () => {
   });
 
   test("the briefs say how D splits and which of N's signals RAM uses", () => {
-    expect(circuitAt(index("INSTRUCTION REGISTER")).goal).toContain("top 4 signals");
-    expect(circuitAt(index("EXECUTE UNIT")).goal).toContain("low 3 signals");
+    expect(goalText(circuitAt(index("INSTRUCTION REGISTER")))).toContain("top 4 signals");
+    expect(goalText(circuitAt(index("EXECUTE UNIT")))).toContain("low 3 signals");
   });
 
   // Every valid instruction set, not only Bitbox's, keeps within ADR 11.
