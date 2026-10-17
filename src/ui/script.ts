@@ -243,11 +243,9 @@ const LEVELS: Partial<Record<string, LevelScript>> = {
   },
   "ALU SLICE": {
     about: [
-      {
-        face: "idle",
-        text: "We're building ALU SLICE. Do OP to A and B. Arithmetic adds A, B (or NOT B for OP 1 and 3) and CIN.",
-      },
-      { face: "idle", text: "4 is AND, 5 is OR, 6 is XOR, 7 is NOT A. COUT is the carry for every OP." },
+      { face: "idle", text: "We're building ALU SLICE. Do OP to A and B." },
+      { face: "idle", text: "Arithmetic adds A, B (or NOT B for OP 1 and 3) and CIN. COUT is the carry for every OP." },
+      { face: "idle", text: "4 is AND, 5 is OR, 6 is XOR, 7 is NOT A." },
     ],
     intro: [
       { face: "amazed", text: "This is the big one. One part that does six jobs." },

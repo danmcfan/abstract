@@ -250,8 +250,8 @@ export function pins(game: Game, node: Node): Pin[] {
 
 export const pinKey = (pin: Pin): string => `${pin.node}:${pin.side}:${pin.index}`;
 
-// Pins to wire: inputs nothing feeds, and the outputs of a node none of
-// whose outputs go anywhere. A part's spare outputs stay quiet.
+// Loose pins: inputs nothing feeds, and the outputs of a node none of whose
+// outputs go anywhere. Once one output is wired, a part's spare ones aren't loose.
 export function loosePins(game: Game): Pin[] {
   const fed = new Set<string>();
   const used = new Set<NodeID>();
