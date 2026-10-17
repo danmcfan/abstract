@@ -250,7 +250,10 @@ finish() {
   if typing_pool; then
     write_table "$count"
   elif exit_hall; then
-    open_door "$count"
+    # The door opened for good: a finished game doesn't run the program again.
+    hush
+    ab click "#step"
+    expect "document.querySelector('#cpu-panel').textContent.includes('0 ticks')" "level $count: the finished door doesn't run again"
   else
     check 2 "$count"
   fi
