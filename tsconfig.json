@@ -27,5 +27,5 @@
     "jsx": "preserve",
     "jsxImportSource": "solid-js"
   },
-  "include": ["src", "scripts", "vite.config.ts", ".sandcastle/*.ts"]
+  "include": ["src", "scripts", "vite.config.ts"]
 }

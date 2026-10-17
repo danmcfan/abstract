@@ -1,7 +1,6 @@
 {
   "name": "abstract",
   "devDependencies": {
-    "@ai-hero/sandcastle": "0.12.0",
     "@shadcn/lint": "0.2.1",
     "@tailwindcss/vite": "^4.3.3",
     "@types/bun": "^1.4.2",
@@ -12,7 +11,6 @@
     "oxlint-tsgolint": "7.0.2004",
     "prettier": "3.9.10",
     "prettier-plugin-tailwindcss": "0.8.1",
-    "sandworm": "github:danmcfan/sandworm#v0.2.1",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
     "vite": "^8.3.4",
@@ -31,9 +29,7 @@
     "verify": "bun run check && bun run desk-lines && bun run playthrough",
     "lint": "oxlint",
     "format": "prettier --write .",
-    "check:static": "tsc --noEmit && oxlint && prettier --check . && knip && bun scripts/check-escapes.ts",
-    "sandcastle": "bun .sandcastle/main.ts",
-    "sandcastle:batch": "bun .sandcastle/batch.ts"
+    "check:static": "tsc --noEmit && oxlint && prettier --check . && knip && bun scripts/check-escapes.ts"
   },
   "type": "module",
   "dependencies": {
