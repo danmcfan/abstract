@@ -19,6 +19,10 @@ import { silent, type Sound } from "./sound";
 // it; nothing is editable while locked. Flipping a switch, drawing a wire
 // and connecting it play their sound cues.
 
+// A press only becomes a drag once the pointer has moved this far on screen;
+// anything less is a click, however large the board is drawn.
+const DRAG_DEAD_ZONE_PX = 5;
+
 interface Point {
   x: number;
   y: number;
@@ -42,6 +46,8 @@ export interface GestureHost {
   game(): Game;
   edit(change: (game: Game) => void): void;
   locked(): boolean;
+  // Screen pixels per board cell; 1 when absent.
+  pixelsPerCell?: () => number;
   sound?: Sound;
 }
 
@@ -54,12 +60,20 @@ export function createGestures(host: GestureHost): Gestures {
   let hoveredPin: Pin | null = null;
   let hoveredNode: NodeID | null = null;
   let preview: { from: Pin; to: Point } | null = null;
-  let drag: { id: NodeID; offsetX: number; offsetY: number; moved: boolean } | null = null;
+  // started: the pointer has left the dead zone, so this press is a drag.
+  let drag: { id: NodeID; start: Point; offsetX: number; offsetY: number; started: boolean } | null = null;
   const sound = host.sound ?? silent;
 
+  // A switch's own output pin sits beside it; inside the switch's body the
+  // switch wins, so only the pin itself and the space beyond it start a wire.
   const hover = (p: Point): void => {
-    hoveredPin = pinAt(host.game(), p.x, p.y);
-    hoveredNode = hoveredPin ? null : nodeAt(host.game(), p.x, p.y);
+    const game = host.game();
+    const pin = pinAt(game, p.x, p.y);
+    const owner = pin && game.nodes.get(pin.node);
+    const onSwitch =
+      owner !== undefined && owner !== null && nodeKind(game, owner).clickable && contains(owner.rect, p.x, p.y);
+    hoveredPin = onSwitch ? null : pin;
+    hoveredNode = hoveredPin ? null : nodeAt(game, p.x, p.y);
   };
 
   return {
@@ -84,7 +98,14 @@ export function createGestures(host: GestureHost): Gestures {
         return;
       }
       const node = host.game().nodes.get(hoveredNode ?? -1);
-      if (node) drag = { id: node.id, offsetX: p.x - node.rect.x, offsetY: p.y - node.rect.y, moved: false };
+      if (node)
+        drag = {
+          id: node.id,
+          start: p,
+          offsetX: p.x - node.rect.x,
+          offsetY: p.y - node.rect.y,
+          started: false,
+        };
     },
 
     move(p) {
@@ -94,10 +115,14 @@ export function createGestures(host: GestureHost): Gestures {
         preview = { ...preview, to: p };
         if (!host.locked()) sound.play("pencil");
       }
-      if (drag && !host.locked()) {
+      if (drag && !drag.started) {
+        const pixels = Math.hypot(p.x - drag.start.x, p.y - drag.start.y) * (host.pixelsPerCell?.() ?? 1);
+        drag.started = pixels >= DRAG_DEAD_ZONE_PX;
+      }
+      if (drag !== null && drag.started && !host.locked()) {
         const d = drag;
         host.edit((g) => {
-          if (moveNode(g, d.id, p.x - d.offsetX, p.y - d.offsetY)) d.moved = true;
+          moveNode(g, d.id, p.x - d.offsetX, p.y - d.offsetY);
         });
       }
     },
@@ -117,7 +142,7 @@ export function createGestures(host: GestureHost): Gestures {
       }
       // A click flips a switch: a single-signal input's one switch, or the
       // bit under the pointer on a bus input.
-      if (d && !d.moved) {
+      if (d && !d.started) {
         host.edit((g) => {
           const node = g.nodes.get(d.id);
           if (!node || !nodeKind(g, node).clickable) return;

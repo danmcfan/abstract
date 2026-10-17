@@ -56,7 +56,13 @@ export function Board(): JSX.Element {
     cell.disconnect();
   });
 
-  const gestures = createGestures({ game: current, edit: mutate, locked: () => session().testing, sound });
+  const gestures = createGestures({
+    game: current,
+    edit: mutate,
+    locked: () => session().testing,
+    pixelsPerCell: () => svg?.getScreenCTM()?.a ?? 1,
+    sound,
+  });
   // The gesture module is plain state; mirror it into signals after each event.
   const [view, setView] = createSignal(snapshot(gestures), { equals: false });
   const hovered = (): number | null => view().hoveredNode;

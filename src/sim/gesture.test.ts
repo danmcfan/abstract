@@ -12,7 +12,7 @@ interface Setup {
   edits: () => number;
 }
 
-function setup(): Setup {
+function setup(pixelsPerCell = 1): Setup {
   const game = newGame(PARTS);
   let locked = false;
   let edits = 0;
@@ -23,6 +23,7 @@ function setup(): Setup {
       change(game);
     },
     locked: () => locked,
+    pixelsPerCell: () => pixelsPerCell,
   });
   const add = (type: NodeType, x: number, y: number): NodeID => placeNode(game, type, { x, y })!.id;
   const lock = (): void => {
@@ -38,6 +39,12 @@ const at = (game: Game, pin: Pin): { x: number; y: number } =>
 const centre = (game: Game, id: NodeID): { x: number; y: number } => {
   const r = game.nodes.get(id)!.rect;
   return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+};
+
+// A press on a switch's left side.
+const press = (game: Game, id: NodeID): { x: number; y: number } => {
+  const r = game.nodes.get(id)!.rect;
+  return { x: r.x + 0.4, y: r.y + r.height / 2 };
 };
 
 describe("gestures", () => {
@@ -152,5 +159,55 @@ describe("gestures", () => {
     expect(game.nodes.size).toBe(2);
     expect(game.edges.size).toBe(1);
     expect(game.nodes.get(a)!.isHigh).toBe(false);
+  });
+
+  describe("flipping a switch", () => {
+    // At 8 px a cell, 4 px is half a cell: enough on its own to snap a node
+    // to the next cell.
+    const ZOOM = 8;
+
+    test("a 4 px wobble is still a click: it flips and stays put", () => {
+      const { game, g, add } = setup(ZOOM);
+      const a = add("INPUT", 5, 5);
+      const before = game.nodes.get(a)!.rect;
+      const p = press(game, a);
+      g.down(p, 0);
+      g.move({ x: p.x + 4 / ZOOM, y: p.y });
+      g.up({ x: p.x + 4 / ZOOM, y: p.y });
+      expect(game.nodes.get(a)!.isHigh).toBe(true);
+      expect(game.nodes.get(a)!.rect).toEqual(before);
+    });
+
+    test("6 px is a drag: no flip", () => {
+      const { game, g, add } = setup(ZOOM);
+      const a = add("INPUT", 5, 5);
+      const before = game.nodes.get(a)!.rect;
+      const p = press(game, a);
+      const to = { x: p.x + 6 / ZOOM, y: p.y };
+      g.down(p, 0);
+      expect(g.dragging).toBe(true);
+      g.move(to);
+      g.up(to);
+      expect(game.nodes.get(a)!.isHigh).toBe(false);
+      expect(game.nodes.get(a)!.rect.x).toBe(before.x + 1);
+    });
+
+    test("pressing the switch's edge beside its pin flips it, with no wire", () => {
+      const { game, g, add } = setup(ZOOM);
+      const a = add("INPUT", 5, 5);
+      const pin = at(game, out(a));
+      const edge = { x: pin.x - 0.2, y: pin.y };
+      g.down(edge, 0);
+      expect(g.preview).toBeNull();
+      g.up(edge);
+      expect(game.nodes.get(a)!.isHigh).toBe(true);
+    });
+
+    test("pressing the pin itself still starts a wire", () => {
+      const { game, g, add } = setup(ZOOM);
+      const a = add("INPUT", 5, 5);
+      g.down(at(game, out(a)), 0);
+      expect(g.preview?.from).toEqual(out(a));
+    });
   });
 });
