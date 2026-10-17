@@ -84,15 +84,17 @@ check() {
   ab click "#test"
   sleep "$1"
   local status tries=0
-  status=$(js "document.querySelector('#status').textContent")
+  status=$(js "document.querySelector('#status')?.textContent ?? ''")
   while [[ $status == *Testing* && $tries -lt 120 ]]; do
     sleep 0.25
     tries=$((tries + 1))
-    status=$(js "document.querySelector('#status').textContent")
+    status=$(js "document.querySelector('#status')?.textContent ?? ''")
   done
+  # A pass shows no status line, only the PASSED stamp.
+  [[ $(js "document.querySelector('#stamp') !== null") == true ]] && status="Tested!"
   echo "level $2: $status"
   if [[ -n ${3:-} ]]; then agent-browser screenshot "$3" >/dev/null; fi
-  [[ $status == *Tested* ]] || { echo "level $2 failed" >&2; exit 1; }
+  [[ $status == Tested! ]] || { echo "level $2 failed" >&2; exit 1; }
   hush
 }
 

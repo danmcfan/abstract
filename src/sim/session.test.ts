@@ -645,6 +645,36 @@ describe("after a test run", () => {
   });
 });
 
+describe("solving a level", () => {
+  test("its part joins the bin with a relay click, once", () => {
+    const sound = recordingSound();
+    const session = new Session(memorySave(saved(NOT_LEVEL, NOT_LEVEL)), sound);
+    session.start(NOT_LEVEL);
+    expect(session.earned).toBeNull();
+    session.edit((game) => {
+      buildSolution(game, circuitAt(NOT_LEVEL));
+    });
+    runAll(session);
+    expect(session.earned).toBe(circuitAt(NOT_LEVEL).gate);
+    expect(session.justSolved).toBe(true);
+    expect(sound.played).toContain("connect");
+    session.start(NOT_LEVEL);
+    expect(session.earned).toBe(circuitAt(NOT_LEVEL).gate);
+    expect(session.justSolved).toBe(false);
+  });
+
+  test("passing a level already solved is no flourish", () => {
+    const session = passOn(NOT_LEVEL);
+    runAll(session);
+    expect(session.justSolved).toBe(false);
+  });
+
+  test("lights the level's bulb", () => {
+    const session = passOn(NOT_LEVEL);
+    expect(session.bulbs.find((bulb) => bulb.current)).toEqual({ index: NOT_LEVEL, lit: true, current: true });
+  });
+});
+
 describe("what Bitbox says", () => {
   test("a level's intro plays the first time it opens", () => {
     const { session } = fresh();

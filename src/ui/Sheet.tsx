@@ -5,7 +5,6 @@ import {
   layerOf,
   type CircuitLevel,
   type Layer,
-  partGiven,
   partsBin,
   terminalWidth,
   TICK_LIMIT,
@@ -70,14 +69,9 @@ function status(): { text: string; tone: string } | null {
   if (r.unstable) return { text: "Unstable: a loop on the board never settles.", tone: "text-fail" };
   if (r.endless) return { text: `A test program never stopped at HALT in ${TICK_LIMIT} ticks.`, tone: "text-fail" };
   if (!r.passed) return { text: "Not quite. Some rows don't match.", tone: "text-fail" };
-  const given = partGiven(session().level);
-  return {
-    text:
-      session().next?.to === "end" || !given
-        ? "Tested! That's every level so far."
-        : `Tested! ${given.gate} is in your parts bin.`,
-    tone: "text-pass",
-  };
+  // A pass says itself with the stamp, the part in the bin and the green
+  // Next level button.
+  return null;
 }
 
 export function MenuBar(props: { onMenu: () => void; onStack: (arrive?: number) => void }): JSX.Element {
@@ -88,6 +82,7 @@ export function MenuBar(props: { onMenu: () => void; onStack: (arrive?: number) 
       </span>
       <h1 class="flex items-center px-3 text-lg font-bold text-ink">{script.heading(session().level)}</h1>
       <nav class="ml-auto flex items-center gap-2.5 py-1.5 pr-3 pl-2">
+        <LevelBulbs />
         <button
           id="open-stack"
           class="btn btn-sm btn-ghost"
@@ -118,6 +113,24 @@ export function MenuBar(props: { onMenu: () => void; onStack: (arrive?: number) 
         </button>
       </nav>
     </header>
+  );
+}
+
+// One bulb for each level of this layer, lit once it's solved. The bulb
+// that lights on this visit lights with a bounce.
+function LevelBulbs(): JSX.Element {
+  return (
+    <span id="bulbs" class="flex items-center gap-1" aria-label="Levels solved in this layer">
+      <For each={session().bulbs}>
+        {(bulb) => (
+          <span
+            data-lit={bulb.lit}
+            classList={{ "bulb-lit": bulb.current && bulb.lit && session().justSolved }}
+            class={`size-2.5 rounded-full border-hair ${bulb.lit ? "border-live bg-glow" : "border-pencil"} ${bulb.current ? "outline-2 outline-offset-1 outline-ink" : ""}`}
+          />
+        )}
+      </For>
+    </span>
   );
 }
 
@@ -389,24 +402,14 @@ export function Brief(props: { onStack: (arrive?: number) => void }): JSX.Elemen
             </p>
           )}
         </Show>
+        {/* The way on keeps its place, disabled until the level is solved,
+            so nothing moves when it is. The last level has none. */}
         <Switch>
-          <Match when={session().next?.to === "level"}>
-            <button
-              id="next"
-              class="mt-2.5 btn"
-              onClick={() => {
-                hush();
-                driver.start(session().levelIndex + 1);
-              }}
-            >
-              Next level ▸
-            </button>
-          </Match>
           <Match when={floor()}>
             {(above) => (
               <button
                 id="up"
-                class="mt-2.5 btn"
+                class="mt-2.5 btn btn-go"
                 onClick={() => {
                   props.onStack(above().number);
                 }}
@@ -414,6 +417,19 @@ export function Brief(props: { onStack: (arrive?: number) => void }): JSX.Elemen
                 Up to {above().floor} ▸
               </button>
             )}
+          </Match>
+          <Match when={!session().last}>
+            <button
+              id="next"
+              class="mt-2.5 btn btn-go"
+              disabled={session().next?.to !== "level"}
+              onClick={() => {
+                hush();
+                driver.start(session().levelIndex + 1);
+              }}
+            >
+              Next level ▸
+            </button>
           </Match>
         </Switch>
       </div>
@@ -551,6 +567,23 @@ export function PartsBin(): JSX.Element {
               </button>
             )}
           </For>
+          {/* The open level's own part, once it's solved, for the levels
+              after it; it can't go on this level's board. */}
+          <Show when={circuit() && session().earned}>
+            {(type) => (
+              <button
+                class={PART_CARD}
+                classList={{ earned: session().justSolved }}
+                data-gate={type()}
+                data-earned
+                aria-disabled="true"
+                title="For the levels after this one"
+              >
+                <GateIcon type={type()} class="h-9 w-15 shrink-0" />
+                {type()}
+              </button>
+            )}
+          </Show>
           {/* Splits, joins and constants are wiring the level supplies, not
               parts, so they sit apart at the end, from a fresh column, and
               only on levels that have some. */}

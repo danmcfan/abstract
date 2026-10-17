@@ -1963,6 +1963,29 @@ export function partsBin(levelIndex: number, levels = LEVELS): NodeType[] {
   return levels.slice(0, levelIndex).flatMap((level) => partGiven(level)?.gate ?? []);
 }
 
+// The part a level adds to the bin once it's solved, if a later level can
+// use it: the last level's part has nowhere to go.
+export function partEarned(levelIndex: number, levels = LEVELS): NodeType | null {
+  if (levelIndex + 1 >= levels.length) return null;
+  return partGiven(levelAt(levelIndex, levels))?.gate ?? null;
+}
+
+// One bulb in the menu bar for each level of the open level's layer: lit
+// once the level is solved at its current revision, and outlined for the
+// open level.
+export interface Bulb {
+  index: number;
+  lit: boolean;
+  current: boolean;
+}
+
+export function layerBulbs(levelIndex: number, solved: Solved, levels = LEVELS): Bulb[] {
+  return layerLevels(levelAt(levelIndex, levels).layer, levels).map((index) => {
+    const level = levelAt(index, levels);
+    return { index, lit: solved[levelId(level)] === revisionOf(level), current: index === levelIndex };
+  });
+}
+
 // The levels that can be played: every solved level plus the next one.
 // The revision of each level the player has solved, by its levelId.
 // Keyed by identifier, not position, so it still means the same levels after one
