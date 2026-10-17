@@ -12,7 +12,8 @@ import { watchScreen } from "./ui/device";
 import { Dialogue } from "./ui/Dialogue";
 import { InstructionForm } from "./ui/InstructionForm";
 import { listenForFirstGesture } from "./ui/sound";
-import { hush, speak, speech } from "./ui/speech";
+import { everyLine } from "./ui/script";
+import { hush, say, speak, speech } from "./ui/speech";
 import { Brief, MenuBar, PartsBin } from "./ui/Sheet";
 import { Stack } from "./ui/Stack";
 import { current, driver, session } from "./ui/state";
@@ -156,6 +157,12 @@ if (import.meta.env.DEV) {
         return speech()?.line.text ?? null;
       },
       levelCount: LEVELS.length,
+      // Every line in the script, and a way to put any one in Bitbox's desk,
+      // so a check can make sure each fits.
+      lines: () => everyLine(LEVELS).map((line) => line.text),
+      say: (text: string) => {
+        say([{ face: "idle", text }]);
+      },
       // The layer level index i belongs to, for checks on the stack.
       layerOf,
       // The open level's intended solution, and its wires once its nodes

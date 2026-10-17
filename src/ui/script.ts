@@ -835,3 +835,22 @@ export function lines(cue: Exclude<Cue, { react: string }>): Line[] {
   }
   return said;
 }
+
+// Every line Bitbox can say during play, with a long stand-in for each
+// filled-in blank, so a check can make sure each one fits his desk.
+export function everyLine(levels: readonly Level[]): Line[] {
+  const longError: LineError = { line: 16, problem: "The label OPEN_DOOR is past the end of program memory." };
+  return [
+    ...levels.flatMap((level) => [...intro(level), ...solved(level), ...help(level), ...welcomeBack(level)]),
+    ...Object.values(FLOORS).flat(),
+    ...failed,
+    ...unstable,
+    ...forbidden(["DEMUX", "MUX"]),
+    ...tableError,
+    ...programError(longError),
+    ...programEmpty,
+    ...DOOR_OPEN,
+    ...doorShut(255),
+    ...doorHalted,
+  ];
+}
