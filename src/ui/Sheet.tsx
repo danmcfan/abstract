@@ -14,7 +14,7 @@ import type { Value } from "../sim/node";
 import { CLOCK_SPEED } from "../sim/session";
 import { CLUES } from "./clues";
 import { hush, say } from "./speech";
-import { GateIcon } from "./GateIcon";
+import { GateIcon, partName } from "./GateIcon";
 import { SoundButton } from "./SoundButton";
 import * as script from "./script";
 import { boardPointAt } from "./Board";
@@ -612,7 +612,7 @@ export function PartsBin(): JSX.Element {
                     onClick={hand.onClick}
                   >
                     <GateIcon type={w.type} width={Math.min(w.width, 4)} class="h-9 w-15 shrink-0" />
-                    {w.width > 1 ? `${w.type} ${w.width}` : w.type}
+                    {partName(w.type, w.width)}
                   </button>
                 );
               }}
@@ -663,7 +663,9 @@ function pickUp(
         card.removeEventListener("pointermove", move);
         card.removeEventListener("pointerup", end);
         card.removeEventListener("pointercancel", end);
+        // A cancelled press is followed by no click, so nothing else clears the flag.
         const at = e.type === "pointerup" ? binDrag()?.at : null;
+        if (e.type === "pointercancel") dragged = false;
         setBinDrag(null);
         if (dragged && at && !session().testing) placePart(type, width, at);
       };

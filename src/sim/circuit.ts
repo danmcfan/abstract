@@ -71,7 +71,7 @@ export function placeNode(
   width = 1,
 ): Node | null {
   if (!Number.isInteger(width) || width < 1 || width > MAX_WIDTH) return null;
-  const rect = freeRect(game, kindOf(game.parts, type).size(width), center);
+  const rect = landing(game, type, center, width);
   if (!rect) return null;
   const node: Node = { id: game.nextNodeID++, type, label, rect, width, isHigh: false, signals: [], state: [] };
   game.nodes.set(node.id, node);
@@ -79,15 +79,14 @@ export function placeNode(
   return node;
 }
 
-// Moves a node to the snapped position nearest (x, y), unless that would
-// overlap another node. Returns whether the node moved.
-// The cells a part of this type and width would take, centred on a board
-// point and snapped to the grid, whether or not they're free.
-export function footprint(game: Game, type: NodeType, center: { x: number; y: number }, width = 1): Rect {
-  const size = kindOf(game.parts, type).size(width);
-  return snap({ x: center.x - size.width / 2, y: center.y - size.height / 2, ...size }, game.grid);
+// The cells placeNode would give a part of this type and width centred on a
+// board point: the free spot nearest it, or null if the board is full.
+export function landing(game: Game, type: NodeType, center: { x: number; y: number }, width = 1): Rect | null {
+  return freeRect(game, kindOf(game.parts, type).size(width), center);
 }
 
+// Moves a node to the snapped position nearest (x, y), unless that would
+// overlap another node. Returns whether the node moved.
 export function moveNode(game: Game, id: NodeID, x: number, y: number): boolean {
   const node = game.nodes.get(id);
   if (!node) return false;

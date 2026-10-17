@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { edgeInto, footprint, moveNode, pinKey, placeNode, setInput, wire, type Game, type Pin } from "./circuit";
+import { edgeInto, landing, moveNode, pinKey, placeNode, setInput, wire, type Game, type Pin } from "./circuit";
 import type { Node, NodeID, NodeType } from "./node";
 import type { Rect } from "./grid";
 import { memorySave, type SaveData, type SaveStore } from "./save";
@@ -488,14 +488,19 @@ describe("one board per level", () => {
     expect(session.game.grid).toEqual(grid);
   });
 
-  test("a part dropped on the board lands on the drop cell, matching its footprint", () => {
+  test("a part dropped on the board lands where its preview showed, on the drop cell when it's free", () => {
     const { session } = fresh(2);
     const at = { x: 6, y: 5 };
-    const ghost = footprint(session.game, "NOT", at);
+    const ghost = landing(session.game, "NOT", at);
     session.place("NOT", 1, at);
-    const placed = [...session.game.nodes.values()].find((n) => n.type === "NOT");
-    expect(placed?.rect).toEqual(ghost);
-    expect(ghost.x + ghost.width / 2).toBeCloseTo(at.x, 0);
+    const nots = (): Node[] => [...session.game.nodes.values()].filter((n) => n.type === "NOT");
+    expect(nots()[0]?.rect ?? null).toEqual(ghost);
+    expect(ghost).toMatchObject({ x: Math.round(at.x - ghost!.width / 2), y: Math.round(at.y - ghost!.height / 2) });
+    // Dropped on that same, now taken, cell, the next lands beside it, where its preview showed.
+    const beside = landing(session.game, "NOT", at);
+    expect(beside).not.toEqual(ghost);
+    session.place("NOT", 1, at);
+    expect(nots()[1]?.rect ?? null).toEqual(beside);
   });
 
   test("a level never visited opens on a fresh board", () => {

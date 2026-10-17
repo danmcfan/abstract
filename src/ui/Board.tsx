@@ -1,8 +1,9 @@
 import { For, Show, createMemo, createSignal, onCleanup, onMount, untrack, type JSX } from "solid-js";
-import { footprint, pinPosition, widthOf, type EdgeID, type Pin } from "../sim/circuit";
+import { landing, pinPosition, widthOf, type EdgeID, type Pin } from "../sim/circuit";
 import { createGestures, type Gestures } from "../sim/gesture";
 import type { Size } from "../sim/grid";
 import { createRouter } from "../sim/route";
+import { partName } from "./GateIcon";
 import { NodeView } from "./NodeView";
 import { sound } from "./sound";
 import { binDrag, current, mutate, session } from "./state";
@@ -124,10 +125,8 @@ export function Board(): JSX.Element {
     const drag = binDrag();
     const at = drag?.at;
     if (!drag || !at) return null;
-    return {
-      rect: footprint(current(), drag.type, at, drag.width),
-      label: drag.width > 1 ? `${drag.type} ${drag.width}` : drag.type,
-    };
+    const rect = landing(current(), drag.type, at, drag.width);
+    return rect && { rect, label: partName(drag.type, drag.width) };
   });
 
   const onPointerMove = (event: PointerEvent): void => {
