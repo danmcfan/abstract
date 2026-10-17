@@ -450,6 +450,21 @@ body {
   opacity: 0.75;
   pointer-events: none;
 }
+/* Over a pin it can join, the pencil line firms up; over one it can't, it
+   turns red and dashes. */
+#board .preview.snapped {
+  stroke: var(--color-live);
+  opacity: 1;
+}
+#board .preview.refused {
+  stroke: var(--color-fail);
+  stroke-dasharray: 0.2 0.15;
+  opacity: 1;
+}
+/* A wire lifted off its pin to be moved is drawn only as the pencil line. */
+#board .wire.lifted {
+  visibility: hidden;
+}
 #board .wire.inking .core {
   animation: ink 0.2s ease-out both;
 }
@@ -601,6 +616,7 @@ body {
   text-anchor: end;
 }
 #board .pin {
+  transition: r 0.1s;
   fill: var(--color-surface);
   stroke: var(--color-ink);
   stroke-width: 0.08;
@@ -619,4 +635,11 @@ body {
 #board .pin.hovered {
   fill: var(--color-glow);
   stroke: var(--color-live);
+  r: 0.34;
+}
+/* A pin a drawn wire can't join, such as one of another width. */
+#board .pin.refused {
+  fill: var(--color-surface);
+  stroke: var(--color-fail);
+  stroke-width: 0.14;
 }

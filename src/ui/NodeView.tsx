@@ -11,7 +11,12 @@ const samePin = (a: Pin | null, b: Pin): boolean =>
 // output is a lamp, each on a small white panel; a bus terminal is a row of
 // bit switches or lamps with its value written beside them. Drawn in
 // node-local cells.
-export function NodeView(props: { node: Node; hovered: boolean; hoveredPin: Pin | null }): JSX.Element {
+export function NodeView(props: {
+  node: Node;
+  hovered: boolean;
+  hoveredPin: Pin | null;
+  refusedPin: Pin | null;
+}): JSX.Element {
   // moveNode replaces rect, so these only change when the node does.
   const rect = createMemo(() => (current(), props.node.rect));
   const isHigh = createMemo(() => (current(), props.node.isHigh));
@@ -56,6 +61,7 @@ export function NodeView(props: { node: Node; hovered: boolean; hoveredPin: Pin 
               class="pin"
               classList={{
                 hovered: samePin(props.hoveredPin, pin),
+                refused: samePin(props.refusedPin, pin),
                 bus: widthOf(current(), props.node, pin) > 1,
                 hint: hinted().has(pinKey(pin)),
               }}

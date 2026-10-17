@@ -113,12 +113,18 @@ export function Board(): JSX.Element {
     }, INK_MS);
   };
 
-  const preview = (): string | null => {
+  const preview = (): { d: string; valid: boolean; snapped: boolean } | null => {
     const w = wiring();
     const from = w && current().nodes.get(w.from.node);
     if (!w || !from) return null;
     const p = pinPosition(current(), from, w.from.side, w.from.index);
-    return `M ${p.x} ${p.y} L ${w.to.x} ${w.to.y}`;
+    return { d: `M ${p.x} ${p.y} L ${w.to.x} ${w.to.y}`, valid: w.valid, snapped: w.target !== null && w.valid };
+  };
+  const lifted = (): EdgeID | null => wiring()?.lifted ?? null;
+  // The pin under a wire being drawn that the wire can't join.
+  const refusedPin = (): Pin | null => {
+    const w = wiring();
+    return w && !w.valid ? w.target : null;
   };
 
   const ghost = createMemo(() => {
@@ -228,6 +234,7 @@ export function Board(): JSX.Element {
                 unrouted: !wire.route.routed,
                 bus: wire.width > 1,
                 inking: inking().has(wire.id),
+                lifted: lifted() === wire.id,
               }}
               data-edge={wire.id}
             >
@@ -256,11 +263,14 @@ export function Board(): JSX.Element {
               node={node}
               hovered={hovered() === node.id}
               hoveredPin={hoveredPin()?.node === node.id ? hoveredPin() : null}
+              refusedPin={refusedPin()?.node === node.id ? refusedPin() : null}
             />
           )}
         </For>
       </g>
-      <Show when={preview()}>{(d) => <path class="preview" d={d()} />}</Show>
+      <Show when={preview()}>
+        {(p) => <path class="preview" classList={{ refused: !p().valid, snapped: p().snapped }} d={p().d} />}
+      </Show>
       {/* Where a part dragged from the parts bin will land. */}
       <Show when={ghost()}>
         {(g) => (

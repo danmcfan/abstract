@@ -100,6 +100,65 @@ describe("gestures", () => {
     expect(game.nodes.get(a)!.isHigh).toBe(false);
   });
 
+  test("over a pin it can join, the preview snaps to the pin", () => {
+    const { game, g, add } = setup();
+    const a = add("INPUT", 5, 5);
+    const b = add("NOT", 20, 20);
+    g.down(at(game, out(a)), 0);
+    const p = at(game, inp(b));
+    g.move({ x: p.x + 0.4, y: p.y - 0.3 });
+    expect(g.preview).toMatchObject({ to: p, target: inp(b), valid: true });
+  });
+
+  test("over a pin of another width, the preview is refused and doesn't wire", () => {
+    const { game, g, add } = setup();
+    const a = add("INPUT", 5, 5);
+    const bus = placeNode(game, "OUTPUT", { x: 20, y: 20 }, "Y", 4)!.id;
+    g.down(at(game, out(a)), 0);
+    g.move(at(game, inp(bus)));
+    expect(g.preview).toMatchObject({ target: inp(bus), valid: false });
+    g.up(at(game, inp(bus)));
+    expect(game.edges.size).toBe(0);
+  });
+
+  test("dragging a wired input pin onto another input moves the wire", () => {
+    const { game, g, add } = setup();
+    const a = add("INPUT", 5, 5);
+    const b = add("NOT", 20, 20);
+    const c = add("NOT", 20, 30);
+    wire(game, out(a), inp(b));
+    g.down(at(game, inp(b)), 0);
+    expect(g.preview).toMatchObject({ from: out(a) });
+    expect(g.preview?.lifted).not.toBeNull();
+    g.move(at(game, inp(c)));
+    g.up(at(game, inp(c)));
+    expect(edgeInto(game, b, 0)).toBeUndefined();
+    expect(edgeInto(game, c, 0)?.from).toBe(a);
+  });
+
+  test("dropping a lifted wire on empty board removes it", () => {
+    const { game, g, add } = setup();
+    const a = add("INPUT", 5, 5);
+    const b = add("NOT", 20, 20);
+    wire(game, out(a), inp(b));
+    g.down(at(game, inp(b)), 0);
+    g.up({ x: 35, y: 35 });
+    expect(game.edges.size).toBe(0);
+  });
+
+  test("dropping a lifted wire back on its pin, or on a pin it can't join, keeps it", () => {
+    const { game, g, add } = setup();
+    const a = add("INPUT", 5, 5);
+    const b = add("NOT", 20, 20);
+    const c = add("NOT", 20, 30);
+    const edge = wire(game, out(a), inp(b))!;
+    g.down(at(game, inp(b)), 0);
+    g.up(at(game, inp(b)));
+    g.down(at(game, inp(b)), 0);
+    g.up(at(game, out(c)));
+    expect([...game.edges.keys()]).toEqual([edge.id]);
+  });
+
   test("right-clicking an input pin unwires it", () => {
     const { game, g, add } = setup();
     const a = add("INPUT", 5, 5);

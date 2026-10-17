@@ -109,12 +109,8 @@ export function removeNode(game: Game, id: NodeID): void {
 // one wire, so an existing wire into it is replaced. Refuses wires that
 // join pins of different widths. Returns the new edge, or null if refused.
 export function wire(game: Game, a: Pin, b: Pin): Edge | null {
+  if (!canWire(game, a, b)) return null;
   const [from, to] = a.side === "out" ? [a, b] : [b, a];
-  if (from.side !== "out" || to.side !== "in") return null;
-  const source = game.nodes.get(from.node);
-  const target = game.nodes.get(to.node);
-  if (!source || !target) return null;
-  if (widthOf(game, source, from) !== widthOf(game, target, to)) return null;
 
   const old = edgeInto(game, to.node, to.index);
   if (old) game.edges.delete(old.id);
@@ -129,6 +125,17 @@ export function wire(game: Game, a: Pin, b: Pin): Edge | null {
   game.edges.set(edge.id, edge);
   settle(game);
   return edge;
+}
+
+// Whether wire() would join these pins: one output and one input, on nodes
+// that exist, of the same width.
+export function canWire(game: Game, a: Pin, b: Pin): boolean {
+  const [from, to] = a.side === "out" ? [a, b] : [b, a];
+  if (from.side !== "out" || to.side !== "in") return false;
+  const source = game.nodes.get(from.node);
+  const target = game.nodes.get(to.node);
+  if (!source || !target) return false;
+  return widthOf(game, source, from) === widthOf(game, target, to);
 }
 
 // Sets a node's width, leaving any wire that no longer fits for

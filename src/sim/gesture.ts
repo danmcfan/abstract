@@ -1,12 +1,16 @@
 import {
+  canWire,
+  edgeInto,
   moveNode,
   nodeKind,
   pinAt,
+  pinPosition,
   removeNode,
   setInput,
   switchAt,
   unwire,
   wire,
+  type EdgeID,
   type Game,
   type Pin,
 } from "./circuit";
@@ -15,7 +19,9 @@ import type { NodeID } from "./node";
 import { silent, type Sound } from "./sound";
 
 // Board gestures: pointer input, already in board coordinates, turned into
-// circuit commands. Every edit goes through edit() so the caller can observe
+// circuit commands. Pressing a wired input pin lifts its wire off: dropping
+// it on another pin moves it there, and dropping it on empty board removes
+// it. Every edit goes through edit() so the caller can observe
 // it; nothing is editable while locked. Flipping a switch, drawing a wire
 // and connecting it play their sound cues.
 
@@ -38,14 +44,24 @@ export interface Gestures {
   // A pin under the pointer wins over the node under it.
   readonly hoveredPin: Pin | null;
   readonly hoveredNode: NodeID | null;
-  // The wire being drawn, from a pin to the pointer.
-  readonly preview: { from: Pin; to: Point } | null;
+  // The wire being drawn, from a pin to the pointer. Over a pin it could
+  // join, the end snaps to that pin; over one it can't, valid is false.
+  readonly preview: Preview | null;
   // Whether a node is being dragged.
   readonly dragging: boolean;
   down(point: Point, button: number): void;
   move(point: Point): void;
   up(point: Point): void;
   contextMenu(point: Point): void;
+}
+
+interface Preview {
+  from: Pin;
+  to: Point;
+  target: Pin | null;
+  valid: boolean;
+  // The wire lifted off its input pin to be moved, hidden while it's drawn.
+  lifted: EdgeID | null;
 }
 
 export interface GestureHost {
@@ -57,6 +73,8 @@ export interface GestureHost {
   sound?: Sound;
 }
 
+const samePin = (a: Pin, b: Pin): boolean => a.node === b.node && a.side === b.side && a.index === b.index;
+
 function nodeAt(game: Game, x: number, y: number): NodeID | null {
   for (const node of game.nodes.values()) if (contains(node.rect, x, y)) return node.id;
   return null;
@@ -65,7 +83,7 @@ function nodeAt(game: Game, x: number, y: number): NodeID | null {
 export function createGestures(host: GestureHost): Gestures {
   let hoveredPin: Pin | null = null;
   let hoveredNode: NodeID | null = null;
-  let preview: { from: Pin; to: Point } | null = null;
+  let preview: Preview | null = null;
   // started: the pointer has left the dead zone, so this press is a drag.
   let drag: { id: NodeID; start: Point; offsetX: number; offsetY: number; started: boolean } | null = null;
   const sound = host.sound ?? silent;
@@ -80,9 +98,38 @@ export function createGestures(host: GestureHost): Gestures {
     hoveredPin = pinAt(game, p.x, p.y, onSwitch ? PIN_DOT : 1);
     hoveredNode = hoveredPin ? null : (under?.id ?? null);
   };
+  // Points the preview at p, snapping to the pin under it if the wire could
+  // join it. The pin a lifted wire came off counts as joinable, to put it back.
+  const aim = (from: Pin, lifted: EdgeID | null, p: Point): Preview => {
+    const game = host.game();
+    const target = hoveredPin && !samePin(hoveredPin, from) ? hoveredPin : null;
+    const valid = target === null || canWire(game, from, target);
+    const node = target && valid ? game.nodes.get(target.node) : undefined;
+    const to = target && node ? pinPosition(game, node, target.side, target.index) : p;
+    return { from, to, target, valid, lifted };
+  };
   // Whether the pointer has left a press's dead zone, making it a drag.
   const leftDeadZone = (start: Point, p: Point): boolean =>
     pastDeadZone((p.x - start.x) * host.pixelsPerCell(), (p.y - start.y) * host.pixelsPerCell());
+
+  // Ends a drawn wire. A lifted wire dropped on an empty spot is removed,
+  // and on a pin it can't join it stays where it was.
+  const drop = (drawn: Preview): void => {
+    const { from, target, valid, lifted } = drawn;
+    const edge = lifted === null ? undefined : host.game().edges.get(lifted);
+    if (target === null || !valid) {
+      if (edge && target === null)
+        host.edit((g) => {
+          unwire(g, { node: edge.to, side: "in", index: edge.toIndex });
+        });
+      return;
+    }
+    if (edge && edge.to === target.node && edge.toIndex === target.index && target.side === "in") return;
+    host.edit((g) => {
+      if (edge) unwire(g, { node: edge.to, side: "in", index: edge.toIndex });
+      if (wire(g, from, target)) sound.play("connect");
+    });
+  };
 
   return {
     get hoveredPin() {
@@ -102,7 +149,11 @@ export function createGestures(host: GestureHost): Gestures {
       hover(p);
       if (button !== 0 || host.locked()) return;
       if (hoveredPin) {
-        preview = { from: hoveredPin, to: p };
+        const game = host.game();
+        const edge = hoveredPin.side === "in" ? edgeInto(game, hoveredPin.node, hoveredPin.index) : undefined;
+        preview = edge
+          ? aim({ node: edge.from, side: "out", index: edge.fromIndex }, edge.id, p)
+          : aim(hoveredPin, null, p);
         return;
       }
       const node = host.game().nodes.get(hoveredNode ?? -1);
@@ -119,9 +170,10 @@ export function createGestures(host: GestureHost): Gestures {
     move(p) {
       hover(p);
       // The pencil scratches only while the pointer moves.
-      if (preview && (preview.to.x !== p.x || preview.to.y !== p.y)) {
-        preview = { ...preview, to: p };
-        if (!host.locked()) sound.play("pencil");
+      if (preview) {
+        const next = aim(preview.from, preview.lifted, p);
+        if ((next.to.x !== preview.to.x || next.to.y !== preview.to.y) && !host.locked()) sound.play("pencil");
+        preview = next;
       }
       if (drag !== null && !drag.started) drag.started = leftDeadZone(drag.start, p);
       if (drag !== null && drag.started && !host.locked()) {
@@ -134,17 +186,12 @@ export function createGestures(host: GestureHost): Gestures {
 
     up(p) {
       hover(p);
-      const from = preview?.from;
-      const to = hoveredPin;
+      const drawn = preview && aim(preview.from, preview.lifted, p);
       const d = drag;
       preview = null;
       drag = null;
       if (host.locked()) return;
-      if (from && to) {
-        host.edit((g) => {
-          if (wire(g, from, to)) sound.play("connect");
-        });
-      }
+      if (drawn) drop(drawn);
       // A click flips a switch: a single-signal input's one switch, or the
       // bit pressed on a bus input.
       if (d && !d.started && !leftDeadZone(d.start, p)) {
