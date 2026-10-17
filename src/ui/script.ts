@@ -726,6 +726,8 @@ const failed: Line[] = [
   { face: "idle", text: "Flip the switches yourself to see what your circuit really does." },
 ];
 
+const loosePins: Line[] = [{ face: "thinking", text: "See the amber pins? Nothing's wired to them yet." }];
+
 const unstable: Line[] = [
   { face: "error", text: "Bzzt! A loop on your board keeps flipping its own signal, so it never settles." },
   { face: "idle", text: "Look for a wire that feeds a gate's output back into it." },
@@ -807,6 +809,9 @@ export function lines(cue: Exclude<Cue, { react: string }>): Line[] {
       break;
     case "failed":
       said = failed;
+      break;
+    case "loose pins":
+      said = loosePins;
       break;
     case "forbidden":
       said = forbidden(cue.parts);

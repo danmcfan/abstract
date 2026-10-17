@@ -1,6 +1,6 @@
 import { assembleProgram, type Assembly } from "./assembler";
-import type { Game } from "./circuit";
-import { newGame, placeNode, restartForTest, tick } from "./circuit";
+import type { Game, Pin } from "./circuit";
+import { loosePins, newGame, pinKey, placeNode, restartForTest, tick } from "./circuit";
 import { DoorRun } from "./door";
 import { DEFAULT_GRID } from "./grid";
 import {
@@ -79,6 +79,9 @@ export class Session {
   // part and bulb arrive with a flourish. Reopening the level clears it.
   justSolved = false;
   flags = new Set<string>();
+  // Pins left unwired when the last test run failed. Each glows until it's
+  // wired, or the board is cleared, swapped or reopened.
+  private hinted: Pin[] = [];
   // The player's setting, kept in the save. Starting over keeps it.
   clockSpeed: number = CLOCK_SPEED.start;
   // The instruction set as the player has it in L7, and the last one that
@@ -411,6 +414,7 @@ export class Session {
     this.result = null;
     this.stamped = false;
     this.justSolved = false;
+    this.hinted = [];
     this.save();
   }
 
@@ -467,7 +471,10 @@ export class Session {
     if (result.passed) {
       this.sound.play("stamp");
       this.sound.play("bell");
-    } else this.sound.play("fail-stamp");
+    } else {
+      this.sound.play("fail-stamp");
+      this.hinted = loosePins(this.game);
+    }
     if (result.passed && !isSolved(this.level, this.solvedLevels)) {
       this.solvedLevels[levelId(this.level)] = revisionOf(this.level);
       this.justSolved = true;
@@ -475,6 +482,12 @@ export class Session {
       this.save();
     }
     return false;
+  }
+
+  // The hinted pins that are still unwired.
+  get hints(): Pin[] {
+    const loose = new Set(loosePins(this.game).map((pin) => pinKey(pin)));
+    return this.hinted.filter((pin) => loose.has(pinKey(pin)));
   }
 
   // Where the player goes from here, once the last test run has passed, or
@@ -510,7 +523,7 @@ export class Session {
   // Bitbox's response to the test run that just ended.
   respond(): Cue | null {
     if (!this.result) return null;
-    const response = respond(this.result, this.level, (flag) => this.flags.has(flag));
+    const response = respond(this.result, this.level, (flag) => this.flags.has(flag), this.hints.length > 0);
     if (response?.flag !== undefined) this.hear(response.flag);
     return response?.cue ?? null;
   }

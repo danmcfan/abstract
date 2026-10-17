@@ -2,7 +2,7 @@ import { For, Show, createMemo, untrack, type JSX } from "solid-js";
 import { edgeInto, nodeKind, pinPosition, pins, widthOf, type Pin } from "../sim/circuit";
 import { bitCell, type Node } from "../sim/node";
 import { glyph } from "./glyph";
-import { current } from "./state";
+import { current, session } from "./state";
 
 const samePin = (a: Pin | null, b: Pin): boolean =>
   a !== null && a.node === b.node && a.side === b.side && a.index === b.index;
@@ -52,7 +52,11 @@ export function NodeView(props: { node: Node; hovered: boolean; hoveredPin: Pin 
           return (
             <circle
               class="pin"
-              classList={{ hovered: samePin(props.hoveredPin, pin), bus: widthOf(current(), props.node, pin) > 1 }}
+              classList={{
+                hovered: samePin(props.hoveredPin, pin),
+                bus: widthOf(current(), props.node, pin) > 1,
+                hint: session().hints.some((hint) => samePin(hint, pin)),
+              }}
               cx={cx}
               cy={cy}
               r={0.26}
