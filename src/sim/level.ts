@@ -1882,7 +1882,7 @@ function cpuLevel(set: InstructionSet): CircuitLevel {
     // to go next. Once HALT is on during execute, the stepper holds.
     solution: {
       nodes: [
-        { name: "stepper", type: "STEPPER", x: 16, y: 40 },
+        { name: "stepper", type: "STEPPER", x: 26, y: 48 },
         { name: "fetch", type: "FETCH UNIT", x: 44, y: 8 },
         { name: "execute", type: "EXECUTE UNIT", x: 58, y: 30 },
       ],
