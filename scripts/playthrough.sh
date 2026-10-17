@@ -142,8 +142,9 @@ stop_recording() {
 typing_pool() { [[ $(js "!!document.querySelector('#instruction-set')") == true ]]; }
 
 # Fills in the instruction set the way a player would: Bitbox's picks for
-# every row, then a name of their own for one, typed in. The check is live,
-# so the level is solved once every row is good.
+# every row, then a name of their own for one, typed in. The field keeps the
+# name as typed (CSS shows it in capitals). The check is live, so the level is
+# solved once every row is good.
 write_table() {
   hush
   ab click "#use-all"
@@ -151,7 +152,7 @@ write_table() {
   ab fill "tr[data-instruction=\"add\"] input" plus
   sleep 0.5
   wait_for "document.querySelector('#table-status').textContent.startsWith('15 of 15')" "level $1: every row is good"
-  expect "document.querySelector('tr[data-instruction=\"add\"] input').value === 'PLUS'" "level $1 keeps the typed name"
+  expect "document.querySelector('tr[data-instruction=\"add\"] input').value === 'plus'" "level $1 keeps the name as typed"
   echo "level $1: $(js "document.querySelector('#table-status').textContent")"
   if [[ -n ${2:-} ]]; then agent-browser screenshot "$2" >/dev/null; fi
 }
