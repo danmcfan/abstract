@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { REVERSED } from "./fixtures";
 import { BITBOX_INSTRUCTION_SET, type InstructionSet } from "./instruction";
-import { describeInstruction, encode, executeUnit, runOnSpec, type Instruction } from "./cpu";
+import { describeInstruction, encode, executeUnit, fields, runOnSpec, type Instruction } from "./cpu";
 import { TEST_PROGRAMS } from "./level";
 import type { State, Value } from "./node";
 
@@ -15,13 +15,14 @@ describe("the encoder", () => {
 });
 
 // Runs instructions on the execute unit's spec, one tick each, from all 0,
-// giving its outputs after each: JUMP, ADDR, OUT, DOUT, DEV, IN, HALT.
+// giving its outputs after each: JUMP, OUT, DOUT, IN, HALT.
 function execute(set: InstructionSet, program: (Instruction & { din?: Value })[]): Value[][] {
   const unit = executeUnit(set);
   let state: State = [];
   return program.map((instruction) => {
     const [i, n] = encode(set, instruction);
-    const inputs = (clk: Value): Value[] => [clk, i, n, instruction.din ?? 0];
+    const { opcode, r, s } = fields(i);
+    const inputs = (clk: Value): Value[] => [clk, opcode, r, s, n, instruction.din ?? 0];
     state = unit.next(inputs(1), unit.next(inputs(0), state));
     state = unit.next(inputs(0), state);
     return unit.outputs(state, inputs(0));
@@ -39,7 +40,7 @@ describe.each([
   const last = (program: (Instruction & { din?: Value })[]): Value[] => outs(program).at(-1) ?? [];
 
   test("set puts n in R, and DOUT shows R", () => {
-    expect(last([r1(5)])).toEqual([0, 5, 0, 5, 5, 0, 0]);
+    expect(last([r1(5)])).toEqual([0, 0, 5, 0, 0]);
   });
   test.each([
     ["copy", [r2(7), { op: "copy", r: 1, s: 2 }], 7],
@@ -50,30 +51,30 @@ describe.each([
     ["xor", [r1(12), r2(10), { op: "xor", r: 1, s: 2 }], 6],
     ["not", [r1(12), { op: "not", r: 1 }], 243],
   ] satisfies [string, Instruction[], Value][])("%s leaves R as expected", (_name, program, value) => {
-    expect(last(program)[3]).toBe(value);
+    expect(last(program)[2]).toBe(value);
   });
   test("write, then read back into another register", () => {
-    expect(last([r1(42), { op: "write", r: 1, n: 6 }, { op: "read", r: 3, n: 5 }])[3]).toBe(0);
-    expect(last([r1(42), { op: "write", r: 1, n: 6 }, { op: "read", r: 3, n: 6 }])[3]).toBe(42);
+    expect(last([r1(42), { op: "write", r: 1, n: 6 }, { op: "read", r: 3, n: 5 }])[2]).toBe(0);
+    expect(last([r1(42), { op: "write", r: 1, n: 6 }, { op: "read", r: 3, n: 6 }])[2]).toBe(42);
   });
-  test("jump is on, with its address", () => {
-    expect(last([{ op: "jump", n: 9 }])).toEqual([1, 9, 0, 0, 9, 0, 0]);
+  test("jump is on", () => {
+    expect(last([{ op: "jump", n: 9 }])).toEqual([1, 0, 0, 0, 0]);
   });
   test("jump if zero jumps only when R is 0", () => {
-    expect(last([{ op: "jump if zero", r: 1, n: 9 }]).slice(0, 2)).toEqual([1, 9]);
-    expect(last([r1(1), { op: "jump if zero", r: 1, n: 9 }]).slice(0, 2)).toEqual([0, 9]);
+    expect(last([{ op: "jump if zero", r: 1, n: 9 }]).slice(0, 1)).toEqual([1]);
+    expect(last([r1(1), { op: "jump if zero", r: 1, n: 9 }]).slice(0, 1)).toEqual([0]);
   });
   test("in takes DIN into R and says so", () => {
-    expect(last([{ op: "in", r: 2, n: 2, din: 77 }])).toEqual([0, 2, 0, 77, 2, 1, 0]);
+    expect(last([{ op: "in", r: 2, n: 2, din: 77 }])).toEqual([0, 0, 77, 1, 0]);
   });
   test("out sends R to device d", () => {
-    expect(last([r1(8), { op: "out", r: 1, n: 1 }])).toEqual([0, 1, 1, 8, 1, 0, 0]);
+    expect(last([r1(8), { op: "out", r: 1, n: 1 }])).toEqual([0, 1, 8, 0, 0]);
   });
   test("halt says so, and changes nothing", () => {
     expect(outs([r1(8), { op: "halt" }, { op: "out", r: 1, n: 1 }])).toEqual([
-      [0, 8, 0, 8, 8, 0, 0],
-      [0, 0, 0, 0, 0, 0, 1],
-      [0, 1, 1, 8, 1, 0, 0],
+      [0, 0, 8, 0, 0],
+      [0, 0, 0, 0, 1],
+      [0, 1, 8, 0, 0],
     ]);
   });
 });

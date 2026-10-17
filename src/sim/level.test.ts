@@ -76,7 +76,7 @@ describe("each level's intended solution", () => {
   // Every node the solution places counts, and every wire, terminals' too (ADR 11).
   // Levels still over the limit while #72 redesigns them; each PR there
   // removes its level from this list.
-  const overLimit = ["EXECUTE UNIT", "CPU"];
+  const overLimit = ["CPU"];
   test.each(unbuilt.map(({ level }) => [levelId(level), level] as const))(
     "%s keeps within 7 nodes and 20 wires unless listed over the limit",
     (id, level) => {

@@ -20,11 +20,21 @@ export const DOOR = 1;
 export const KEYPAD = 2;
 const DEVICES: Partial<Record<Value, string>> = { [DOOR]: "DOOR", [KEYPAD]: "KEYPAD" };
 
+// I from its fields, and the fields of an I: the opcode in the top four
+// signals, then R and S, as the instruction register splits it.
+export const joinFields = (opcode: Value, r: Value, s: Value): Value => ((opcode & 15) << 4) | ((r & 3) << 2) | (s & 3);
+
+export const fields = (i: Value): { opcode: Value; r: Value; s: Value } => ({
+  opcode: i >> 4,
+  r: (i >> 2) & 3,
+  s: i & 3,
+});
+
 // The two bytes at one program memory address: I is the opcode (the top
 // four signals), then R and S; N is the number.
 export function encode(set: InstructionSet, { op, r = 0, s = 0, n = 0 }: Instruction): [I: Value, N: Value] {
   const opcode = rowOf(set, op).opcode ?? 0;
-  return [((opcode & 15) << 4) | ((r & 3) << 2) | (s & 3), n & 0xff];
+  return [joinFields(opcode, r, s), n & 0xff];
 }
 
 const INSTRUCTION_IDS = INSTRUCTIONS.map(({ id }) => id);
@@ -98,23 +108,51 @@ type Places = readonly Value[];
 const REGISTER_COUNT = 4;
 const RAM_PLACES = 8;
 
-const fields = (i: Value): { opcode: Value; r: number; s: number } => ({ opcode: i >> 4, r: (i >> 2) & 3, s: i & 3 });
+// The registers after one instruction: R takes S, N, RAM or DIN, or the
+// ALU's result, as the write encoder says. IN picks DIN over RAM.
+function afterWrite(
+  set: InstructionSet,
+  registers: Places,
+  [opcode = 0, r = 0, s = 0, n = 0, ram = 0, din = 0, input = 0]: Value[],
+): Value[] {
+  const reg = (k: number): Value => registers[k] ?? 0;
+  const [write = 0, src = 0] = writeEncoder(set, [opcode]);
+  const [op = 0] = opEncoder(set, [opcode]);
+  const sources = [reg(s), n, input ? din : ram, alu(op, reg(r), reg(s))];
+  return Array.from({ length: REGISTER_COUNT }, (_, k) => (k === r && write ? (sources[src] ?? 0) : reg(k)));
+}
+
+// The register unit: CLK, OPCODE, R, S, N, RAM, DIN and IN in, A out. On a
+// tick register R takes what the opcode says, and A shows register R.
+export function registerUnit(set: InstructionSet): Memory {
+  return {
+    next: ([clk = 0, ...inputs], [seen = 0, ...registers]) => [
+      clk,
+      ...(clk && !seen ? afterWrite(set, registers, inputs) : registers),
+    ],
+    outputs: ([, ...registers], [, , r = 0]) => [registers[r] ?? 0],
+  };
+}
 
 // Does one instruction to the registers and RAM, with DIN as the value a
 // device gives.
-function step(set: InstructionSet, places: Places, i: Value, n: Value, din: Value): Places {
-  const { opcode, r, s } = fields(i);
-  const reg = (k: number): Value => places[k] ?? 0;
-  const ram = (a: Value): Value => places[REGISTER_COUNT + (a % RAM_PLACES)] ?? 0;
-  const [write = 0, src = 0] = writeEncoder(set, [opcode]);
-  const [op = 0] = opEncoder(set, [opcode]);
-  const [store = 0, , input = 0] = control(set, [opcode, reg(r)]);
-  const sources = [reg(s), n, input ? din : ram(n), alu(op, reg(r), reg(s))];
-  return Array.from({ length: REGISTER_COUNT + RAM_PLACES }, (_, k) => {
-    if (k === r && write) return sources[src] ?? 0;
-    if (k === REGISTER_COUNT + (n % RAM_PLACES) && store) return reg(r);
-    return places[k] ?? 0;
-  });
+function step(set: InstructionSet, places: Places, opcode: Value, r: Value, s: Value, n: Value, din: Value): Places {
+  const value = places[r] ?? 0;
+  const [store = 0, , input = 0] = control(set, [opcode, value]);
+  const ram = places.slice(REGISTER_COUNT, REGISTER_COUNT + RAM_PLACES);
+  const registers = afterWrite(set, places.slice(0, REGISTER_COUNT), [
+    opcode,
+    r,
+    s,
+    n,
+    ram[n % RAM_PLACES] ?? 0,
+    din,
+    input,
+  ]);
+  return [
+    ...registers,
+    ...Array.from({ length: RAM_PLACES }, (_, k) => (k === n % RAM_PLACES && store ? value : (ram[k] ?? 0))),
+  ];
 }
 
 // The registers in an execute unit's state: after the clock it last saw.
@@ -122,30 +160,27 @@ export function registersOf(state: State): Value[] {
   return state.slice(1, 1 + REGISTER_COUNT);
 }
 
-const JUMP = 0;
-const ADDR = 1;
-// Where the machine's outputs sit in what it reads: OUT, DOUT, DEV, IN, HALT.
+// Where the CPU's outputs sit in what it reads: OUT, DOUT, DEV, IN, HALT.
 const [OUT, DOUT, , IN, HALT] = [0, 1, 2, 3, 4];
 
-// The execute unit's outputs: JUMP, ADDR, OUT, DOUT, DEV, IN and HALT.
-// ADDR and DEV are always N, and DOUT always R: they only matter while JUMP
-// or OUT is on.
-function executeOutputs(set: InstructionSet, places: Places, i: Value, n: Value): Value[] {
-  const { opcode, r } = fields(i);
+// The execute unit's outputs: JUMP, OUT, DOUT, IN and HALT. DOUT always
+// shows R: it only matters while OUT is on.
+function executeOutputs(set: InstructionSet, places: Places, opcode: Value, r: Value): Value[] {
   const value = places[r] ?? 0;
   const [, jump = 0, input = 0, out = 0, halt = 0] = control(set, [opcode, value]);
-  return [jump, n, out, value, n, input, halt];
+  return [jump, out, value, input, halt];
 }
 
-// The execute unit: CLK, I, N and DIN in. On each tick it does instruction
-// I with number N. Its state is the clock it last saw, then its places.
+// The execute unit: CLK, OPCODE, R, S, N and DIN in. On each tick it does
+// the instruction with number N. Its state is the clock it last saw, then
+// its places.
 export function executeUnit(set: InstructionSet): Memory {
   return {
-    next: ([clk = 0, i = 0, n = 0, din = 0], [seen = 0, ...places]) => [
+    next: ([clk = 0, opcode = 0, r = 0, s = 0, n = 0, din = 0], [seen = 0, ...places]) => [
       clk,
-      ...(clk && !seen ? step(set, places, i, n, din) : places),
+      ...(clk && !seen ? step(set, places, opcode, r, s, n, din) : places),
     ],
-    outputs: ([, ...places], [, i = 0, n = 0]) => executeOutputs(set, places, i, n),
+    outputs: ([, ...places], [, opcode = 0, r = 0]) => executeOutputs(set, places, opcode, r),
   };
 }
 
@@ -164,6 +199,7 @@ export function assemble(set: InstructionSet, program: readonly Instruction[]): 
 const PC = 1;
 const EXEC = 2;
 const FETCHED = 3;
+const NUMBER = FETCHED + 1;
 const PLACES = 5;
 const PROGRAM = PLACES + REGISTER_COUNT + RAM_PLACES;
 
@@ -179,7 +215,7 @@ function loaded(words: readonly Value[]): Value[] {
 // the intended board does, tick for tick.
 export function cpu(set: InstructionSet): Memory {
   const halted = (state: State): boolean =>
-    (state[EXEC] ?? 0) === 1 && decode(set, (state[FETCHED] ?? 0) >> 4) === "halt";
+    (state[EXEC] ?? 0) === 1 && decode(set, fields(state[FETCHED] ?? 0).opcode) === "halt";
   return {
     next: ([clk = 0, din = 0], state) => {
       const ticked = clk === 1 && (state[0] ?? 0) === 0;
@@ -190,16 +226,22 @@ export function cpu(set: InstructionSet): Memory {
       if ((state[EXEC] ?? 0) === 0) {
         const word = state[PROGRAM + pc] ?? 0;
         const [i, n] = [word >> 8, word & 0xff];
-        next.splice(PC, PROGRAM - PC, (pc + 1) & 0xff, 1, i, n, ...step(set, places, i, n, din));
+        const { opcode, r, s } = fields(i);
+        next.splice(PC, PROGRAM - PC, (pc + 1) & 0xff, 1, i, n, ...step(set, places, opcode, r, s, n, din));
       } else {
-        const outputs = executeOutputs(set, places, state[FETCHED] ?? 0, state[FETCHED + 1] ?? 0);
-        next[PC] = outputs[JUMP] === 1 ? (outputs[ADDR] ?? 0) : pc;
+        const { opcode, r } = fields(state[FETCHED] ?? 0);
+        const [jump = 0] = executeOutputs(set, places, opcode, r);
+        next[PC] = jump === 1 ? (state[NUMBER] ?? 0) : pc;
         next[EXEC] = 0;
       }
       return next;
     },
-    outputs: (state) =>
-      executeOutputs(set, state.slice(PLACES, PROGRAM), state[FETCHED] ?? 0, state[FETCHED + 1] ?? 0).slice(2),
+    // DEV is the number N.
+    outputs: (state) => {
+      const { opcode, r } = fields(state[FETCHED] ?? 0);
+      const [, out = 0, dout = 0, input = 0, halt = 0] = executeOutputs(set, state.slice(PLACES, PROGRAM), opcode, r);
+      return [out, dout, state[NUMBER] ?? 0, input, halt];
+    },
   };
 }
 
@@ -326,7 +368,7 @@ export class Computer {
 
   // The instruction last fetched, written out.
   get instruction(): string {
-    return describeInstruction(this.set, this.state[FETCHED] ?? 0, this.state[FETCHED + 1] ?? 0);
+    return describeInstruction(this.set, this.state[FETCHED] ?? 0, this.state[NUMBER] ?? 0);
   }
 
   get halted(): boolean {

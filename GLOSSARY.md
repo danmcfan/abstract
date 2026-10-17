@@ -183,8 +183,14 @@ The L8 part that turns an opcode into WRITE, on when the instruction writes regi
 **Control unit**:
 The L8 part that turns an opcode and the value of register R into the signals that store, jump, read a device, send to one or halt. Wired and read like the op encoder.
 
+**Instruction register**:
+The L8 part that keeps one instruction byte and gives it out as OPCODE (its top 4 signals), R (the next 2) and S (the low 2).
+
+**Register unit**:
+The L8 part with the register file, the ALU and the two encoders: on a tick register R takes S, N, RAM or DIN, or the ALU's result, as the opcode says. RAM is one of its inputs.
+
 **Execute unit**:
-The CPU without fetch: the two encoders, the control unit, the register file, the ALU, RAM and the wiring that does one instruction given as inputs.
+The CPU without fetch: the control unit, the register unit and RAM, which do one instruction given as OPCODE, R, S and N.
 
 **Instruction**:
 One thing the CPU can do, such as add two registers or jump. The game fixes what each instruction does; the player names it and numbers it.

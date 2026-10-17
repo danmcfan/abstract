@@ -328,15 +328,36 @@ const EXPECTED: Record<NodeType, Expected[]> = {
       ],
     },
   ],
-  "EXECUTE UNIT": [
+  "INSTRUCTION REGISTER": [
     {
-      ins: [1, 8, 8, 8],
-      outs: [1, 8, 1, 8, 8, 1, 1],
-      size: [6, 14],
+      ins: [1, 1, 8],
+      outs: [4, 2, 2],
+      size: [6, 6],
       cases: [
         [
-          [0, 0x15, 7, 0],
-          [0, 7, 0, 0, 7, 0, 0],
+          [0, 1, 5],
+          [0, 0, 0],
+        ],
+      ],
+    },
+  ],
+  "REGISTER UNIT": [
+    {
+      ins: [1, 4, 2, 2, 8, 8, 8, 1],
+      outs: [8],
+      size: [6, 16],
+      cases: [[[0, 1, 1, 0, 5, 0, 0, 0], [0]]],
+    },
+  ],
+  "EXECUTE UNIT": [
+    {
+      ins: [1, 4, 2, 2, 8, 8],
+      outs: [1, 1, 8, 1, 1],
+      size: [6, 12],
+      cases: [
+        [
+          [0, 11, 1, 0, 7, 0],
+          [1, 0, 0, 0, 0],
         ],
       ],
     },
