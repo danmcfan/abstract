@@ -26,4 +26,4 @@ The game was a 2D Odin + raylib desktop app. Shipping native binaries makes it h
 ## Consequences
 
 - The Odin source and 2D sprite sheets were removed. They're still in git history.
-- Every push to `main` is a release, so changes reach `main` through pull requests that pass `bun run verify`.
+- Every push to `main` is a release, so changes are verified (`bun run verify`) before they are pushed straight to `main`.

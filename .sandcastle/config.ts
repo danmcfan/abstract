@@ -4,7 +4,7 @@ import { defineConfig } from "sandworm";
 // particular to abstract. A file in .sandcastle/ named like one of sandworm's prompts replaces it.
 export default defineConfig({
   repo: "abstract",
-  // evidence/ holds the PR's screenshots and videos (docs/agents/verify.md).
+  // evidence/ holds the change's screenshots and videos (docs/agents/verify.md).
   keep: ["out", "evidence"],
   prompts: {
     verify:

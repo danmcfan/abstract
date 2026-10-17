@@ -1,14 +1,14 @@
 # Verifying a change
 
-Every change ships through a pull request: CI runs `bun run check` on it, with no browser, and merging to `main` deploys the live site. Before opening the PR, run the checks for what you changed, then review the diff with `/code-review main`.
+Every change is committed and pushed straight to `main`: each push deploys the live site, and CI runs `bun run check` on it, with no browser. Before you push, run the checks for what you changed, then review your unpushed commits with `/code-review origin/main`.
 
-| You changed                       | Run                                                                            | Done when                                                                       |
-| --------------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
-| Anything                          | `bun run check`                                                                | Typecheck, Oxlint, Prettier, knip, escapes, tests, build and bundle check pass. |
-| A level (added or edited)         | `bun run playthrough <N>...` for those levels                                  | It prints "Tested!" for each and exits 0. Attach its shot and video to the PR.  |
-| Anything else the player does     | `bun run playthrough`                                                          | It prints "Tested!" for every level, climbs the stack and exits 0.              |
-| Bitbox (`src/robot/`)             | `bun run shots`                                                                | `shots/sheet.png` shows every expression the way you intended.                  |
-| Anything the player sees or hears | Capture it and attach it to the PR ([Evidence on the PR](#evidence-on-the-pr)) | The PR body shows a screenshot of each change, and a video of any motion.       |
+| You changed                       | Run                                           | Done when                                                                       |
+| --------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------- |
+| Anything                          | `bun run check`                               | Typecheck, Oxlint, Prettier, knip, escapes, tests, build and bundle check pass. |
+| A level (added or edited)         | `bun run playthrough <N>...` for those levels | It prints "Tested!" for each and exits 0. Look at its shot and video.           |
+| Anything else the player does     | `bun run playthrough`                         | It prints "Tested!" for every level, climbs the stack and exits 0.              |
+| Bitbox (`src/robot/`)             | `bun run shots`                               | `shots/sheet.png` shows every expression the way you intended.                  |
+| Anything the player sees or hears | Capture it ([Evidence](#evidence))            | You have looked at a screenshot of each change, and a video of any motion.      |
 
 `bun run verify` runs `check` and then the whole `playthrough`.
 
@@ -48,19 +48,10 @@ bun run shots shots/side "e=idle&view=side" "e=happy&view=close&light=night&bg=b
 
 Read `sheet.png` rather than the single shots: one image covers every shot.
 
-## Evidence on the PR
+## Evidence
 
-A PR that changes what a player sees or hears shows it in its body: a screenshot of each change, and a video of any motion (an animation, a drag, a sequence of screens). Nothing in CI checks this: it's the author's job. A PR that adds or edits a level always attaches that level's `playthrough/level<N>.png` and `playthrough/level<N>.webm`.
+A change to what a player sees or hears is proved by a screenshot of each change, and a video of any motion (an animation, a drag, a sequence of screens). Nothing in CI checks this: it's the author's job. A change that adds or edits a level always checks that level's `playthrough/level<N>.png` and `playthrough/level<N>.webm`.
 
-1. **Capture** into `evidence/` (gitignored): your own shots and recordings, plus any of `playthrough/level*.png`, `playthrough/*.webm` or `shots/sheet.png` that show the change. Look at every file before attaching it. For before and after, run the same commands on `main` in a worktree.
-2. **Embed** each file beside the claim it proves, as `![The PASSED stamp over the MUX table](evidence/stamp.png)`, with the path relative to the repo root. Videos use the same syntax and render as a player.
-3. **Attach** each embedded file, from the repo root, spelled exactly as in the body:
-
-   ```sh
-   gh pr create --body-file body.md \
-     --attach evidence/stamp.png --attach evidence/ink.webm
-   ```
-
-   gh uploads them and rewrites the links. A file attached but not referenced is appended to the end of the body instead.
-
-4. **Later changes**: to add or replace files, `gh pr edit <pr> --body-file body.md --attach ...` (each run uploads again, so attach each file once). If some uploads fail, gh still creates the PR and exits non-zero: rerun `gh pr edit` with only the failed files.
+1. **Capture** into `evidence/` (gitignored): your own shots and recordings, plus any of `playthrough/level*.png`, `playthrough/*.webm` or `shots/sheet.png` that show the change. For before and after, run the same commands on `main` in a worktree before you push.
+2. **Look** at every file, and fix the change until each one shows what you meant.
+3. **Report** what the evidence shows in the commit message, and name the files in `evidence/` when you hand back, so the owner can look at them too.

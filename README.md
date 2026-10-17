@@ -28,14 +28,14 @@ bun test              # simulation tests
 bun run check         # tests, type check, production build into dist/, bundle check
 bun run playthrough   # solves every level in a real browser; screenshots + video in playthrough/
 bun run shots         # contact sheet of Bitbox's expressions in shots/sheet.png
-bun run verify        # check + playthrough, as CI runs on every pull request
+bun run verify        # check + playthrough, as run before each push to `main`
 ```
 
 The play-through and shots drive the real game with [agent-browser](https://github.com/vercel-labs/agent-browser), each against its own dev server. In dev builds, `?level=N` skips the title and jumps to a level, and `window.__abstract` exposes the game state and screen positions of nodes and pins. [`docs/agents/verify.md`](docs/agents/verify.md) covers the details.
 
 With dev running, [`/bitbox.html`](http://localhost:5173/bitbox.html) is Bitbox's model sheet. It's a dev-only page where you can orbit him, change lighting and backdrop, play any expression at any speed, pose him by hand with sliders, and save a PNG. Its settings are kept in the URL, and `window.__bitbox` lets scripts drive it.
 
-Pull requests run `bun run verify` (`.github/workflows/check.yml`). Every push to `main` deploys to GitHub Pages (`.github/workflows/deploy.yml`).
+Every push to `main` runs `bun run check` (`.github/workflows/check.yml`) and deploys to GitHub Pages (`.github/workflows/deploy.yml`).
 
 ## Layout
 
