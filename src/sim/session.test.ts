@@ -636,12 +636,48 @@ describe("after a test run", () => {
     expect(session.next).toBeNull();
   });
 
+  test("a solved level still leads on when reopened", () => {
+    const session = passOn(NOT_LEVEL);
+    session.start(NOT_LEVEL);
+    expect(session.next).toEqual({ to: "level", index: NOT_LEVEL + 1 });
+  });
+
   test("a passed level leads to the next level in its layer", () => {
     expect(passOn(NOT_LEVEL).next).toEqual({ to: "level", index: NOT_LEVEL + 1 });
   });
 
   test("the last level of a layer leads up to the floor above", () => {
     expect(passOn(top).next).toEqual({ to: "floor", layer: layerOf(top + 1) });
+  });
+});
+
+describe("solving a level", () => {
+  test("its part joins the bin with a relay click, once", () => {
+    const sound = recordingSound();
+    const session = new Session(memorySave(saved(NOT_LEVEL, NOT_LEVEL)), sound);
+    session.start(NOT_LEVEL);
+    expect(session.earned).toBeNull();
+    session.edit((game) => {
+      buildSolution(game, circuitAt(NOT_LEVEL));
+    });
+    runAll(session);
+    expect(session.earned).toBe(circuitAt(NOT_LEVEL).gate);
+    expect(session.justSolved).toBe(true);
+    expect(sound.played).toContain("connect");
+    session.start(NOT_LEVEL);
+    expect(session.earned).toBe(circuitAt(NOT_LEVEL).gate);
+    expect(session.justSolved).toBe(false);
+  });
+
+  test("passing a level already solved is no flourish", () => {
+    const session = passOn(NOT_LEVEL);
+    runAll(session);
+    expect(session.justSolved).toBe(false);
+  });
+
+  test("lights the level's bulb", () => {
+    const session = passOn(NOT_LEVEL);
+    expect(session.bulbs.find((bulb) => bulb.current)).toEqual({ index: NOT_LEVEL, lit: true, current: true });
   });
 });
 

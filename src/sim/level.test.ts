@@ -7,7 +7,9 @@ import {
   hasClock,
   circuits,
   LAYERS,
+  layerBulbs,
   layerLevels,
+  partEarned,
   levelAt,
   levelId,
   revisionOf,
@@ -647,4 +649,32 @@ test("the adders and ADD/SUB name their outputs SUM and COUT", () => {
     const level = circuits(LEVELS).find((l) => l.gate === name);
     expect(level?.outputs).toEqual(["SUM", "COUT"]);
   }
+});
+
+describe("the menu bar's bulbs", () => {
+  test("one for each level of the open level's layer, in order", () => {
+    for (const layer of LAYERS) {
+      const indexes = layerLevels(layer.number);
+      const [first] = indexes;
+      if (first === undefined) continue;
+      expect(layerBulbs(first, {}).map((bulb) => bulb.index)).toEqual(indexes);
+    }
+  });
+
+  test("lit when solved at the current revision, outlined when open", () => {
+    const [a = 0, b = 0, c = 0] = layerLevels(2);
+    const solved = { [levelId(levelAt(a))]: revisionOf(levelAt(a)), [levelId(levelAt(b))]: revisionOf(levelAt(b)) - 1 };
+    expect(layerBulbs(c, solved).slice(0, 3)).toEqual([
+      { index: a, lit: true, current: false },
+      { index: b, lit: false, current: false },
+      { index: c, lit: false, current: true },
+    ]);
+  });
+});
+
+describe("the part a level earns", () => {
+  test("is its part, except on the last level", () => {
+    expect(partEarned(1)).toBe(partGiven(levelAt(1))!.gate);
+    expect(partEarned(LEVELS.length - 1)).toBeNull();
+  });
 });

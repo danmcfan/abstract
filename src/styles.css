@@ -162,6 +162,19 @@ body {
   font-size: 0.85rem;
   box-shadow: 3px 3px 0 var(--color-pencil);
 }
+/* The way on from a solved level: green once it's open, the pencil grey
+   of a disabled button until then. */
+@utility btn-go {
+  &:not(:disabled) {
+    border-color: var(--color-pass);
+    background: var(--color-pass);
+  }
+  &:disabled {
+    border-color: var(--color-dead);
+    background: var(--color-dead);
+    opacity: 1;
+  }
+}
 /* The parts bin pages with its arrows, so its scrollbar is hidden. */
 @utility scrollbar-none {
   scrollbar-width: none;
@@ -191,6 +204,36 @@ body {
 }
 .pop {
   animation: pop 0.22s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+/* A solved level's part pops into the parts bin and glows lit blue for a
+   moment; its bulb in the menu bar lights with it. Without motion, the
+   part only glows. */
+.earned {
+  animation:
+    earned 0.35s cubic-bezier(0.2, 1.6, 0.4, 1),
+    lit 1s ease-in;
+}
+@keyframes earned {
+  from {
+    transform: scale(0.3);
+  }
+}
+@keyframes lit {
+  from {
+    background-color: var(--color-glow);
+    box-shadow: var(--shadow-glow);
+  }
+}
+.bulb-lit {
+  animation:
+    lit 1s ease-in,
+    earned 0.35s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .earned,
+  .bulb-lit {
+    animation: lit 1s ease-in;
+  }
 }
 /* After every passing test run a PASSED stamp comes down on the truth
    table, and the sheet shakes as it lands. The rough edge is the

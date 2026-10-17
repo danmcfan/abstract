@@ -34,6 +34,10 @@ import {
   type Level,
   type Solved,
   isCircuit,
+  isSolved,
+  layerBulbs,
+  partEarned,
+  type Bulb,
   withInstructionSet,
 } from "./level";
 import type { NodeType } from "./node";
@@ -71,6 +75,9 @@ export class Session {
   // Whether the PASSED stamp is on the sheet: the last run passed and the
   // board hasn't changed since.
   stamped = false;
+  // Whether the level was solved by the last thing the player did, so its
+  // part and bulb arrive with a flourish. Reopening the level clears it.
+  justSolved = false;
   flags = new Set<string>();
   // The player's setting, kept in the save. Starting over keeps it.
   clockSpeed: number = CLOCK_SPEED.start;
@@ -346,6 +353,27 @@ export class Session {
     return solvedCount(this.solvedLevels, this.levels);
   }
 
+  // The open level's part, once it's solved: it sits in the bin from then
+  // on, for the levels after it.
+  get earned(): NodeType | null {
+    const { level } = this;
+    return isSolved(level, this.solvedLevels) ? partEarned(this.levelIndex, this.levels) : null;
+  }
+
+  // Whether the open level is the game's last, with no way on from it.
+  get isLastLevel(): boolean {
+    return this.levelIndex + 1 >= this.levels.length;
+  }
+
+  // The floor the open level leads up to, solved or not.
+  get floorAhead(): Layer | null {
+    return floorAbove(this.levelIndex, this.levels);
+  }
+
+  get bulbs(): Bulb[] {
+    return layerBulbs(this.levelIndex, this.solvedLevels, this.levels);
+  }
+
   get unlockedCount(): number {
     return playableCount(this.solved, this.levels);
   }
@@ -382,6 +410,7 @@ export class Session {
     this.door = null;
     this.result = null;
     this.stamped = false;
+    this.justSolved = false;
     this.save();
   }
 
@@ -417,6 +446,7 @@ export class Session {
     this.testRun = testRun(level, checkLevel(this.game, this.levelIndex, this.levels));
     this.result = null;
     this.stamped = false;
+    this.justSolved = false;
     return true;
   }
 
@@ -438,8 +468,10 @@ export class Session {
       this.sound.play("stamp");
       this.sound.play("bell");
     } else this.sound.play("fail-stamp");
-    if (result.passed && this.solvedLevels[levelId(this.level)] !== revisionOf(this.level)) {
+    if (result.passed && !isSolved(this.level, this.solvedLevels)) {
       this.solvedLevels[levelId(this.level)] = revisionOf(this.level);
+      this.justSolved = true;
+      if (this.earned !== null) this.sound.play("connect");
       this.save();
     }
     return false;
@@ -449,7 +481,8 @@ export class Session {
   // while the instruction set is good, or once the door has opened.
   get next(): Next | null {
     const { level } = this;
-    let done = this.result?.passed === true;
+    // A solved level stays open onward, whatever its board does now.
+    let done = this.result?.passed === true || isSolved(level, this.solvedLevels);
     if (level.kind === "instruction set") done = this.instructionCheck.solved;
     if (level.kind === "door program") done = this.finished;
     if (!done) return null;

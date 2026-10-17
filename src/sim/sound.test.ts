@@ -114,12 +114,12 @@ describe("sound cues on the board", () => {
 });
 
 describe("sound cues in a test run", () => {
-  test("a passing run: carriage return, a tick per row, then stamp and bell", () => {
+  test("a first passing run: carriage return, a tick per row, stamp, bell, then the part's relay click", () => {
     const { session, sound } = notLevel();
     buildNot(session.game);
     session.beginTest();
     while (session.step());
-    expect(sound.played).toEqual(["carriage", "tick", "tick", "stamp", "bell"]);
+    expect(sound.played).toEqual(["carriage", "tick", "tick", "stamp", "bell", "connect"]);
   });
 
   test("a failing run ticks lower on failed rows and stamps without the bell", () => {
