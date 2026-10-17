@@ -34,6 +34,7 @@ import {
   type Level,
   type Solved,
   isCircuit,
+  isSolved,
   layerBulbs,
   partEarned,
   type Bulb,
@@ -356,12 +357,17 @@ export class Session {
   // on, for the levels after it.
   get earned(): NodeType | null {
     const { level } = this;
-    return this.solvedLevels[levelId(level)] === revisionOf(level) ? partEarned(this.levelIndex, this.levels) : null;
+    return isSolved(level, this.solvedLevels) ? partEarned(this.levelIndex, this.levels) : null;
   }
 
   // Whether the open level is the game's last, with no way on from it.
-  get last(): boolean {
+  get isLastLevel(): boolean {
     return this.levelIndex + 1 >= this.levels.length;
+  }
+
+  // The floor the open level leads up to, solved or not.
+  get floorAhead(): Layer | null {
+    return floorAbove(this.levelIndex, this.levels);
   }
 
   get bulbs(): Bulb[] {
@@ -462,7 +468,7 @@ export class Session {
       this.sound.play("stamp");
       this.sound.play("bell");
     } else this.sound.play("fail-stamp");
-    if (result.passed && this.solvedLevels[levelId(this.level)] !== revisionOf(this.level)) {
+    if (result.passed && !isSolved(this.level, this.solvedLevels)) {
       this.solvedLevels[levelId(this.level)] = revisionOf(this.level);
       this.justSolved = true;
       if (this.earned !== null) this.sound.play("connect");
@@ -475,7 +481,8 @@ export class Session {
   // while the instruction set is good, or once the door has opened.
   get next(): Next | null {
     const { level } = this;
-    let done = this.result?.passed === true;
+    // A solved level stays open onward, whatever its board does now.
+    let done = this.result?.passed === true || isSolved(level, this.solvedLevels);
     if (level.kind === "instruction set") done = this.instructionCheck.solved;
     if (level.kind === "door program") done = this.finished;
     if (!done) return null;

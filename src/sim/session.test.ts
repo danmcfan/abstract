@@ -636,6 +636,12 @@ describe("after a test run", () => {
     expect(session.next).toBeNull();
   });
 
+  test("a solved level still leads on when reopened", () => {
+    const session = passOn(NOT_LEVEL);
+    session.start(NOT_LEVEL);
+    expect(session.next).toEqual({ to: "level", index: NOT_LEVEL + 1 });
+  });
+
   test("a passed level leads to the next level in its layer", () => {
     expect(passOn(NOT_LEVEL).next).toEqual({ to: "level", index: NOT_LEVEL + 1 });
   });

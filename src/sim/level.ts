@@ -1982,7 +1982,7 @@ export interface Bulb {
 export function layerBulbs(levelIndex: number, solved: Solved, levels = LEVELS): Bulb[] {
   return layerLevels(levelAt(levelIndex, levels).layer, levels).map((index) => {
     const level = levelAt(index, levels);
-    return { index, lit: solved[levelId(level)] === revisionOf(level), current: index === levelIndex };
+    return { index, lit: isSolved(level, solved), current: index === levelIndex };
   });
 }
 
@@ -1994,11 +1994,14 @@ export type Solved = Partial<Record<NodeType, number>>;
 
 export const revisionOf = (level: Level): number => level.revision ?? 1;
 
+// A level solved at an older revision has to be solved again.
+export const isSolved = (level: Level, solved: Solved): boolean => solved[levelId(level)] === revisionOf(level);
+
 // How many levels from the first are solved, at their current revision.
 // Progress goes one level at a time, so a level added or changed before
 // ones already solved must be solved first; then the count jumps past them.
 export function solvedCount(solved: Solved, levels = LEVELS): number {
-  const gap = levels.findIndex((level) => solved[levelId(level)] !== revisionOf(level));
+  const gap = levels.findIndex((level) => !isSolved(level, solved));
   return gap === -1 ? levels.length : gap;
 }
 

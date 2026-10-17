@@ -1,4 +1,4 @@
-import { For, Match, Show, Switch, createEffect, createSignal, on, onCleanup, onMount, type JSX } from "solid-js";
+import { For, Show, createEffect, createSignal, on, onCleanup, onMount, type JSX } from "solid-js";
 import {
   CLOCK,
   hasClock,
@@ -404,12 +404,28 @@ export function Brief(props: { onStack: (arrive?: number) => void }): JSX.Elemen
         </Show>
         {/* The way on keeps its place, disabled until the level is solved,
             so nothing moves when it is. The last level has none. */}
-        <Switch>
-          <Match when={floor()}>
+        <Show when={!session().isLastLevel}>
+          <Show
+            when={session().floorAhead}
+            fallback={
+              <button
+                id="next"
+                class="mt-2.5 btn btn-go"
+                disabled={session().next?.to !== "level"}
+                onClick={() => {
+                  hush();
+                  driver.start(session().levelIndex + 1);
+                }}
+              >
+                Next level ▸
+              </button>
+            }
+          >
             {(above) => (
               <button
                 id="up"
                 class="mt-2.5 btn btn-go"
+                disabled={floor() === null}
                 onClick={() => {
                   props.onStack(above().number);
                 }}
@@ -417,21 +433,8 @@ export function Brief(props: { onStack: (arrive?: number) => void }): JSX.Elemen
                 Up to {above().floor} ▸
               </button>
             )}
-          </Match>
-          <Match when={!session().last}>
-            <button
-              id="next"
-              class="mt-2.5 btn btn-go"
-              disabled={session().next?.to !== "level"}
-              onClick={() => {
-                hush();
-                driver.start(session().levelIndex + 1);
-              }}
-            >
-              Next level ▸
-            </button>
-          </Match>
-        </Switch>
+          </Show>
+        </Show>
       </div>
       <RoughInk />
     </section>
@@ -550,7 +553,9 @@ export function PartsBin(): JSX.Element {
           <For
             each={circuit() ? partsBin(session().levelIndex) : []}
             fallback={
-              <span class="row-span-2 self-center px-1 text-xs whitespace-nowrap text-pencil">Empty, for now</span>
+              <Show when={session().earned === null}>
+                <span class="row-span-2 self-center px-1 text-xs whitespace-nowrap text-pencil">Empty, for now</span>
+              </Show>
             }
           >
             {(type) => (
