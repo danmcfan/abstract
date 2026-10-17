@@ -114,12 +114,22 @@ function upgradeNode(node: OldNode, parts: Parts): Node {
   return { ...node, label, signals, width: node.width ?? 1, rect: { ...node.rect }, state: [] };
 }
 
-// ADD/SUB's output used to be labelled OUT, before the adders named theirs
-// SUM and COUT. A board saved then still has the old label, which the test
-// run would never find.
-function relabelAddSub(board: SavedBoard): SavedBoard {
+// Outputs renamed since boards were first saved, by the level they're on:
+// ADD/SUB's OUT became SUM when the adders named theirs SUM and COUT, and
+// the program counter's PC became COUNT, as player-facing text avoids PC. A
+// board saved before still has the old label, which the test run would
+// never find.
+const RENAMED_OUTPUTS: Partial<Record<NodeType, [old: Label, now: Label]>> = {
+  "ADD/SUB": ["OUT", "SUM"],
+  "PROGRAM COUNTER": ["PC", "COUNT"],
+};
+
+function relabel(gate: NodeType, board: SavedBoard): SavedBoard {
+  const renamed = RENAMED_OUTPUTS[gate];
+  if (renamed === undefined) return board;
+  const [old, now] = renamed;
   const nodes = board.nodes.map((node) =>
-    node.type === "OUTPUT" && node.label === "OUT" ? { ...node, label: "SUM" } : node,
+    node.type === "OUTPUT" && node.label === old ? { ...node, label: now } : node,
   );
   return { ...board, nodes };
 }
@@ -217,8 +227,7 @@ function parseSave(value: unknown): SaveData | null {
   const boards: Boards = {};
   if (typeof v.boards === "object" && v.boards !== null) {
     for (const [gate, board] of Object.entries(v.boards))
-      if (circuits(LEVELS).some((level) => level.gate === gate) && isBoard(board))
-        boards[gate] = gate === "ADD/SUB" ? relabelAddSub(board) : board;
+      if (circuits(LEVELS).some((level) => level.gate === gate) && isBoard(board)) boards[gate] = relabel(gate, board);
   }
   if (isBoard(v.board)) boards[saved.open] = v.board;
   const flags = Array.isArray(v.flags) ? v.flags.filter((f) => typeof f === "string") : [];

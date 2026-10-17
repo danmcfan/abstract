@@ -27,9 +27,9 @@ describe("the CPU level", () => {
     expect(result.endless).toBe(false);
   });
 
-  test("a board that never loads the program counter fails the jump program", () => {
+  test("a board that never jumps fails the jump program", () => {
     const { game } = solved("CPU");
-    unwire(game, { node: nodeOf(game, "PROGRAM COUNTER"), side: "in", index: 1 });
+    unwire(game, { node: nodeOf(game, "FETCH UNIT"), side: "in", index: 2 });
     const result = checkLevel(game, CPU);
     expect(result.passed).toBe(false);
     expect(result.rows.find((row) => row.name === "count down from 3")?.actual).toEqual([3]);
@@ -38,7 +38,7 @@ describe("the CPU level", () => {
   // The last test program has a loop after its HALT.
   test("a board that doesn't stop at HALT fails at the tick limit", () => {
     const { game } = solved("CPU");
-    unwire(game, { node: nodeOf(game, "NAND"), side: "in", index: 1 });
+    unwire(game, { node: nodeOf(game, "STEPPER"), side: "in", index: 1 });
     const result = checkLevel(game, CPU);
     expect(result.passed).toBe(false);
     expect(result.endless).toBe(true);
