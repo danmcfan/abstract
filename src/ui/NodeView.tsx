@@ -1,5 +1,5 @@
 import { For, Show, createMemo, untrack, type JSX } from "solid-js";
-import { edgeInto, nodeKind, pinPosition, pins, widthOf, type Pin } from "../sim/circuit";
+import { edgeInto, nodeKind, pinKey, pinPosition, pins, widthOf, type Pin } from "../sim/circuit";
 import { bitCell, type Node } from "../sim/node";
 import { glyph } from "./glyph";
 import { current, session } from "./state";
@@ -15,6 +15,8 @@ export function NodeView(props: { node: Node; hovered: boolean; hoveredPin: Pin 
   // moveNode replaces rect, so these only change when the node does.
   const rect = createMemo(() => (current(), props.node.rect));
   const isHigh = createMemo(() => (current(), props.node.isHigh));
+  // Worked out once per change, not once per pin.
+  const hinted = createMemo(() => new Set(session().hints.map((pin) => pinKey(pin))));
   // A node keeps its type and size, so they're read once.
   const { width, height } = untrack(() => props.node.rect);
   const type = untrack(() => props.node.type);
@@ -55,7 +57,7 @@ export function NodeView(props: { node: Node; hovered: boolean; hoveredPin: Pin 
               classList={{
                 hovered: samePin(props.hoveredPin, pin),
                 bus: widthOf(current(), props.node, pin) > 1,
-                hint: session().hints.some((hint) => samePin(hint, pin)),
+                hint: hinted().has(pinKey(pin)),
               }}
               cx={cx}
               cy={cy}
