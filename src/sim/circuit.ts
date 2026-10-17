@@ -71,12 +71,18 @@ export function placeNode(
   width = 1,
 ): Node | null {
   if (!Number.isInteger(width) || width < 1 || width > MAX_WIDTH) return null;
-  const rect = freeRect(game, kindOf(game.parts, type).size(width), center);
+  const rect = landing(game, type, center, width);
   if (!rect) return null;
   const node: Node = { id: game.nextNodeID++, type, label, rect, width, isHigh: false, signals: [], state: [] };
   game.nodes.set(node.id, node);
   settle(game);
   return node;
+}
+
+// The cells placeNode would give a part of this type and width centred on a
+// board point: the free spot nearest it, or null if the board is full.
+export function landing(game: Game, type: NodeType, center: { x: number; y: number }, width = 1): Rect | null {
+  return freeRect(game, kindOf(game.parts, type).size(width), center);
 }
 
 // Moves a node to the snapped position nearest (x, y), unless that would

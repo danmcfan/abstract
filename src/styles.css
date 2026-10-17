@@ -420,6 +420,25 @@ body {
 #board .junctions circle.high {
   fill: var(--color-live);
 }
+/* Where a part dragged from the parts bin will land. */
+#board .ghost rect {
+  fill: var(--color-wash);
+  fill-opacity: 0.6;
+  stroke: var(--color-pencil);
+  stroke-width: 0.08;
+  stroke-dasharray: 0.3 0.2;
+}
+#board .ghost text {
+  fill: var(--color-pencil);
+  font-size: 0.9px;
+  font-weight: bold;
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+}
+#board .ghost {
+  pointer-events: none;
+}
 /* A wire being dragged is sketched in pencil. Once it connects, ink runs
    along it from the output pin to the input pin. */
 #board .preview,

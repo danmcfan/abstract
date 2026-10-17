@@ -49,11 +49,20 @@ export function mutate(change: (game: Game) => void): void {
   touch();
 }
 
-export function placePart(type: NodeType, width = 1): void {
+export function placePart(type: NodeType, width = 1, at?: { x: number; y: number }): void {
   mutate(() => {
-    live.place(type, width);
+    live.place(type, width, at);
   });
 }
+
+// A part being dragged out of the parts bin, and the board point under the
+// pointer, or null while it's off the board.
+export interface BinDrag {
+  type: NodeType;
+  width: number;
+  at: { x: number; y: number } | null;
+}
+export const [binDrag, setBinDrag] = createSignal<BinDrag | null>(null);
 
 // Changes rows of the instruction set, giving what Bitbox says about it.
 export function editInstructions(rows: InstructionSet): Cue | null {

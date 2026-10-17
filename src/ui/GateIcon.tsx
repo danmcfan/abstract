@@ -26,3 +26,7 @@ export function GateIcon(props: { type: NodeType; width?: number; class?: string
     </svg>
   );
 }
+
+// A part's name on its card and its preview: a split or join wider than one
+// signal carries its bus width.
+export const partName = (type: NodeType, width: number): string => (width > 1 ? `${type} ${width}` : type);
