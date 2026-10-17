@@ -35,7 +35,7 @@ The play-through and shots drive the real game with [agent-browser](https://gith
 
 With dev running, [`/bitbox.html`](http://localhost:5173/bitbox.html) is Bitbox's model sheet. It's a dev-only page where you can orbit him, change lighting and backdrop, play any expression at any speed, pose him by hand with sliders, and save a PNG. Its settings are kept in the URL, and `window.__bitbox` lets scripts drive it.
 
-Every push to `main` runs `bun run check` (`.github/workflows/check.yml`) and deploys to GitHub Pages (`.github/workflows/deploy.yml`).
+Every push to `main` runs `bun run check` and, if it passes, deploys to GitHub Pages (`.github/workflows/deploy.yml`).
 
 ## Layout
 

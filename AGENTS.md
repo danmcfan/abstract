@@ -1,6 +1,6 @@
 ## Shipping
 
-Commit and push straight to `main`; every push to `main` deploys abstract.dannyobrien.dev. CI runs `bun run check` on each push, with no browser. Before you push, verify the change (`docs/agents/verify.md`): a change that adds or edits a level runs `bun run playthrough <N>` for those levels and checks their screenshots and videos, and any other change a player sees is captured and checked the same way. Review your unpushed commits with `/code-review origin/main`, which enforces `CODING_STANDARDS.md`, then push.
+Commit and push straight to `main`; every push to `main` runs `bun run check`, with no browser, and deploys abstract.dannyobrien.dev only if it passes. Before you push, verify the change (`docs/agents/verify.md`): a change that adds or edits a level runs `bun run playthrough <N>` for those levels and checks their screenshots and videos, and any other change a player sees is captured and checked the same way. Review your unpushed commits with `/code-review origin/main`, which enforces `CODING_STANDARDS.md`, then push.
 
 ## Agent skills
 

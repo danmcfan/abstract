@@ -1,6 +1,6 @@
 # Verifying a change
 
-Every change is committed and pushed straight to `main`: each push deploys the live site, and CI runs `bun run check` on it, with no browser. Before you push, run the checks for what you changed, then review your unpushed commits with `/code-review origin/main`.
+Every change is committed and pushed straight to `main`: each push runs `bun run check`, with no browser, and deploys the live site only if it passes. Before you push, run the checks for what you changed, then review your unpushed commits with `/code-review origin/main`.
 
 | You changed                       | Run                                           | Done when                                                                       |
 | --------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------- |
