@@ -546,7 +546,7 @@ export function PartsBin(): JSX.Element {
                   placePart(type);
                 }}
               >
-                <GateIcon type={type} class="h-6 w-10 shrink-0" />
+                <GateIcon type={type} class="h-9 w-15 shrink-0" />
                 {type}
               </button>
             )}
@@ -567,7 +567,7 @@ export function PartsBin(): JSX.Element {
                     placePart(w.type, w.width);
                   }}
                 >
-                  <GateIcon type={w.type} width={Math.min(w.width, 4)} class="h-6 w-10 shrink-0" />
+                  <GateIcon type={w.type} width={Math.min(w.width, 4)} class="h-9 w-15 shrink-0" />
                   {w.width > 1 ? `${w.type} ${w.width}` : w.type}
                 </button>
               )}
@@ -593,9 +593,10 @@ export function PartsBin(): JSX.Element {
 const BIN_ARROW =
   "w-7 shrink-0 text-xl font-bold text-ink hover:bg-wash disabled:cursor-default disabled:text-dead disabled:hover:bg-transparent";
 
-// A part in the bin, drawn as a little card with its symbol over its name.
+// A part in the bin, drawn as a card with its symbol over its name, big enough
+// to read and pick up.
 const PART_CARD =
-  "flex h-15 w-20 flex-col items-center justify-center gap-0.5 border-hair border-ink bg-surface px-1 text-fine leading-tight font-bold text-ink hover:bg-wash disabled:opacity-40";
+  "flex h-22.5 w-30 flex-col items-center justify-center gap-0.5 border-hair border-ink bg-surface px-1 text-copy leading-tight font-bold text-ink hover:bg-wash disabled:opacity-40";
 
 // Roughens the stamp's edges and leaves gaps in its ink, the way a rubber
 // stamp prints.
