@@ -219,6 +219,16 @@ const instructionRegister: Memory = {
   outputs: ([, d = 0]) => Object.values(fields(d)),
 };
 
+// The fetch unit: CLK, EXEC, JUMP, IIN and NIN in. With EXEC off, a tick
+// takes IIN and NIN and the count goes up by 1; with it on, the count takes
+// N if JUMP is on, or holds. COUNT, then IIN's fields and N, out.
+const fetchUnit: Memory = {
+  next: onTick(([, exec = 0, jump = 0, iin = 0, nin = 0], [count = 0, i = 0, n = 0]) =>
+    exec ? [jump ? n : count, i, n] : [(count + 1) & 0xff, iin, nin],
+  ),
+  outputs: ([, count = 0, i = 0, n = 0]) => [count, ...Object.values(fields(i)), n],
+};
+
 // NONE's eight inputs.
 const NONE_INPUTS = ["A", "B", "C", "D", "E", "F", "G", "H"];
 
@@ -1244,8 +1254,8 @@ export const LEVELS: Level[] = [
     goal: "On a tick, the count takes ADDR if LOAD is on, or else goes up by 1. After 255 comes 0.",
     layer: 6,
     inputs: ["CLK", "LOAD", "ADDR"],
-    outputs: ["PC"],
-    widths: { ADDR: 8, PC: 8 },
+    outputs: ["COUNT"],
+    widths: { ADDR: 8, COUNT: 8 },
     memory: {
       next: onTick(([, load = 0, addr = 0], [pc = 0]) => [load ? addr : (pc + 1) & 0xff]),
       outputs: ([, pc = 0]) => [pc],
@@ -1265,7 +1275,7 @@ export const LEVELS: Level[] = [
       { inputs: [0, 0, 0], tick: true, expected: [0] },
     ],
     // A register that loads on every tick. An adder with an ON in CIN gives
-    // PC + 1, and a MUX8 on LOAD picks that or ADDR for the register.
+    // the count + 1, and a MUX8 on LOAD picks that or ADDR for the register.
     solution: {
       nodes: [
         { name: "on", type: "ON", x: 20, y: 6 },
@@ -1282,7 +1292,7 @@ export const LEVELS: Level[] = [
         ["add", "pick:0"],
         ["ADDR", "pick:1"],
         ["LOAD", "pick:2"],
-        ["pc", "PC"],
+        ["pc", "COUNT"],
       ],
     },
   },
@@ -1524,6 +1534,59 @@ export const LEVELS: Level[] = [
   },
   registerUnitLevel(BITBOX_INSTRUCTION_SET),
   executeLevel(BITBOX_INSTRUCTION_SET),
+  {
+    gate: "FETCH UNIT",
+    goal: "With EXEC off, a tick takes the instruction and number and counts up. With EXEC on, a tick jumps to N if JUMP is on, or holds.",
+    layer: 8,
+    inputs: ["CLK", "EXEC", "JUMP", "IIN", "NIN"],
+    outputs: ["COUNT", "OPCODE", "R", "S", "N"],
+    widths: { IIN: 8, NIN: 8, COUNT: 8, OPCODE: 4, R: 2, S: 2, N: 8 },
+    memory: fetchUnit,
+    // It fetches and counts, holds, fetches a jump and takes it, then
+    // fetches from there.
+    steps: [
+      { inputs: [0, 0, 0, 0, 0], expected: [0, 0, 0, 0, 0] },
+      { inputs: [0, 0, 0, 0b1011_0110, 42], tick: true, expected: [1, 11, 1, 2, 42] },
+      { inputs: [0, 1, 0, 0, 0], tick: true, expected: [1, 11, 1, 2, 42] },
+      { inputs: [0, 0, 1, 0b0001_0000, 7], tick: true, expected: [2, 1, 0, 0, 7] },
+      { inputs: [0, 1, 1, 0, 0], expected: [2, 1, 0, 0, 7] },
+      { inputs: [0, 1, 1, 0, 0], tick: true, expected: [7, 1, 0, 0, 7] },
+      { inputs: [0, 0, 0, 0b0100_1101, 255], tick: true, expected: [8, 4, 3, 1, 255] },
+    ],
+    grid: { width: 60, height: 48 },
+    // A program counter keeps the count, and loads on an execute tick: N
+    // if JUMP is on, or its own count. With EXEC off, an instruction
+    // register takes IIN and a register takes NIN.
+    solution: {
+      nodes: [
+        { name: "pc", type: "PROGRAM COUNTER", x: 16, y: 8 },
+        { name: "hold", type: "MUX8", x: 16, y: 24 },
+        { name: "fetch", type: "NOT", x: 16, y: 38 },
+        { name: "ir", type: "INSTRUCTION REGISTER", x: 34, y: 14 },
+        { name: "nr", type: "REGISTER", x: 34, y: 30 },
+      ],
+      wires: [
+        ["CLK", "pc:0"],
+        ["EXEC", "pc:1"],
+        ["hold", "pc:2"],
+        ["pc", "hold:0"],
+        ["nr", "hold:1"],
+        ["JUMP", "hold:2"],
+        ["EXEC", "fetch"],
+        ["CLK", "ir:0"],
+        ["fetch", "ir:1"],
+        ["IIN", "ir:2"],
+        ["CLK", "nr:0"],
+        ["fetch", "nr:1"],
+        ["NIN", "nr:2"],
+        ["pc", "COUNT"],
+        ["ir:0", "OPCODE"],
+        ["ir:1", "R"],
+        ["ir:2", "S"],
+        ["nr", "N"],
+      ],
+    },
+  },
   cpuLevel(BITBOX_INSTRUCTION_SET),
   {
     kind: "door program",
@@ -1801,6 +1864,7 @@ function executeLevel(set: InstructionSet): CircuitLevel {
 
 function cpuLevel(set: InstructionSet): CircuitLevel {
   return {
+    revision: 2,
     gate: "CPU",
     goal: "Fetch on one tick, execute on the next, until HALT. Run each test program and send the right values out.",
     layer: 8,
@@ -1812,52 +1876,34 @@ function cpuLevel(set: InstructionSet): CircuitLevel {
     programMemory: { x: 30, y: 13 },
     describe: (i, n) => describeInstruction(set, i, n),
     grid: { width: 76, height: 62 },
-    // The program counter addresses program memory, and two registers take
-    // its I and N on a fetch tick, while EXEC is off. The execute unit's
-    // clock is EXEC, so it does the instruction as EXEC turns on. On an
-    // execute tick the program counter loads: the jump address, or itself.
-    // Once HALT is on during execute, the sequencer's clock stops.
+    // The fetch unit's count addresses program memory, and it takes I and N
+    // while EXEC is off. The execute unit's clock is EXEC, so it does the
+    // instruction as EXEC turns on, and its JUMP tells the fetch unit where
+    // to go next. Once HALT is on during execute, the stepper holds.
     solution: {
       nodes: [
-        { name: "pc", type: "PROGRAM COUNTER", x: 16, y: 10 },
-        { name: "hold", type: "MUX8", x: 16, y: 26 },
-        { name: "sequencer", type: "SEQUENCER", x: 28, y: 46 },
-        { name: "running", type: "NAND", x: 18, y: 54 },
-        { name: "clock", type: "AND", x: 18, y: 46 },
-        { name: "fetch", type: "NOT", x: 38, y: 40 },
-        { name: "instruction", type: "INSTRUCTION REGISTER", x: 44, y: 8 },
-        { name: "number", type: "REGISTER", x: 44, y: 20 },
-        { name: "execute", type: "EXECUTE UNIT", x: 58, y: 14 },
+        { name: "stepper", type: "STEPPER", x: 26, y: 48 },
+        { name: "fetch", type: "FETCH UNIT", x: 44, y: 8 },
+        { name: "execute", type: "EXECUTE UNIT", x: 58, y: 30 },
       ],
       wires: [
-        ["CLK", "clock:0"],
-        ["running", "clock:1"],
-        ["clock", "sequencer"],
-        ["sequencer", "running:0"],
-        ["execute:4", "running:1"],
-        ["CLK", "pc:0"],
-        ["sequencer", "pc:1"],
-        ["hold", "pc:2"],
-        ["pc", "hold:0"],
-        ["number", "hold:1"],
-        ["execute:0", "hold:2"],
-        ["pc", `${PROGRAM_MEMORY}:0`],
-        ["sequencer", "fetch"],
-        ["CLK", "instruction:0"],
-        ["fetch", "instruction:1"],
-        [`${PROGRAM_MEMORY}:0`, "instruction:2"],
-        ["CLK", "number:0"],
-        ["fetch", "number:1"],
-        [`${PROGRAM_MEMORY}:1`, "number:2"],
-        ["sequencer", "execute:0"],
-        ["instruction", "execute:1"],
-        ["instruction:1", "execute:2"],
-        ["instruction:2", "execute:3"],
-        ["number", "execute:4"],
+        ["CLK", "stepper:0"],
+        ["execute:4", "stepper:1"],
+        ["CLK", "fetch:0"],
+        ["stepper", "fetch:1"],
+        ["execute:0", "fetch:2"],
+        [`${PROGRAM_MEMORY}:0`, "fetch:3"],
+        [`${PROGRAM_MEMORY}:1`, "fetch:4"],
+        ["fetch:0", `${PROGRAM_MEMORY}:0`],
+        ["stepper", "execute:0"],
+        ["fetch:1", "execute:1"],
+        ["fetch:2", "execute:2"],
+        ["fetch:3", "execute:3"],
+        ["fetch:4", "execute:4"],
         ["DIN", "execute:5"],
         ["execute:1", "OUT"],
         ["execute:2", "DOUT"],
-        ["number", "DEV"],
+        ["fetch:4", "DEV"],
         ["execute:3", "IN"],
         ["execute:4", "HALT"],
       ],

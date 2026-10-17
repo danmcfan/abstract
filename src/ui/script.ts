@@ -414,7 +414,7 @@ const LEVELS: Partial<Record<string, LevelScript>> = {
   "PROGRAM COUNTER": {
     intro: [
       { face: "idle", text: "A program is a list of instructions. The program counter keeps our place in it." },
-      { face: "idle", text: "Each tick it counts up by 1. With LOAD on, it jumps to ADDR instead." },
+      { face: "idle", text: "Each tick COUNT goes up by 1. With LOAD on, it jumps to ADDR instead." },
       { face: "happy", text: "New in the Wiring section: ON and OFF. Each gives one signal that never changes." },
     ],
     hint: [
@@ -611,19 +611,37 @@ const LEVELS: Partial<Record<string, LevelScript>> = {
       { face: "thinking", text: "It just needs something to feed it instructions, one after another." },
     ],
   },
+  "FETCH UNIT": {
+    intro: [
+      { face: "idle", text: "The fetch unit feeds the execute unit, one instruction after another." },
+      { face: "idle", text: "With EXEC off, a tick takes the instruction and its number, and the count goes up." },
+      { face: "idle", text: "With EXEC on, a tick jumps the count to N if JUMP is on. Otherwise it holds." },
+    ],
+    hint: [
+      { face: "thinking", text: "A program counter keeps the count. Wire EXEC to its LOAD." },
+      { face: "thinking", text: "A MUX8 on JUMP picks what it loads: N, or its own count." },
+      { face: "thinking", text: "An instruction register takes IIN and a register takes NIN, while EXEC is off." },
+      CONTROLS,
+    ],
+    solved: [
+      { face: "happy", text: "Fetch unit, done! It always knows what comes next." },
+      { face: "thinking", text: "Now it needs a clock, and something to do the instructions." },
+    ],
+  },
   CPU: {
     intro: [
       { face: "amazed", text: "This is it. The CPU." },
-      { face: "idle", text: "Program memory holds a program. The program counter says where we are in it." },
-      { face: "idle", text: "Fetch takes the next instruction into two registers. Execute does it." },
+      { face: "idle", text: "Program memory holds a program. The fetch unit's count says where we are in it." },
+      { face: "idle", text: "The stepper says fetch or execute. Fetch takes the next instruction. Execute does it." },
       { face: "thinking", text: "Run test loads each test program and ticks until HALT." },
     ],
     hint: [
-      { face: "thinking", text: "The program counter points into program memory. Its I and N go into two registers." },
-      { face: "thinking", text: "Those registers load while EXEC is off. That's the fetch tick." },
-      { face: "thinking", text: "Wire EXEC to the execute unit's CLK, so it acts as EXEC turns on." },
-      { face: "thinking", text: "On execute, the program counter loads: the jump address, or its own count." },
-      { face: "thinking", text: "Once HALT is on during execute, stop the sequencer's clock." },
+      { face: "thinking", text: "COUNT points into program memory. Its I and N go back into the fetch unit." },
+      { face: "thinking", text: "The stepper's EXEC goes to the fetch unit, and to the execute unit's CLK." },
+      {
+        face: "thinking",
+        text: "The execute unit's JUMP and HALT go back: JUMP to the fetch unit, HALT to the stepper.",
+      },
       CONTROLS,
     ],
     solved: [

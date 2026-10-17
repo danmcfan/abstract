@@ -74,23 +74,13 @@ describe("each level's intended solution", () => {
   });
 
   // Every node the solution places counts, and every wire, terminals' too (ADR 11).
-  // Levels still over the limit while #72 redesigns them; each PR there
-  // removes its level from this list.
-  const overLimit = ["CPU"];
   test.each(unbuilt.map(({ level }) => [levelId(level), level] as const))(
-    "%s keeps within 7 nodes and 20 wires unless listed over the limit",
-    (id, level) => {
-      const nodes = level.solution?.nodes.length ?? 0;
-      const wires = level.solution?.wires.length ?? 0;
-      expect({ nodes, wires, within: nodes <= 7 && wires <= 20 }).toMatchObject({
-        within: !overLimit.includes(id),
-      });
+    "%s keeps within 7 nodes and 20 wires",
+    (_, level) => {
+      expect(level.solution?.nodes.length ?? 0).toBeLessThanOrEqual(7);
+      expect(level.solution?.wires.length ?? 0).toBeLessThanOrEqual(20);
     },
   );
-
-  test("every over-limit level is a level", () => {
-    expect(overLimit.filter((id) => !unbuilt.some(({ level }) => levelId(level) === id))).toEqual([]);
-  });
 
   // Passing includes using only the parts bin and the level's Wiring (ADR 5).
   test.each(unbuilt.map(({ level, index }) => [levelId(level), index] as const))(

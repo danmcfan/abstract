@@ -162,6 +162,9 @@ _Avoid_: calculator, math unit
 The register that holds the address of the next instruction. It adds 1 on each fetch, or takes a new address on a jump.
 _Avoid_: PC (in player-facing text), instruction pointer
 
+**Fetch unit**:
+The L8 part that keeps the program counter and takes each instruction and its number from program memory. With EXEC off, a tick fetches and counts up; with EXEC on, a tick jumps to N or holds.
+
 **Decoder**:
 A part that turns a number into one signal: the output with the input's number is on and the rest are off. The CPU's 4-in, 16-out decoder turns an opcode into the instruction it means.
 

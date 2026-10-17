@@ -362,6 +362,19 @@ const EXPECTED: Record<NodeType, Expected[]> = {
       ],
     },
   ],
+  "FETCH UNIT": [
+    {
+      ins: [1, 1, 1, 8, 8],
+      outs: [8, 4, 2, 2, 8],
+      size: [6, 10],
+      cases: [
+        [
+          [0, 0, 0, 5, 9],
+          [0, 0, 0, 0, 0],
+        ],
+      ],
+    },
+  ],
   // Blank program memory holds HALT, opcode 0 in Bitbox's set.
   CPU: [
     {
