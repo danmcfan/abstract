@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { control, encode, fields, registerUnit, type Instruction } from "./cpu";
-import { randomSet } from "./fixtures";
+import { index, randomSet, tick } from "./fixtures";
 import { BITBOX_INSTRUCTION_SET } from "./instruction";
 import {
   buildSolution,
@@ -13,7 +13,7 @@ import {
   revisionOf,
   withInstructionSet,
 } from "./level";
-import type { NodeType, State, Value } from "./node";
+import type { State, Value } from "./node";
 
 const L8_DATA = ["INSTRUCTION REGISTER", "REGISTER UNIT", "EXECUTE UNIT"];
 // Each level's nodes and wires, counted by hand: ADR 11 allows 7 and 20.
@@ -22,11 +22,6 @@ const SIZES: Record<string, [nodes: number, wires: number]> = {
   "REGISTER UNIT": [6, 20],
   "EXECUTE UNIT": [3, 19],
 };
-const index = (gate: NodeType): number => LEVELS.findIndex((level) => levelId(level) === gate);
-
-// Ticks a memory part once with its inputs, from its state.
-const tick = (memory: { next: (inputs: Value[], state: State) => State }, inputs: Value[], state: State): State =>
-  memory.next([0, ...inputs.slice(1)], memory.next([1, ...inputs.slice(1)], state));
 
 describe("the L8 data levels", () => {
   test("follow the control unit, the execute unit last", () => {

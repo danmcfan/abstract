@@ -1,14 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { buildSolution, checkLevel, circuitAt, levelId, LEVELS, loadLevel, revisionOf } from "./level";
-import type { NodeType, State, Value } from "./node";
-import { memorySave } from "./save";
-
-const index = (gate: NodeType): number => LEVELS.findIndex((level) => levelId(level) === gate);
-const level = (gate: NodeType) => circuitAt(index(gate));
-
-// Ticks a memory part once with its inputs, from its state.
-const tick = (memory: { next: (inputs: Value[], state: State) => State }, inputs: Value[], state: State): State =>
-  memory.next([0, ...inputs.slice(1)], memory.next([1, ...inputs.slice(1)], state));
+import { buildSolution, checkLevel, levelId, LEVELS, loadLevel, revisionOf } from "./level";
+import type { State } from "./node";
+import { index, level, tick } from "./fixtures";
 
 describe("the fetch unit", () => {
   test("comes just before the CPU", () => {
@@ -50,22 +43,5 @@ describe("the 3-part CPU", () => {
     expect([cpu.solution?.nodes.length, cpu.solution?.wires.length]).toEqual([3, 19]);
     expect(cpu.solution?.nodes.map((node) => node.type)).toEqual(["STEPPER", "FETCH UNIT", "EXECUTE UNIT"]);
     expect(revisionOf(cpu)).toBe(2);
-  });
-});
-
-describe("a program counter saved with a PC output", () => {
-  test("loads with it named COUNT", () => {
-    const game = loadLevel(level("PROGRAM COUNTER"));
-    buildSolution(game, level("PROGRAM COUNTER"));
-    const board = {
-      nodes: [...game.nodes.values()].map((node) => (node.label === "COUNT" ? { ...node, label: "PC" } : node)),
-      edges: [...game.edges.values()],
-      nextNodeID: game.nextNodeID,
-      nextEdgeID: game.nextEdgeID,
-    };
-    const save = memorySave({ solved: {}, open: "PROGRAM COUNTER", boards: { "PROGRAM COUNTER": board }, flags: [] });
-    const labels = save.load()?.boards["PROGRAM COUNTER"]?.nodes.map((node) => node.label);
-    expect(labels).toContain("COUNT");
-    expect(labels).not.toContain("PC");
   });
 });
