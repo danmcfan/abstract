@@ -14,8 +14,10 @@ const CONTROLS: Line = {
 interface LevelScript {
   // The first time the level opens.
   intro: Line[];
-  // When the player asks for help.
+  // When the player asks for help, after the goal.
   hint: Line[];
+  // The goal, split for Bitbox's desk, when the level's own is too long for one line.
+  about?: Line[];
   // The first time it's solved.
   solved: Line[];
 }
@@ -240,6 +242,13 @@ const LEVELS: Partial<Record<string, LevelScript>> = {
     solved: [{ face: "happy", text: "Logic unit, done! Four jobs, one part." }],
   },
   "ALU SLICE": {
+    about: [
+      {
+        face: "idle",
+        text: "We're building ALU SLICE. Do OP to A and B. Arithmetic adds A, B (or NOT B for OP 1 and 3) and CIN.",
+      },
+      { face: "idle", text: "4 is AND, 5 is OR, 6 is XOR, 7 is NOT A. COUT is the carry for every OP." },
+    ],
     intro: [
       { face: "amazed", text: "This is the big one. One part that does six jobs." },
       { face: "idle", text: "OP is a 3-signal bus. Its top signal says arithmetic or logic." },
@@ -429,6 +438,13 @@ const LEVELS: Partial<Record<string, LevelScript>> = {
     ],
   },
   "3-TO-8 DECODER": {
+    about: [
+      {
+        face: "idle",
+        text: "We're building 3-TO-8 DECODER. Only the signal S numbers is on: number n is D's signal n.",
+      },
+      { face: "idle", text: "The join takes its high signal first, so number n goes into join pin 7−n." },
+    ],
     intro: [
       { face: "idle", text: "A decoder turns a number into one signal." },
       { face: "idle", text: "S is a number from 0 to 7. Number n is D's signal n: only that one is on." },
@@ -540,6 +556,13 @@ const LEVELS: Partial<Record<string, LevelScript>> = {
     ],
   },
   "WRITE ENCODER": {
+    about: [
+      {
+        face: "idle",
+        text: "We're building WRITE ENCODER. WRITE is on when your opcode's instruction writes register R.",
+      },
+      { face: "idle", text: "SRC picks what R takes: 0 S, 1 N, 2 RAM or DIN, 3 the ALU." },
+    ],
     intro: [
       { face: "idle", text: "The write encoder says if register R changes, and what it takes." },
       { face: "idle", text: "WRITE is on when the instruction writes R." },
@@ -717,7 +740,7 @@ function about(level: Level): string {
 }
 
 export const help = (level: Level): Line[] => [
-  { face: "idle", text: about(level) },
+  ...(LEVELS[levelId(level)]?.about ?? [{ face: "idle", text: about(level) }]),
   ...(LEVELS[levelId(level)]?.hint ?? [CONTROLS]),
 ];
 
