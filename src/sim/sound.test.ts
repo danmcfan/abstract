@@ -33,6 +33,7 @@ function board(): {
       change(game);
     },
     locked: () => false,
+    pixelsPerCell: () => 1,
     sound,
   });
   const add = (type: NodeType, x: number, y: number): NodeID => placeNode(game, type, { x, y })!.id;

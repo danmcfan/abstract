@@ -196,11 +196,34 @@ describe("gestures", () => {
       const { game, g, add } = setup(ZOOM);
       const a = add("INPUT", 5, 5);
       const pin = at(game, out(a));
-      const edge = { x: pin.x - 0.2, y: pin.y };
+      const edge = { x: pin.x - 0.35, y: pin.y };
       g.down(edge, 0);
       expect(g.preview).toBeNull();
       g.up(edge);
       expect(game.nodes.get(a)!.isHigh).toBe(true);
+    });
+
+    test("a neighbour's pin reaching over the switch doesn't take the press", () => {
+      const { game, g, add } = setup(ZOOM);
+      const a = add("INPUT", 5, 5);
+      const r = game.nodes.get(a)!.rect;
+      const n = add("NOT", r.x + r.width + 3, r.y + r.height / 2);
+      expect(at(game, inp(n)).x).toBe(r.x + r.width);
+      const pin = at(game, inp(n));
+      const edge = { x: pin.x - 0.35, y: pin.y };
+      g.down(edge, 0);
+      expect(g.preview).toBeNull();
+      g.up(edge);
+      expect(game.nodes.get(a)!.isHigh).toBe(true);
+    });
+
+    test("a jump past the dead zone with no move between is a drag", () => {
+      const { game, g, add } = setup(ZOOM);
+      const a = add("INPUT", 5, 5);
+      const p = press(game, a);
+      g.down(p, 0);
+      g.up({ x: p.x + 6 / ZOOM, y: p.y });
+      expect(game.nodes.get(a)!.isHigh).toBe(false);
     });
 
     test("pressing the pin itself still starts a wire", () => {
