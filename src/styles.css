@@ -53,8 +53,8 @@
   --grid-template-rows-bench: minmax(300px, 1fr) minmax(0, 45%);
   /* The play sheet: the brief and Bitbox's desk on the left, the board and
      parts bin on the right, under the menu bar. */
-  --grid-template-columns-sheet: 340px 1fr;
-  --grid-template-rows-sheet: auto 1fr 180px;
+  --grid-template-columns-sheet: 400px 1fr;
+  --grid-template-rows-sheet: auto 1fr 240px;
   /* The Stack's elevator car sliding between floors. */
   --transition-property-elevator: top, height;
 }

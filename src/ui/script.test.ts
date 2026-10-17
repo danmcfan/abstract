@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { LEVELS, levelId, type Level } from "../sim/level";
-import { help, intro, solved } from "./script";
+import { everyLine, help, intro, solved } from "./script";
 
 const level = (gate: string): Level => LEVELS.find((l) => levelId(l) === gate)!;
 const endOfFloor = (gate: string): boolean => solved(level(gate)).some((line) => line.text.includes("more floors"));
@@ -16,4 +16,10 @@ test("every level has its own intro, hint and solved lines", () => {
     expect(solved(l).length).toBeGreaterThan(0);
     expect(help(l).length).toBeGreaterThan(1);
   }
+});
+
+test("every line takes in each level's intro, solved and hint lines", () => {
+  const all = new Set(everyLine(LEVELS).map((line) => line.text));
+  for (const l of LEVELS)
+    for (const line of [...intro(l), ...solved(l), ...help(l)]) expect(all.has(line.text)).toBe(true);
 });

@@ -8,6 +8,13 @@ import type { Expression } from "../robot/expression";
 
 const TYPE_MS = 24;
 
+// Docked, a line's text starts at its largest size and steps down a pixel at
+// a time until it fits the desk, never below the smallest. A line that won't
+// fit even then is marked, for the check that every line fits, and split in
+// the script.
+const LARGEST_PX = 18;
+const SMALLEST_PX = 14;
+
 // Bitbox's video window of him pulling a face, and what he's saying, typed
 // out. During play it's docked in Bitbox's desk, where he sits idle between
 // lines. Over the stack it pops up instead, and a reaction with no line
@@ -27,8 +34,8 @@ interface Look {
 const DOCKED: Look = {
   section: "flex min-h-0 flex-col text-ink-deep sheet",
   body: "flex min-h-0 flex-1 gap-3 p-2.5",
-  camera: "aspect-square h-full",
-  text: "text-note",
+  camera: "size-24 self-start",
+  text: "",
 };
 const POPUP: Look = {
   section: "pop fixed right-5 bottom-5 z-40 w-115 text-ink-deep sheet",
@@ -45,6 +52,33 @@ export function Dialogue(props: { docked?: boolean }): JSX.Element {
   };
   const [shown, setShown] = createSignal(0);
   const typing = (): boolean => shown() < text().length;
+  const [overflows, setOverflows] = createSignal(false);
+  let box: HTMLDivElement | undefined;
+  let words: HTMLParagraphElement | undefined;
+  const hold = (el: HTMLParagraphElement): void => {
+    words = el;
+  };
+
+  // Sizes the line to fit the desk. The whole line is laid out from the
+  // start, with the untyped rest invisible, so it never resizes as it types.
+  const fit = (): void => {
+    const desk = box;
+    if (props.docked !== true || !desk || !words) return;
+    const over = (): boolean => desk.scrollHeight > desk.clientHeight;
+    let px = LARGEST_PX;
+    words.style.fontSize = `${px}px`;
+    while (px > SMALLEST_PX && over()) words.style.fontSize = `${--px}px`;
+    setOverflows(over());
+  };
+  const watch = (el: HTMLDivElement): void => {
+    box = el;
+    const observer = new ResizeObserver(fit);
+    observer.observe(el);
+    onCleanup(() => {
+      observer.disconnect();
+    });
+  };
+
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   let timer: ReturnType<typeof setInterval> | undefined;
@@ -52,6 +86,7 @@ export function Dialogue(props: { docked?: boolean }): JSX.Element {
     on(text, (t) => {
       clearInterval(timer);
       setShown(reduced ? t.length : 0);
+      fit();
       if (reduced) return;
       timer = setInterval(() => {
         typeLetter(sound, t[shown()] ?? "");
@@ -115,10 +150,16 @@ export function Dialogue(props: { docked?: boolean }): JSX.Element {
               {(s) => (
                 <div class="flex min-w-0 flex-1 flex-col">
                   {/* A mouse shortcut for Next; the keyboard has Enter and the Next button. */}
-                  <div role="presentation" class="min-h-0 overflow-y-auto" onClick={next}>
-                    <p class={`cursor-pointer leading-snug ${look().text}`} aria-hidden="true">
+                  <div
+                    ref={watch}
+                    role="presentation"
+                    class="min-h-0 flex-1 overflow-hidden"
+                    data-overflow={overflows() ? "" : undefined}
+                    onClick={next}
+                  >
+                    <p ref={hold} class={`cursor-pointer leading-snug ${look().text}`} aria-hidden="true">
                       {text().slice(0, shown())}
-                      <Show when={!typing()}>
+                      <Show when={!typing()} fallback={<span class="invisible">{text().slice(shown())}</span>}>
                         <span class="caret" />
                       </Show>
                     </p>
