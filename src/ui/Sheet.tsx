@@ -594,7 +594,7 @@ const BIN_ARROW =
   "w-7 shrink-0 text-xl font-bold text-ink hover:bg-wash disabled:cursor-default disabled:text-dead disabled:hover:bg-transparent";
 
 // A part in the bin, drawn as a card with its symbol over its name, big enough
-// to read and pick up (two rows of them fill the desk-high bin).
+// to read and pick up.
 const PART_CARD =
   "flex h-22.5 w-30 flex-col items-center justify-center gap-0.5 border-hair border-ink bg-surface px-1 text-copy leading-tight font-bold text-ink hover:bg-wash disabled:opacity-40";
 
