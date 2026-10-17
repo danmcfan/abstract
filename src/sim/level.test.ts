@@ -4,6 +4,8 @@ import {
   buildSolution,
   checkLevel,
   floorAbove,
+  goalParts,
+  goalText,
   hasClock,
   circuits,
   LAYERS,
@@ -676,5 +678,22 @@ describe("the part a level earns", () => {
   test("is its part, except on the last level", () => {
     expect(partEarned(1)).toBe(partGiven(levelAt(1))!.gate);
     expect(partEarned(LEVELS.length - 1)).toBeNull();
+  });
+});
+
+describe("a level's goal", () => {
+  test("a one-sentence goal is one part, and reads as itself", () => {
+    expect(goalParts({ goal: "Output is on when A is off." })).toEqual(["Output is on when A is off."]);
+    expect(goalText({ goal: "Output is on when A is off." })).toBe("Output is on when A is off.");
+  });
+
+  test("a split goal is its parts, and reads as them joined", () => {
+    const goal: [string, ...string[]] = ["Do OP to A and B.", "COUT is the carry."];
+    expect(goalParts({ goal })).toEqual(goal);
+    expect(goalText({ goal })).toBe("Do OP to A and B. COUT is the carry.");
+  });
+
+  test("every part of every goal ends a sentence, so the brief reads them joined", () => {
+    for (const level of LEVELS) for (const part of goalParts(level)) expect(part).toMatch(/[.!?]$/u);
   });
 });

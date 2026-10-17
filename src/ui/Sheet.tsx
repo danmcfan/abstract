@@ -1,6 +1,7 @@
 import { For, Show, createEffect, createSignal, on, onCleanup, onMount, type JSX } from "solid-js";
 import {
   CLOCK,
+  goalText,
   hasClock,
   layerOf,
   type CircuitLevel,
@@ -10,7 +11,6 @@ import {
   TICK_LIMIT,
   wiring,
 } from "../sim/level";
-import { goalText } from "../sim/level";
 import type { Value } from "../sim/node";
 import { CLOCK_SPEED } from "../sim/session";
 import { CLUES } from "./clues";

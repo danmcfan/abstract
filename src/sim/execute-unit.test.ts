@@ -6,13 +6,13 @@ import {
   buildSolution,
   checkLevel,
   circuitAt,
+  goalText,
   levelId,
   LEVELS,
   loadLevel,
   partsOf,
   revisionOf,
   withInstructionSet,
-  goalText,
 } from "./level";
 import type { State, Value } from "./node";
 

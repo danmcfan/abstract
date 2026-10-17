@@ -123,7 +123,7 @@ interface LevelInfo {
   revision?: number;
   // One sentence, or several when it's too long for one Bitbox line: each
   // part is its own help line, and the brief reads them joined.
-  goal: string | string[];
+  goal: string | [string, ...string[]];
   // The number of the layer the level belongs to.
   layer: number;
 }
@@ -2454,8 +2454,7 @@ function seeded(seed: number): () => number {
 }
 
 // A level's goal as parts, one per Bitbox line.
-export const goalParts = (level: { goal: string | string[] }): string[] =>
-  typeof level.goal === "string" ? [level.goal] : level.goal;
+export const goalParts = ({ goal }: Pick<LevelInfo, "goal">): string[] => (typeof goal === "string" ? [goal] : goal);
 
 // A level's goal as one passage, for the brief.
-export const goalText = (level: { goal: string | string[] }): string => goalParts(level).join(" ");
+export const goalText = (level: Pick<LevelInfo, "goal">): string => goalParts(level).join(" ");

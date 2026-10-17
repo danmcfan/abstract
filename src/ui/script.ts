@@ -708,7 +708,8 @@ export const intro = (level: Level): Line[] => LEVELS[levelId(level)]?.intro ?? 
 export const solved = (level: Level): Line[] =>
   LEVELS[levelId(level)]?.solved ?? [{ face: "happy", text: `${levelId(level)}, done!` }];
 
-function about(level: Level): string {
+// What the level is, before its goal.
+function opener(level: Level): string {
   if (level.kind === "instruction set") return "We're writing our instruction set.";
   if (level.kind === "door program") return "We're writing the door program.";
   return level.prebuilt === true ? `This is ${level.gate}.` : `We're building ${level.gate}.`;
@@ -716,7 +717,7 @@ function about(level: Level): string {
 
 // The first goal part shares its line with what the level is.
 export const help = (level: Level): Line[] => [
-  ...goalParts(level).map((part, i): Line => ({ face: "idle", text: i === 0 ? `${about(level)} ${part}` : part })),
+  ...goalParts(level).map((part, i): Line => ({ face: "idle", text: i === 0 ? `${opener(level)} ${part}` : part })),
   ...(LEVELS[levelId(level)]?.hint ?? [CONTROLS]),
 ];
 
