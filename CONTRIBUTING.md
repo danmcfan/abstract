@@ -15,6 +15,7 @@ bun run check         # type check, lint, format, tests, production build into d
 bun run playthrough   # solves every level in a real browser; screenshots + video in playthrough/
 bun run desk-lines    # captures Bitbox's dialogue desk
 bun run shots         # contact sheet of Bitbox's expressions in shots/sheet.png
+bun run readme-gif    # re-records the README GIF (level 4 at a person's pace) into docs/images/play.gif
 bun run verify        # check + desk-lines + playthrough
 ```
 
