@@ -4,7 +4,7 @@ A logic-gate puzzle game for the browser. You start with a single NAND gate and 
 
 **Play it at [abstract.dannyobrien.dev](https://abstract.dannyobrien.dev/)** (desktop browser).
 
-![Building an OR gate from NAND and NOT, then running the truth-table test](docs/images/play.gif)
+![Building an OR gate from NOT and NAND while Bitbox talks you through it](docs/images/play.gif)
 
 ## The game
 

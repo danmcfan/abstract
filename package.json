@@ -26,6 +26,7 @@
     "playthrough": "scripts/with-server.sh scripts/playthrough.sh",
     "shots": "scripts/with-server.sh scripts/bitbox-shots.sh",
     "desk-lines": "scripts/with-server.sh scripts/desk-lines.sh",
+    "readme-gif": "scripts/with-server.sh scripts/readme-gif.sh",
     "verify": "bun run check && bun run desk-lines && bun run playthrough",
     "lint": "oxlint",
     "format": "prettier --write .",
