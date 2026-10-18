@@ -1,51 +1,55 @@
 # Layers of Abstraction
 
-A logic-gate puzzle game for the browser. You start with nothing but a NAND gate and build your way up, one layer of abstraction at a time.
+A logic-gate puzzle game for the browser. You start with a single NAND gate and build your way up, one layer at a time, to a CPU that runs an instruction set you designed yourself.
 
-**Play it at [abstract.dannyobrien.dev](https://abstract.dannyobrien.dev/).**
+**Play it at [abstract.dannyobrien.dev](https://abstract.dannyobrien.dev/)** (desktop browser).
 
-## How to play
+![Building a 4-way multiplexer from two smaller ones](docs/images/board.png)
 
-Bitbox, a robot helper who remembers only one schematic, the NAND gate, talks you through it. The first level shows you NAND, already wired. Each level after that asks you to build one gate: NOT, then AND, then OR. Place gates on the board, wire them from inputs to the output, and the game checks your circuit against the gate's full truth table. When you solve a level, the gate you built goes into your parts bin for the next one.
+## The game
 
-Your game saves as you play. Continue picks it up where you left off, board and all; New Game starts over.
+A work lamp flickers on in an abandoned factory. Bitbox, a small robot, boots up with nearly empty memory banks. The exit is sealed, and it opens only for a program. Bitbox remembers just one schematic: the NAND gate.
 
-Wires follow the grid and route themselves around gates, so every connection can be followed by eye. Crossings are drawn with a hop, and a dot marks where one signal fans out.
+From that one gate you build everything else across 41 levels. Each part you finish goes into your parts bin, ready to use on the next level. Each layer of the stack sits on its own floor of the factory:
 
-## Built with
+| Layer | Floor                | What you build                                           |
+| ----- | -------------------- | -------------------------------------------------------- |
+| 1     | the gate foundry     | NAND, the one schematic Bitbox remembers                 |
+| 2     | the logic line       | NOT, AND, OR, XOR, MUX, DEMUX                            |
+| 3     | adder assembly       | Half adder, full adder, multi-bit adders                 |
+| 4     | the calculation shop | An ALU: add, subtract, and, or, xor, not                 |
+| 5     | the filing vault     | Latch, flip-flop, register, register file, RAM           |
+| 6     | the clock tower      | Program counter, decoder, zero test, sequencer           |
+| 7     | the typing pool      | Name and number your own instruction set                 |
+| 8     | the control room     | A CPU: fetch, decode, execute, in your instruction set   |
+| 9     | the exit hall        | Write the door program in your own assembly and walk out |
 
-- [SolidJS](https://www.solidjs.com/) for the UI and [Tailwind CSS](https://tailwindcss.com/) for styling
-- An SVG board, drawn like a drafting sheet
-- [Three.js](https://threejs.org/) for the robot helper only, loaded on demand
-- TypeScript, [Vite](https://vite.dev/), and [Bun](https://bun.sh/)
+Each circuit is checked against the full truth table, or against test programs once you reach the CPU. Your game saves as you play.
 
-## Development
+![The stack, built](docs/images/stack.png)
+
+## How it's built
+
+- [SolidJS](https://www.solidjs.com/) and [Tailwind CSS](https://tailwindcss.com/) for the UI, with TypeScript, [Vite](https://vite.dev/) and [Bun](https://bun.sh/)
+- An SVG board drawn like a drafting sheet. Wires follow the grid and route themselves around gates, crossings get a hop, and a dot marks each fan-out.
+- A circuit simulator kept separate from rendering, so the game rules are covered by unit tests. It scales from single gates up to a full CPU running assembly.
+- Bitbox is a [Three.js](https://threejs.org/) model with hand-keyed expressions, loaded on demand so it doesn't slow the first paint.
+- A browser play-through that solves every level and records each one, so changes are checked against the real game.
+
+## Run it locally
 
 ```sh
 bun install
-bun run dev           # dev server with hot reload
-bun test              # simulation tests
-bun run check         # tests, type check, production build into dist/, bundle check
-bun run playthrough   # solves every level in a real browser; screenshots + video in playthrough/
-bun run shots         # contact sheet of Bitbox's expressions in shots/sheet.png
-bun run verify        # check + playthrough, as run before each push to `main`
+bun run dev     # dev server with hot reload
+bun run check   # type check, lint, tests, production build
 ```
 
-The play-through and shots drive the real game with [agent-browser](https://github.com/vercel-labs/agent-browser), each against its own dev server. In dev builds, `?level=N` skips the title and jumps to a level, and `window.__abstract` exposes the game state and screen positions of nodes and pins. [`docs/agents/verify.md`](docs/agents/verify.md) covers the details.
-
-With dev running, [`/bitbox.html`](http://localhost:5173/bitbox.html) is Bitbox's model sheet. It's a dev-only page where you can orbit him, change lighting and backdrop, play any expression at any speed, pose him by hand with sliders, and save a PNG. Its settings are kept in the URL, and `window.__bitbox` lets scripts drive it.
-
-Every push to `main` runs `bun run check` and, if it passes, deploys to GitHub Pages (`.github/workflows/deploy.yml`).
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full toolchain, the browser play-through and the dev-only pages.
 
 ## Layout
 
-- `src/sim/`: game rules with no rendering, so they're unit-testable.
-  - `circuit.ts`: nodes, wires, and signal propagation.
-  - `route.ts`: grid routing for wires.
-  - `gesture.ts`: turns pointer input into circuit edits.
-  - `level.ts`: level definitions. `session.ts`: progress through them. `save.ts`: the saved game.
-- `src/ui/`: SolidJS components. `Title.tsx` is the title sheet; `Board.tsx` draws the circuit as SVG and handles input; `Sheet.tsx` has the menu bar, the brief and the parts bin; `Dialogue.tsx` is Bitbox's desk, and `script.ts` is everything it says.
-- `src/robot/`: the robot in 3D. `robot.ts` builds it, `clips.ts` poses it for each expression, `face.ts` draws its screen, `stage.ts` renders it in the game, and `viewer.ts` renders it on the model sheet.
-- `docs/vision/board.html`: the vision board, the reference for the look, the robot and the story. Open it in a browser.
-- `docs/adr/`: architecture decisions, such as drawing the board in 2D SVG.
-- `GLOSSARY.md`: the game's vocabulary. `CODING_STANDARDS.md`: what code review checks.
+- `src/sim/`: game rules with no rendering: the circuit, wire routing, levels, the CPU and assembler, saves.
+- `src/ui/`: SolidJS components. `Board.tsx` draws the circuit and handles input, `Sheet.tsx` is the menu bar, brief and parts bin, and `script.ts` is everything Bitbox says.
+- `src/robot/`: Bitbox in 3D: model, expressions, face screen and rendering.
+- `docs/vision/board.html`: the vision board for the look, Bitbox and the story.
+- `docs/adr/`: architecture decisions. `GLOSSARY.md`: the game's vocabulary.
