@@ -4,7 +4,7 @@ A logic-gate puzzle game for the browser. You start with a single NAND gate and 
 
 **Play it at [abstract.dannyobrien.dev](https://abstract.dannyobrien.dev/)** (desktop browser).
 
-![Building a 4-way multiplexer from two smaller ones](docs/images/board.png)
+![Building an OR gate from NAND and NOT, then running the truth-table test](docs/images/play.gif)
 
 ## The game
 
