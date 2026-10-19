@@ -34,6 +34,11 @@ export const pastDeadZone = (dx: number, dy: number): boolean => Math.hypot(dx, 
 // The radius of a drawn pin dot, in cells: over a switch, a pin takes the
 // press only on its dot rather than across its usual cell-wide reach.
 const PIN_DOT = 0.26;
+// How far a pin reaches, in cells: a cell over a part's body, so the body
+// still takes a press, and further out over open board or while drawing a
+// wire, so a pin is easy to hit.
+const PIN_REACH = 1;
+const PIN_REACH_OPEN = 1.5;
 
 interface Point {
   x: number;
@@ -47,6 +52,8 @@ export interface Gestures {
   // The wire being drawn, from a pin to the pointer. Over a pin it could
   // join, the end snaps to that pin; over one it can't, valid is false.
   readonly preview: Preview | null;
+  // The node held down, whether or not it has moved yet.
+  readonly pressedNode: NodeID | null;
   // Whether a node is being dragged.
   readonly dragging: boolean;
   down(point: Point, button: number): void;
@@ -95,7 +102,9 @@ export function createGestures(host: GestureHost): Gestures {
     const game = host.game();
     const under = game.nodes.get(nodeAt(game, p.x, p.y) ?? -1);
     const onSwitch = under !== undefined && nodeKind(game, under).clickable;
-    hoveredPin = pinAt(game, p.x, p.y, onSwitch ? PIN_DOT : 1);
+    let reach = under && !preview ? PIN_REACH : PIN_REACH_OPEN;
+    if (onSwitch) reach = PIN_DOT;
+    hoveredPin = pinAt(game, p.x, p.y, reach);
     hoveredNode = hoveredPin ? null : (under?.id ?? null);
   };
   // Points the preview at p, snapping to the pin under it if the wire could
@@ -140,6 +149,9 @@ export function createGestures(host: GestureHost): Gestures {
     },
     get preview() {
       return preview;
+    },
+    get pressedNode() {
+      return drag?.id ?? null;
     },
     get dragging() {
       return drag !== null;

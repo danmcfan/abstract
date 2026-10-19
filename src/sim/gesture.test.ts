@@ -192,6 +192,26 @@ describe("gestures", () => {
     expect(g.hoveredNode).toBeNull();
   });
 
+  test("a pin reaches further over open board than over its part's body", () => {
+    const { game, g, add } = setup();
+    const n = add("NOT", 20, 20);
+    const p = at(game, inp(n));
+    g.move({ x: p.x - 1.3, y: p.y });
+    expect(g.hoveredPin).toEqual(inp(n));
+    g.move({ x: p.x + 1.3, y: p.y });
+    expect(g.hoveredPin).toBeNull();
+    expect(g.hoveredNode).toBe(n);
+  });
+
+  test("a pressed node is held until release", () => {
+    const { game, g, add } = setup();
+    const n = add("NOT", 20, 20);
+    g.down(centre(game, n), 0);
+    expect(g.pressedNode).toBe(n);
+    g.up(centre(game, n));
+    expect(g.pressedNode).toBeNull();
+  });
+
   test("other buttons start nothing", () => {
     const { game, g, add, edits } = setup();
     const a = add("INPUT", 5, 5);

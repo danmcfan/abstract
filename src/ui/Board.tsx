@@ -1,5 +1,5 @@
 import { For, Show, createMemo, createSignal, onCleanup, onMount, untrack, type JSX } from "solid-js";
-import { landing, pinPosition, widthOf, type EdgeID, type Pin } from "../sim/circuit";
+import { landing, nodeKind, pinPosition, widthOf, type EdgeID, type Pin } from "../sim/circuit";
 import { createGestures, type Gestures } from "../sim/gesture";
 import type { Size } from "../sim/grid";
 import { createRouter } from "../sim/route";
@@ -77,6 +77,12 @@ export function Board(): JSX.Element {
   const [view, setView] = createSignal(snapshot(gestures), { equals: false });
   const hovered = (): number | null => view().hoveredNode;
   const hoveredPin = (): Pin | null => view().hoveredPin;
+  const pressed = (): number | null => view().pressedNode;
+  // A held part shows the closed hand; a held switch keeps its pointer.
+  const grabbing = (): boolean => {
+    const node = current().nodes.get(pressed() ?? -1);
+    return node !== undefined && !nodeKind(current(), node).clickable;
+  };
   const wiring = (): Gestures["preview"] => view().preview;
   const handle = (event: MouseEvent, run: (p: { x: number; y: number }) => void): void => {
     run(toBoard(event.clientX, event.clientY));
@@ -167,7 +173,7 @@ export function Board(): JSX.Element {
         svg = el;
       }}
       viewBox={viewBox()}
-      classList={{ unstable: !current().stable }}
+      classList={{ unstable: !current().stable, grabbing: grabbing() }}
       onPointerMove={onPointerMove}
       onPointerDown={onPointerDown}
       onPointerUp={onPointerUp}
@@ -262,6 +268,7 @@ export function Board(): JSX.Element {
             <NodeView
               node={node}
               hovered={hovered() === node.id}
+              pressed={pressed() === node.id}
               hoveredPin={hoveredPin()?.node === node.id ? hoveredPin() : null}
               refusedPin={refusedPin()?.node === node.id ? refusedPin() : null}
             />
@@ -301,8 +308,8 @@ function BusMark(props: { at: { x: number; y: number }; width: number }): JSX.El
   );
 }
 
-function snapshot(g: Gestures): Pick<Gestures, "hoveredNode" | "hoveredPin" | "preview"> {
-  return { hoveredNode: g.hoveredNode, hoveredPin: g.hoveredPin, preview: g.preview };
+function snapshot(g: Gestures): Pick<Gestures, "hoveredNode" | "hoveredPin" | "preview" | "pressedNode"> {
+  return { hoveredNode: g.hoveredNode, hoveredPin: g.hoveredPin, preview: g.preview, pressedNode: g.pressedNode };
 }
 
 // A viewBox that fits the whole board, centred and as large as it fits, into

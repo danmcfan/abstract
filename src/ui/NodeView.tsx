@@ -14,6 +14,7 @@ const samePin = (a: Pin | null, b: Pin): boolean =>
 export function NodeView(props: {
   node: Node;
   hovered: boolean;
+  pressed: boolean;
   hoveredPin: Pin | null;
   refusedPin: Pin | null;
 }): JSX.Element {
@@ -30,7 +31,7 @@ export function NodeView(props: {
   return (
     <g
       class={`node ${type.toLowerCase()}`}
-      classList={{ high: isHigh(), hovered: props.hovered }}
+      classList={{ high: isHigh(), hovered: props.hovered, pressed: props.pressed }}
       data-node={props.node.id}
       data-type={type}
       transform={`translate(${rect().x} ${rect().y})`}
@@ -62,6 +63,7 @@ export function NodeView(props: {
               classList={{
                 hovered: samePin(props.hoveredPin, pin),
                 refused: samePin(props.refusedPin, pin),
+                out: pin.side === "out",
                 bus: widthOf(current(), props.node, pin) > 1,
                 hint: hinted().has(pinKey(pin)),
               }}

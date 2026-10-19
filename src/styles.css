@@ -458,6 +458,7 @@ body {
 }
 #board .preview.refused {
   stroke: var(--color-fail);
+  stroke-width: 0.12;
   stroke-dasharray: 0.2 0.15;
   opacity: 1;
 }
@@ -505,6 +506,35 @@ body {
 }
 #board .node.hovered .halo {
   opacity: 1;
+}
+#board.grabbing,
+#board.grabbing * {
+  cursor: grabbing;
+}
+/* A held part's halo inks in solid and its body washes blue. */
+#board .node.pressed .halo {
+  opacity: 1;
+  stroke-dasharray: none;
+  stroke-width: 0.12;
+}
+#board .node.pressed .body {
+  fill: var(--color-wash);
+}
+/* A switch says it flips: under the pointer its panel washes blue and its
+   lever turns live; held down, the panel darkens a step further. */
+#board .node.input .halo {
+  display: none;
+}
+#board .node.input.hovered .panel {
+  fill: var(--color-wash);
+  stroke: var(--color-live);
+}
+#board .node.input.hovered .lever {
+  stroke: var(--color-live);
+}
+#board .node.input.pressed .panel {
+  fill: var(--color-glow);
+  stroke-width: 0.16;
 }
 #board .node .body,
 #board .node .bubble,
@@ -600,14 +630,14 @@ body {
   font-weight: 700;
 }
 #board .terminal-label {
-  font-size: 0.7px;
+  font-size: 0.85px;
   font-weight: 700;
 }
 #board .terminal-label.small {
-  font-size: 0.5px;
+  font-size: 0.62px;
 }
 #board .pin-label {
-  font-size: 0.4px;
+  font-size: 0.5px;
 }
 #board .pin-label.start {
   text-anchor: start;
@@ -624,6 +654,11 @@ body {
 }
 #board .pin.bus {
   stroke-width: 0.14;
+}
+/* An input pin is an open ring; an output pin is a solid dot, so the two
+   read apart and an inversion bubble doesn't pass for a pin. */
+#board .pin.out {
+  fill: var(--color-ink);
 }
 /* After a failed test run, a pin left unwired glows amber. */
 #board .pin.hint {

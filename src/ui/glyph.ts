@@ -54,13 +54,13 @@ function symbol(kind: NodeKind, look: Extract<Look, { shape: "symbol" }>, width:
     case "not":
       front = 3.9;
       body = `M 1.2 0.75 L ${front} ${mid} L 1.2 3.25 Z`;
-      label = { x: 2.05, y: mid, size: 0.46 };
+      label = { x: 2.05, y: mid, size: 0.56 };
       break;
     case "or": {
       const back = 0.85 + shifted;
       front = 3.95 + shifted;
       body = `M ${back} ${TOP} Q ${back + 2.05} ${TOP} ${front} ${mid} Q ${back + 2.05} ${BOTTOM} ${back} ${BOTTOM} Q ${back + 0.6} ${mid} ${back} ${TOP} Z`;
-      label = { x: back + 1.35, y: mid, size: 0.56 };
+      label = { x: back + 1.35, y: mid, size: 0.68 };
       break;
     }
     case "and": {
@@ -68,7 +68,7 @@ function symbol(kind: NodeKind, look: Extract<Look, { shape: "symbol" }>, width:
       front = 3.85;
       const flat = front - r;
       body = `M 1 ${TOP} H ${flat} A ${r} ${r} 0 0 1 ${flat} ${BOTTOM} H 1 Z`;
-      label = { x: 2.25, y: mid, size: 0.56 };
+      label = { x: 2.25, y: mid, size: 0.72 };
     }
   }
 
@@ -78,6 +78,17 @@ function symbol(kind: NodeKind, look: Extract<Look, { shape: "symbol" }>, width:
   const outLeads = [`M ${bubble ? front + BUBBLE * 2 : front} ${mid} H ${width}`];
   const back = shifted ? `M 0.6 ${TOP} Q 1.2 ${mid} 0.6 ${BOTTOM}` : undefined;
   return { width, height, body, back, bubble, inLeads, outLeads, label, pinLabels: [] };
+}
+
+// A box's name is as large as it can be, up to BOX_LABEL, while it still
+// fits between the pin names (Courier's letters are 0.6 of their size wide),
+// but never smaller than it was drawn before, BOX_LABEL_MIN.
+const BOX_LABEL = 0.62;
+const BOX_LABEL_MIN = 0.5;
+const PIN_NAME_ROOM = 0.9;
+function boxLabelSize(name: string, inside: number, look: Extract<Look, { shape: "box" }>): number {
+  const room = inside - (look.inputs.length > 0 ? PIN_NAME_ROOM : 0) - (look.outputs.length > 0 ? PIN_NAME_ROOM : 0);
+  return Math.min(BOX_LABEL, Math.max(BOX_LABEL_MIN, room / (name.length * 0.6)));
 }
 
 function box(kind: NodeKind, look: Extract<Look, { shape: "box" }>, width: number, height: number): Glyph {
@@ -92,7 +103,7 @@ function box(kind: NodeKind, look: Extract<Look, { shape: "box" }>, width: numbe
     body: `M ${left} ${TOP + flare} L ${right} ${TOP - flare} V ${height - TOP + flare} L ${left} ${height - TOP - flare} Z`,
     inLeads: ins.map((y) => `M 0 ${y} H ${left}`),
     outLeads: outs.map((y) => `M ${right} ${y} H ${width}`),
-    label: { x: width / 2, y: height / 2, size: 0.5 },
+    label: { x: width / 2, y: height / 2, size: boxLabelSize(kind.type, right - left, look) },
     pinLabels: [
       ...ins.map((y, i) => ({ x: left + 0.2, y, text: look.inputs[i] ?? "", anchor: "start" as const })),
       ...outs.map((y, i) => ({ x: right - 0.2, y, text: look.outputs[i] ?? "", anchor: "end" as const })),
