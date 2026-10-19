@@ -82,7 +82,8 @@ function symbol(kind: NodeKind, look: Extract<Look, { shape: "symbol" }>, width:
 
 // A box's name is as large as it can be, up to BOX_LABEL, while it still
 // fits between the pin names (Courier's letters are 0.6 of their size wide),
-// but never smaller than it was drawn before, BOX_LABEL_MIN.
+// but never below BOX_LABEL_MIN, the smallest size that still reads; a long
+// name in a narrow box may then crowd its pin names.
 const BOX_LABEL = 0.62;
 const BOX_LABEL_MIN = 0.5;
 const PIN_NAME_ROOM = 0.9;

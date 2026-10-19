@@ -40,6 +40,15 @@ const PIN_DOT = 0.26;
 const PIN_REACH = 1;
 const PIN_REACH_OPEN = 1.5;
 
+// How far a pin reaches from the pointer: a switch's body wins everywhere
+// but on a pin's dot, a part's body keeps its press unless a wire is being
+// drawn, and open board reaches furthest.
+function pinReach(onSwitch: boolean, onBody: boolean, drawing: boolean): number {
+  if (onSwitch) return PIN_DOT;
+  if (onBody && !drawing) return PIN_REACH;
+  return PIN_REACH_OPEN;
+}
+
 interface Point {
   x: number;
   y: number;
@@ -56,6 +65,8 @@ export interface Gestures {
   readonly pressedNode: NodeID | null;
   // Whether a node is being dragged.
   readonly dragging: boolean;
+  // Whether the node held down is a part to move rather than a switch to flip.
+  readonly grabbing: boolean;
   down(point: Point, button: number): void;
   move(point: Point): void;
   up(point: Point): void;
@@ -102,9 +113,7 @@ export function createGestures(host: GestureHost): Gestures {
     const game = host.game();
     const under = game.nodes.get(nodeAt(game, p.x, p.y) ?? -1);
     const onSwitch = under !== undefined && nodeKind(game, under).clickable;
-    let reach = under && !preview ? PIN_REACH : PIN_REACH_OPEN;
-    if (onSwitch) reach = PIN_DOT;
-    hoveredPin = pinAt(game, p.x, p.y, reach);
+    hoveredPin = pinAt(game, p.x, p.y, pinReach(onSwitch, under !== undefined, preview !== null));
     hoveredNode = hoveredPin ? null : (under?.id ?? null);
   };
   // Points the preview at p, snapping to the pin under it if the wire could
@@ -155,6 +164,10 @@ export function createGestures(host: GestureHost): Gestures {
     },
     get dragging() {
       return drag !== null;
+    },
+    get grabbing() {
+      const node = drag && host.game().nodes.get(drag.id);
+      return node !== undefined && node !== null && !nodeKind(host.game(), node).clickable;
     },
 
     down(p, button) {

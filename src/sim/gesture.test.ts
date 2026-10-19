@@ -203,6 +203,29 @@ describe("gestures", () => {
     expect(g.hoveredNode).toBe(n);
   });
 
+  test("while a wire is drawn, a pin reaches over a part's body too", () => {
+    const { game, g, add } = setup();
+    const a = add("INPUT", 5, 5);
+    const n = add("NOT", 20, 20);
+    const p = at(game, inp(n));
+    g.down(at(game, out(a)), 0);
+    g.move({ x: p.x + 1.3, y: p.y });
+    expect(g.preview?.target).toEqual(inp(n));
+  });
+
+  test("a held gate grabs; a held switch doesn't", () => {
+    const { game, g, add } = setup();
+    const s = add("INPUT", 5, 5);
+    const n = add("NOT", 20, 20);
+    g.down(centre(game, n), 0);
+    expect(g.grabbing).toBe(true);
+    g.up(centre(game, n));
+    g.down(press(game, s), 0);
+    expect(g.pressedNode).toBe(s);
+    expect(g.grabbing).toBe(false);
+    g.up(press(game, s));
+  });
+
   test("a pressed node is held until release", () => {
     const { game, g, add } = setup();
     const n = add("NOT", 20, 20);

@@ -674,7 +674,6 @@ body {
 }
 /* A pin a drawn wire can't join, such as one of another width. */
 #board .pin.refused {
-  fill: var(--color-surface);
   stroke: var(--color-fail);
   stroke-width: 0.14;
 }
